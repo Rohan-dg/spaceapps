@@ -165,3 +165,37 @@ code { background: #1a2338; padding: 1px 5px; border-radius: 4px; font-size: 0.9
   .topbar { padding: 10px 16px; }
 }
 @media (max-width: 480px) { .cards { grid-template-columns: 1fr 1fr; } .card-value { font-size: 18px; } }
+
+/* ---- P1: view switch, sky plot, heatmap ---- */
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 4px 10px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.seg button.active { background: #22325a; color: #fff; }
+.pano-head .seg { margin-left: auto; }
+.skyplot { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; align-items: center; }
+.skyplot .pano-note { max-width: 640px; text-align: center; }
+.heatmap-panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.hm-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hm-head h2 { font-size: 16px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.sw-sun { background: var(--sun); } .sw-earth { background: var(--earth); } .sw-both { background: var(--green); }
+.hm-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; }
+.hm-grid-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+.hm-grid { border-collapse: separate; border-spacing: 2px; font-size: 10px; }
+.hm-grid th { color: var(--muted); font-weight: 500; text-align: right; padding-right: 6px; white-space: nowrap; position: sticky; left: 0; background: var(--panel); }
+.hm-grid thead th { position: sticky; top: 0; text-align: center; padding: 0; z-index: 1; }
+.hm-grid td { padding: 0; }
+.cell { display: block; width: 16px; height: 14px; border-radius: 3px; border: 0; padding: 0; cursor: pointer; }
+.cell:hover, .cell:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+.cell.best { box-shadow: inset 0 0 0 1.5px #ffffff; }
+.cell.current { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hm-side { display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
+.hm-readout { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-height: 84px; font-variant-numeric: tabular-nums; }
+.hm-legend { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.hm-legend .ramp { flex: 1; height: 10px; border-radius: 3px; }
+.best-head { display: flex; justify-content: space-between; align-items: center; }
+.best h3 { font-size: 14px; }
+.best ol { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.best ol button { width: 100%; display: flex; justify-content: space-between; gap: 8px; text-align: left; font-size: 12.5px; padding: 5px 8px; font-variant-numeric: tabular-nums; }
+.small { font-size: 12px; margin: 4px 0 0; }
+.sun-txt { color: var(--sun); } .earth-txt { color: var(--earth); }
+@media (max-width: 900px) { .hm-body { grid-template-columns: 1fr; } .pano-head .seg { margin-left: 0; } }
