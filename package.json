@@ -9,7 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "validate": "NODE_USE_ENV_PROXY=1 tsx scripts/validate_horizons.ts"
+    "validate": "NODE_USE_ENV_PROXY=1 tsx scripts/validate_horizons.ts",
+    "series": "tsx scripts/build_series.ts",
+    "horizons": "python3 scripts/build_horizons.py"
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",

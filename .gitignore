@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Large raw DEMs (re-downloaded by scripts/build_horizons.py)
+data/dem/*.img
+data/dem/*.part
