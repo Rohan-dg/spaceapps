@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About, { Explainer } from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import { MetricCards, VerdictBadge } from './components/Metrics';
+import CustomSite from './components/CustomSite';
+import Export from './components/Export';
 import Heatmap from './components/Heatmap';
 import Panorama from './components/Panorama';
 import SkyPlot from './components/SkyPlot';
 import SiteList from './components/SiteList';
 import TimeControls from './components/TimeControls';
 import Timeline from './components/Timeline';
-import { useAllSites, useSiteData, useSites } from './lib/data';
+import { type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare';
+const Terrain3D = lazy(() => import('./components/Terrain3D'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
@@ -19,10 +22,10 @@ function readHash() {
   const t = Number(p.get('t'));
   const cmp = p.get('cmp');
   return {
-    site: p.get('site') ?? 'connecting-ridge',
+    site: p.get('site')?.startsWith('custom') ? 'connecting-ridge' : p.get('site') ?? 'connecting-ridge',
     t: isFinite(t) && t > 0 ? t : DEFAULT_T,
     mode: (p.get('mode') as Mode) ?? 'explore',
-    scenarios: cmp ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
+    scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
   };
 }
 
@@ -35,18 +38,20 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [about, setAbout] = useState(false);
-  const [view, setView] = useState<'panorama' | 'sky'>('panorama');
+  const [view, setView] = useState<'panorama' | 'sky' | '3d'>('panorama');
+  const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
     { siteId: 'de-gerlache-rim', t: init.t },
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
-  const ids = useMemo(() => doc?.sites.map((s) => s.id) ?? [], [doc]);
+  const allSites = useMemo(() => [...(doc?.sites ?? []), ...customs], [doc, customs]);
+  const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
   const all = useAllSites(ids);
   const data = useSiteData(siteId);
   const res = useScenario(data, t);
-  const info = doc?.sites.find((s) => s.id === siteId);
+  const info = allSites.find((s) => s.id === siteId);
 
   // keep URL in sync (shareable state); throttle while playing
   useEffect(() => {
@@ -100,10 +105,12 @@ export default function App() {
       {mode === 'explore' ? (
         <main className="explore">
           <aside className="sidebar">
-            <SiteList sites={doc.sites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
+            <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
+            <CustomSite doc={doc} onReady={(d) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }} />
             {info && (
               <div className="site-info">
                 <h2>{info.name}</h2>
+                {info.approximate && <p className="approx-banner">Approximate: computed in your browser from 400 m terrain.</p>}
                 <p className="mission">{info.mission}</p>
                 <p>{info.description}</p>
                 <p className="coords">
@@ -121,20 +128,24 @@ export default function App() {
             {data && res ? (
               <>
                 <div className="pano-head">
-                  <h2>{data.info.name}</h2>
+                  <h2>{data.info.name}{data.info.approximate && <span className="approx-tag">approximate</span>}</h2>
                   <span className="muted">{new Date(t).toUTCString().replace('GMT', 'UTC')}</span>
                   <div className="seg" role="radiogroup" aria-label="Sky view">
                     <button role="radio" aria-checked={view === 'panorama'} className={view === 'panorama' ? 'active' : ''} onClick={() => setView('panorama')}>Horizon panorama</button>
                     <button role="radio" aria-checked={view === 'sky'} className={view === 'sky' ? 'active' : ''} onClick={() => setView('sky')}>Sky from above</button>
+                    <button role="radio" aria-checked={view === '3d'} className={view === '3d' ? 'active' : ''} onClick={() => setView('3d')}>3D terrain</button>
                   </div>
                 </div>
-                {view === 'panorama' ? <Panorama data={data} t={t} height={320} /> : <SkyPlot data={data} t={t} />}
+                {view === 'panorama' ? <Panorama data={data} t={t} height={320} />
+                  : view === 'sky' ? <SkyPlot data={data} t={t} />
+                  : <Suspense fallback={<div className="loading">Loading 3D view…</div>}><Terrain3D data={data} t={t} /></Suspense>}
                 <Timeline data={data} t={t} onSeek={onT} />
                 <div className="verdicts">
                   <VerdictBadge kind="Power" v={res.power} />
                   <VerdictBadge kind="Comms" v={res.comms} />
                 </div>
                 <MetricCards r={res} />
+                <Export d={data} r={res} />
                 <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
               </>
             ) : <div className="loading">Loading terrain and time series…</div>}
@@ -143,7 +154,7 @@ export default function App() {
         </main>
       ) : (
         <main className="compare-main">
-          <Compare sites={doc.sites} scenarios={scenarios} onChange={setScenarios} range={range} />
+          <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />
           <Explainer />
         </main>
       )}

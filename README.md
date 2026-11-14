@@ -11,6 +11,10 @@ and a green/amber/red verdict with a plain-language reason.
   the terrain silhouette, the Sun and Earth at true angular size and their next-24 h paths. Metric cards give
   countdowns and per-lunar-day statistics. A 30-day timeline and a 3-year calendar heatmap with "best windows" sit underneath.
 * **Compare:** set 2–4 scenarios (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
+* **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
+  downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
+* **3D terrain:** 24 × 24 km around each polar site, lit from the true Sun direction with real shadows (three.js, lazy-loaded).
+* **Export** the current scenario's metrics and verdicts as CSV or JSON.
 * The URL hash keeps the current site, time and comparison, so links are shareable.
   Keyboard: <kbd>Space</kbd> play/pause, <kbd>←</kbd>/<kbd>→</kbd> ±1 h, <kbd>Shift</kbd>+arrows ±1 day.
 
@@ -31,7 +35,8 @@ The precomputed data (`public/horizons`, `public/series`, `public/sites.json`) i
 ### Rebuild the data (one command)
 ```bash
 pip install numpy
-python scripts/build_horizons.py     # downloads LOLA DEMs (~500 MB) if missing, writes horizons, then runs the series precompute
+python scripts/build_horizons.py     # downloads LOLA DEMs (~500 MB) if missing; writes horizons, 3D tiles
+                                     # (public/terrain) and the 400 m browser DEM (public/dem), then the series
 #   --range-km 150 --observer-m 2 --synthetic --no-download --no-series
 npm run series -- --start 2027-01-01 --end 2029-12-31 --step 30   # series only, custom range
 ```
