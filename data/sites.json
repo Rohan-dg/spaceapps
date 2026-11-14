@@ -1,0 +1,153 @@
+{
+  "_note": "Planetocentric latitude, east longitude (0-360 or signed), degrees, LOLA ME frame. 'verify': true means the coordinate comes from memory of the cited source or was approximated and must be checked against the original before being presented as authoritative. 'snapRadiusM': analysis point moved to the highest DEM cell within this radius of the cited coordinate (rim/summit sites only); both are reported.",
+  "sites": [
+    {
+      "id": "connecting-ridge",
+      "name": "Shackleton–de Gerlache connecting ridge",
+      "short": "Connecting ridge",
+      "lat": -89.45,
+      "lon": 222.69,
+      "region": "south-pole",
+      "mission": "Artemis III candidate region (\"Connecting Ridge\")",
+      "description": "Raised ridge between Shackleton and de Gerlache craters; one of the best-lit spots near the pole.",
+      "source": "Gläser et al. 2014, Icarus 243, 'Illumination conditions at the lunar south pole using high resolution DTMs from LOLA' (Site 1); NASA Artemis III candidate regions (2022)",
+      "verify": true
+    },
+    {
+      "id": "shackleton-rim",
+      "name": "Shackleton crater rim",
+      "short": "Shackleton rim",
+      "lat": -89.68,
+      "lon": 194.0,
+      "region": "south-pole",
+      "mission": "Long-studied rim point; Artemis region 'Peak near Shackleton'",
+      "description": "Rim of the 21 km crater at the pole. High sun incidence, but the crater's own walls shape the horizon.",
+      "source": "Bussey et al. 2010, Icarus 208 (Point A, 89.68°S 166.0°W)",
+      "verify": true,
+      "snapRadiusM": 1000
+    },
+    {
+      "id": "shackleton-floor",
+      "name": "Shackleton crater floor (PSR)",
+      "short": "Shackleton floor",
+      "lat": -89.67,
+      "lon": 129.78,
+      "region": "south-pole",
+      "mission": "Permanently shadowed region (PSR): cold trap for volatiles",
+      "description": "Crater floor ~4 km below the rim. The Sun never clears the walls, a control case for 'permanent shadow'.",
+      "source": "IAU Gazetteer of Planetary Nomenclature: Shackleton crater centre 89.67°S 129.78°E",
+      "verify": false
+    },
+    {
+      "id": "de-gerlache-rim",
+      "name": "de Gerlache crater rim",
+      "short": "de Gerlache rim",
+      "lat": -88.5,
+      "lon": 291.0,
+      "region": "south-pole",
+      "mission": "Artemis III candidate region ('de Gerlache Rim')",
+      "description": "Rim of the 32 km de Gerlache crater, about 50 km from Shackleton.",
+      "source": "Approximated from IAU Gazetteer crater centre (88.5°S, 87.1°W) and NASA Artemis III region map; not a published point",
+      "verify": true,
+      "snapRadiusM": 5000
+    },
+    {
+      "id": "malapert",
+      "name": "Malapert massif",
+      "short": "Malapert",
+      "lat": -85.99,
+      "lon": 2.93,
+      "region": "south-pole",
+      "mission": "Artemis III candidate region ('Malapert Massif')",
+      "description": "A 5 km high mountain on the Earth-facing side; it trades some sunlight for an excellent view of Earth.",
+      "source": "Sharpton 2014 / NASA Artemis III candidate regions; summit approx. 86.0°S, 2.9°E",
+      "verify": true,
+      "snapRadiusM": 1000
+    },
+    {
+      "id": "mons-mouton",
+      "name": "Mons Mouton (IM-2 Athena)",
+      "short": "Mons Mouton",
+      "lat": -84.79,
+      "lon": 29.19,
+      "region": "south-pole",
+      "mission": "Intuitive Machines IM-2 'Athena' landing area, March 2025",
+      "description": "Flat-topped plateau ~160 km from the pole. Athena landed nearby and ended early after tipping over.",
+      "source": "Intuitive Machines / NASA IM-2 mission reports (landing ≈84.8°S, 29.2°E)",
+      "verify": true
+    },
+    {
+      "id": "nobile-rim",
+      "name": "Nobile crater western rim",
+      "short": "Nobile rim",
+      "lat": -85.42,
+      "lon": 31.6,
+      "region": "south-pole",
+      "mission": "Former VIPER rover target; Artemis III candidate ('Nobile Rim')",
+      "description": "Western rim of Nobile crater, chosen for rover traverses between lit ridges and shadowed pockets.",
+      "source": "NASA VIPER mission site selection (2021), approx. western Nobile rim",
+      "verify": true
+    },
+    {
+      "id": "haworth",
+      "name": "Haworth crater floor (PSR)",
+      "short": "Haworth",
+      "lat": -87.45,
+      "lon": 355.04,
+      "region": "south-pole",
+      "mission": "Artemis III candidate region ('Haworth') borders this PSR",
+      "description": "Large permanently shadowed crater. Its floor is a shadow benchmark, so expect almost no direct sunlight.",
+      "source": "IAU Gazetteer: Haworth crater centre 87.45°S 4.96°W",
+      "verify": false
+    },
+    {
+      "id": "faustini-rim",
+      "name": "Faustini crater rim",
+      "short": "Faustini rim",
+      "lat": -87.85,
+      "lon": 77.0,
+      "region": "south-pole",
+      "mission": "Artemis III candidate region ('Faustini Rim A')",
+      "description": "Pole-facing rim of the permanently shadowed Faustini crater.",
+      "source": "Approximated: IAU Gazetteer Faustini centre (87.18°S, 77.0°E) moved ~20 km poleward to the rim; not a published point",
+      "verify": true,
+      "snapRadiusM": 5000
+    },
+    {
+      "id": "chandrayaan-3",
+      "name": "Chandrayaan-3 (Vikram / Shiv Shakti point)",
+      "short": "Chandrayaan-3",
+      "lat": -69.373,
+      "lon": 32.319,
+      "region": "high-latitude",
+      "mission": "ISRO Chandrayaan-3 landing, 23 Aug 2023",
+      "description": "High southern latitude but not polar: ordinary day/night cycle with a low Sun.",
+      "source": "ISRO; LROC NAC image release (Aug 2023): 69.373°S 32.319°E",
+      "verify": false
+    },
+    {
+      "id": "apollo-11",
+      "name": "Apollo 11 (Tranquility Base)",
+      "short": "Apollo 11",
+      "lat": 0.67408,
+      "lon": 23.47297,
+      "region": "equatorial",
+      "mission": "Apollo 11, July 1969, for contrast",
+      "description": "Equatorial near side: a 14-day day and 14-day night, with Earth fixed high in the sky.",
+      "source": "LROC / Davies & Colvin 2000 (0.67408°N, 23.47297°E)",
+      "verify": false
+    },
+    {
+      "id": "change-4",
+      "name": "Chang'e-4 (Von Kármán crater)",
+      "short": "Chang'e-4",
+      "lat": -45.4446,
+      "lon": 177.5991,
+      "region": "far-side",
+      "mission": "CNSA Chang'e-4, first far-side landing, Jan 2019",
+      "description": "Far side: Earth never rises. All communications go through a relay satellite (Queqiao).",
+      "source": "Liu et al. 2019, Nature Communications 10:4229 (45.4446°S 177.5991°E)",
+      "verify": false
+    }
+  ]
+}
