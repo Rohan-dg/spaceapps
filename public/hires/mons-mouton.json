@@ -1,0 +1,16 @@
+{
+ "id": "mons-mouton",
+ "dem": "LDEM_80S_20M",
+ "resM": 20.0,
+ "n": 1024,
+ "lat": -84.79,
+ "lon": 29.19,
+ "siteRow": 511.6571511183229,
+ "siteCol": 511.67023878442706,
+ "row0": 7787,
+ "col0": 18543,
+ "projOffset": 15199.5,
+ "hMinM": 4593.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

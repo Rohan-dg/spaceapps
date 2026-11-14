@@ -17,7 +17,12 @@ and a green/amber/red verdict with a plain-language reason.
 * **Compare sites:** set 2–4 plans (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
 * **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
   downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
-* **3D terrain:** works for every site and any custom coordinate. Polar sites get 24 × 24 km from the 40 m DEM; custom points get the same area built in the browser from the 400 m DEM; the three non-polar sites get 120 × 120 km from the 1.9 km global DEM. Lit from the true Sun direction with real shadows (three.js, lazy-loaded).
+* **3D Moon (hero):** the whole Moon is always drawn, from a full-disc view down to the ground at the selected site. Scale presets go
+  Moon, 200 km, 10 km, 50 m and 1 m, with GSAP camera flights between them. Colour is the LROC WAC mosaic (8k); relief and cast
+  shadows come from LOLA heights at four levels of detail: the global 64 px/deg map, a 148 m south polar cap, and 5, 10 or 20 m
+  windows around each polar site. Shadows are ray-marched toward the true Sun on those heights, and Earth sits at its true
+  position and phase with earthshine. Below the 5 m data limit, small craters, rocks and regolith texture are procedural (for look
+  only, labelled in the view, and switchable with **Fine detail**). Non-polar sites use the global data only.
 * **Mission variables:** all 33 variables from `data/NASA_Variable_Table.xlsx` in one live table (One site → Go deeper → Mission variables), grouped and
   tagged by priority and source (sim, your plan, estimate, reference). A mission plan form sets departure, duration, destination,
   rover speed and slope limit, battery, panels and loads. Near the pole, a Web Worker plans a slope-aware route (A* on the 400 m DEM),
@@ -58,6 +63,7 @@ shows a "SYNTHETIC TERRAIN" banner.
 * **GitHub Pages:** `.github/workflows/deploy.yml` builds, tests and deploys on push to `main`
   (enable it under Settings → Pages → Source: GitHub Actions).
 * **Vercel:** `vercel.json` is included; import the repo and deploy.
+* **Cloudflare Workers (static assets):** `wrangler.jsonc` is included; `npm run build && npx wrangler deploy`.
 * The build uses a relative base (`./`), so `dist/` works from any sub-path.
 
 ## Data sources
@@ -65,8 +71,11 @@ shows a "SYNTHETIC TERRAIN" banner.
 |---|---|---|---|
 | Terrain (polar) | LRO LOLA `LDEM_80S_40M`, polar stereographic, heights relative to a 1737.4 km sphere | 40 m/px | sites poleward of 82°S, 150 km horizon rays |
 | Terrain (global) | LRO LOLA `LDEM_16`, simple cylindrical | 16 px/deg (~1.9 km/px) | Chandrayaan-3, Apollo 11, Chang'e-4 |
-| Ephemeris | [astronomy-engine](https://github.com/cosinekitty/astronomy) (VSOP87 + lunar theory, IAU 2015 lunar rotation) | - | Sun and Earth vectors in the Moon-fixed frame |
-| Validation | JPL Horizons API (DE441, `CENTER='coord@301'`) | - | accuracy check |
+| Terrain (site windows) | LRO LOLA `LDEM_875S_5M`, `LDEM_85S_10M`, `LDEM_80S_20M` | 5, 10, 20 m/px | 3D view around each polar site (`public/hires/`, built by `scripts/build_site_dem.py`) |
+| Globe colour and relief | NASA SVS CGI Moon Kit: LROC WAC colour mosaic, LOLA `ldem_64` / `ldem_16` | 8k colour, 64 px/deg relief | 3D globe (`public/moon/`, built by `scripts/build_moon_textures.py`) |
+| South polar cap | LOLA `LDEM_80S_80M`, resampled | 148 m/px | 3D view from 80°S to the pole |
+| Ephemeris | [astronomy-engine](https://github.com/cosinekitty/astronomy) (VSOP87 + lunar theory, IAU 2015 lunar rotation) | n/a | Sun and Earth vectors in the Moon-fixed frame |
+| Validation | JPL Horizons API (DE441, `CENTER='coord@301'`) | n/a | accuracy check |
 
 DEMs come from the NASA PDS Geosciences Node:
 `https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/`.
@@ -143,11 +152,13 @@ curl "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='10'&MAKE_EP
 * Verdicts summarise one synodic month (29.53 d) from the selected time. Thresholds are in `src/config/thresholds.ts`.
 * Precomputed range: 2027-01-01 to 2029-12-31 UTC. Countdowns beyond that read "beyond data range".
 * The Moon is treated as a sphere of radius 1737.4 km, matching the LOLA reference.
+* In the 3D view, anything finer than the terrain data (5 m at best) is procedural: plausible, not measured. The HUD names
+  the data source at every zoom level.
 * Several site coordinates are approximate (flagged). This is not a mission-planning tool of record.
 
 ## Credits
 NASA Lunar Reconnaissance Orbiter LOLA team and the PDS Geosciences Node (Washington University in St. Louis), NASA/JPL Solar
-System Dynamics (Horizons), NASA Moon Trek and LROC QuickMap (site context), and astronomy-engine by Don Cross (MIT).
+System Dynamics (Horizons), NASA Moon Trek and LROC QuickMap (site context), the NASA Scientific Visualization Studio CGI Moon Kit (LROC WAC colour and LOLA relief), and astronomy-engine by Don Cross (MIT).
 
 *This project uses publicly available NASA data. NASA does not endorse any non-U.S. Government entity and is not
 responsible for information contained on non-U.S. Government websites.*

@@ -1,0 +1,16 @@
+{
+ "height_4k": {
+  "w": 4096,
+  "h": 2048,
+  "hMinM": -8982.0,
+  "quantumM": 4.0
+ },
+ "south": {
+  "n": 4096,
+  "resM": 148.4375,
+  "halfM": 304000.0,
+  "hMinM": -7292.0,
+  "quantumM": 1.0,
+  "note": "polar stereographic, x = r sin(lon), y = r cos(lon), r = 2R tan((90+lat)/2); row 0 = +y"
+ }
+}

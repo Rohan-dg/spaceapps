@@ -1,0 +1,16 @@
+{
+ "id": "de-gerlache-rim",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -88.66388,
+ "lon": -68.26081,
+ "siteRow": 1024.1100430706556,
+ "siteCol": 1024.3307448720998,
+ "row0": 11142,
+ "col0": 6616,
+ "projOffset": 15167.5,
+ "hMinM": -277.0,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

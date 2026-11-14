@@ -1,4 +1,4 @@
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp } from './Icons';
 import { useId, type ReactNode } from 'react';
 
 /**

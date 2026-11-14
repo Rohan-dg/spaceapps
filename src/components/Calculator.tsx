@@ -1,4 +1,4 @@
-import { RotateCcw, Satellite } from 'lucide-react';
+import { RotateCcw, Satellite } from './Icons';
 import { useMemo } from 'react';
 import { variable } from '../config/variables';
 import { EQUATIONS } from '../lib/equations';

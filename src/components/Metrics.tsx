@@ -1,4 +1,4 @@
-import { CircleCheck, Earth, OctagonX, Sun, SunDim, TriangleAlert } from 'lucide-react';
+import { CircleCheck, Earth, OctagonX, Sun, SunDim, TriangleAlert } from './Icons';
 import type { Level } from '../config/thresholds';
 import { formatDuration, type Event, type Metrics } from '../lib/metrics';
 import type { ScenarioResult } from '../lib/useScenario';

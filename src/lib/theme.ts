@@ -41,7 +41,10 @@ let wired = false;
 function wire() {
   if (wired || typeof window === 'undefined') return;
   wired = true;
-  try { const saved = localStorage.getItem(KEY); if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved; } catch { /* storage unavailable */ }
+  // dark is the default look; a saved choice wins
+  let saved: string | null = null;
+  try { saved = localStorage.getItem(KEY); } catch { /* storage unavailable */ }
+  document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
   new MutationObserver(emit).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', emit);
   document.fonts?.ready.then(emit);

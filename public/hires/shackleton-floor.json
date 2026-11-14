@@ -1,0 +1,16 @@
+{
+ "id": "shackleton-floor",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -89.67,
+ "lon": 129.78,
+ "siteRow": 1024.0446071648257,
+ "siteCol": 1023.5487523673728,
+ "row0": 15424,
+ "col0": 15682,
+ "projOffset": 15167.5,
+ "hMinM": -2872.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

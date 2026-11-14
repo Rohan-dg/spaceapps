@@ -1,4 +1,4 @@
-import { Earth, Sun, SunDim } from 'lucide-react';
+import { Earth, Sun, SunDim } from './Icons';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { useScenario } from '../lib/useScenario';
 import { HelpTip } from './Help';

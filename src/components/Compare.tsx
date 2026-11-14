@@ -1,4 +1,4 @@
-import { CalendarSync, Plus, X } from 'lucide-react';
+import { CalendarSync, Plus, X } from './Icons';
 import { useMemo } from 'react';
 import { type SiteData, type SiteInfo, useSiteData } from '../lib/data';
 import { formatDuration } from '../lib/metrics';

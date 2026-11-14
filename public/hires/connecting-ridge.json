@@ -1,0 +1,16 @@
+{
+ "id": "connecting-ridge",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -89.45,
+ "lon": 222.69,
+ "siteRow": 1024.2715995198669,
+ "siteCol": 1023.8624458022714,
+ "row0": 16595,
+ "col0": 11882,
+ "projOffset": 15167.5,
+ "hMinM": 337.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

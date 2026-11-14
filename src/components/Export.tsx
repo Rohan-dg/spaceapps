@@ -1,4 +1,4 @@
-import { Copy, Download } from 'lucide-react';
+import { Copy, Download } from './Icons';
 import { useState } from 'react';
 import type { SiteData } from '../lib/data';
 import { scenarioRecord, toCSV } from '../lib/export';

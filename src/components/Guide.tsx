@@ -1,4 +1,4 @@
-import { ArrowRight, Earth, Sun, X } from 'lucide-react';
+import { ArrowRight, Earth, Sun, X } from './Icons';
 import { useEffect, useRef } from 'react';
 import { PRESETS, type Preset } from '../lib/presets';
 import { LevelIcon } from './Metrics';
