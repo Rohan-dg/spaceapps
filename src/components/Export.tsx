@@ -1,3 +1,4 @@
+import { Copy, Download } from 'lucide-react';
 import { useState } from 'react';
 import type { SiteData } from '../lib/data';
 import { scenarioRecord, toCSV } from '../lib/export';
@@ -21,14 +22,14 @@ export default function Export({ d, r }: { d: SiteData; r: ScenarioResult }) {
   };
   return (
     <div className="export">
-      <span className="muted small">Export this scenario:</span>
-      <button onClick={() => go('csv')}>CSV</button>
-      <button onClick={() => go('json')}>JSON</button>
+      <span>Take these numbers with you</span>
+      <button onClick={() => go('csv')}><Download size={14} aria-hidden /> CSV</button>
+      <button onClick={() => go('json')}><Download size={14} aria-hidden /> JSON</button>
       {text && (
         <div className="export-box">
           <textarea id="export-text" readOnly value={text} rows={6} onFocus={(e) => e.currentTarget.select()} aria-label="Exported data" />
           <div className="btn-group">
-            <button onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false))}>{copied ? 'Copied' : 'Copy'}</button>
+            <button onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false))}><Copy size={14} aria-hidden /> {copied ? 'Copied' : 'Copy'}</button>
             <button onClick={() => setText(null)}>Close</button>
           </div>
         </div>

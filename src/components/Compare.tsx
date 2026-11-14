@@ -1,3 +1,4 @@
+import { CalendarSync, Plus, X } from 'lucide-react';
 import { useMemo } from 'react';
 import { type SiteData, type SiteInfo, useSiteData } from '../lib/data';
 import { formatDuration } from '../lib/metrics';
@@ -20,13 +21,13 @@ interface RowDef {
 
 const ROWS: RowDef[] = [
   { label: 'Sun elevation', get: (r) => r.metrics.sky.sun.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Sun clearance over terrain', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Sun above the skyline by', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
   { label: 'Earth elevation', get: (r) => r.metrics.sky.earth.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Earth clearance over terrain', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Earth above the skyline by', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
   { label: 'Sunlit, next lunar day', get: (r) => r.metrics.sunPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
   { label: 'Earth visible, next lunar day', get: (r) => r.metrics.earthPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
-  { label: 'Longest dark period', get: (r) => r.metrics.longestDarkH, fmt: (v, r) => `${r.metrics.longestDarkClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
-  { label: 'Longest no-comm gap', get: (r) => r.metrics.longestNoCommH, fmt: (v, r) => `${r.metrics.longestNoCommClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
+  { label: 'Longest stretch without sun', get: (r) => r.metrics.longestDarkH, fmt: (v, r) => `${r.metrics.longestDarkClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
+  { label: 'Longest stretch without Earth', get: (r) => r.metrics.longestNoCommH, fmt: (v, r) => `${r.metrics.longestNoCommClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
 ];
 
 function useScenarioData(s: Scenario | undefined) {
@@ -57,11 +58,14 @@ export default function Compare({ sites, scenarios, onChange, range }: {
 
   return (
     <section className="compare" aria-label="Compare scenarios">
-      <div className="compare-toolbar">
-        <p>Compare 2–4 scenarios (site + date). {yRange ? 'All panoramas share one vertical scale.' : 'Vertical scales differ between panoramas (the elevation ranges are too different to share one); read the axis labels.'} Highlighted cells show the best value in each row; the Δ is relative to scenario A.</p>
-        <div className="btn-group">
-          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}>+ Add scenario</button>}
-          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}>Sync all dates to A</button>
+      <div className="compare-intro">
+        <div>
+          <h2>Same question, different site or day</h2>
+          <p>Up to four scenarios, each a site plus a moment. {yRange ? 'The skylines share one vertical scale.' : 'The skylines use different vertical scales because their elevation ranges are too far apart to share one. Read the axis labels.'} The table marks the best value in each row and shows the change from A.</p>
+        </div>
+        <div className="btn-row">
+          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}><Plus size={15} aria-hidden /> Add a scenario</button>}
+          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}><CalendarSync size={15} aria-hidden /> Use A's date for all</button>
         </div>
       </div>
       <div className="compare-grid" style={{ gridTemplateColumns: `repeat(${scenarios.length}, minmax(0, 1fr))` }}>
@@ -71,15 +75,15 @@ export default function Compare({ sites, scenarios, onChange, range }: {
             <article className="scenario" key={i} aria-label={`Scenario ${LETTERS[i]}`}>
               <header className="scenario-head">
                 <span className="scenario-letter">{LETTERS[i]}</span>
-                <select aria-label={`Scenario ${LETTERS[i]} site`} value={s.siteId} onChange={(e) => set(i, { siteId: e.target.value })}>
+                <select id={`scn-${i}-site`} aria-label={`Scenario ${LETTERS[i]} site`} value={s.siteId} onChange={(e) => set(i, { siteId: e.target.value })}>
                   {sites.map((x) => <option key={x.id} value={x.id}>{x.short}</option>)}
                 </select>
                 {scenarios.length > 2 && (
-                  <button className="icon-btn" aria-label={`Remove scenario ${LETTERS[i]}`} onClick={() => onChange(scenarios.filter((_, k) => k !== i))}>✕</button>
+                  <button className="icon-btn" aria-label={`Remove scenario ${LETTERS[i]}`} onClick={() => onChange(scenarios.filter((_, k) => k !== i))}><X size={16} /></button>
                 )}
               </header>
               <div className="scenario-time">
-                <input type="datetime-local" aria-label={`Scenario ${LETTERS[i]} date (UTC)`} value={toInput(s.t)}
+                <input id={`scn-${i}-time`} type="datetime-local" aria-label={`Scenario ${LETTERS[i]} date (UTC)`} value={toInput(s.t)}
                   onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) set(i, { t: clamp(v) }); }} />
                 <button onClick={() => set(i, { t: clamp(s.t - 10 * 86400000) })}>−10 d</button>
                 <button onClick={() => set(i, { t: clamp(s.t + 10 * 86400000) })}>+10 d</button>
@@ -87,16 +91,16 @@ export default function Compare({ sites, scenarios, onChange, range }: {
               {data && r ? (
                 <>
                   <Panorama data={data} t={s.t} height={170} yRange={yRange} compact />
-                  <div className="scenario-verdicts">
+                  <div className="verdicts">
                     <VerdictBadge kind="Power" v={r.power} />
                     <VerdictBadge kind="Comms" v={r.comms} />
                   </div>
                   <dl className="scenario-events">
-                    <div><dt>{r.metrics.sunUp ? 'Sunset' : 'Sunrise'}</dt><dd>{eventText(r.metrics.sunUp ? r.metrics.nextSunset : r.metrics.nextSunrise, s.t)}</dd></div>
-                    <div><dt>{r.metrics.earthUp ? 'Earthset' : 'Earthrise'}</dt><dd>{eventText(r.metrics.earthUp ? r.metrics.nextEarthset : r.metrics.nextEarthrise, s.t)}</dd></div>
+                    <div><dt>{r.metrics.sunUp ? 'Sun sets' : 'Sun rises'}</dt><dd>{eventText(r.metrics.sunUp ? r.metrics.nextSunset : r.metrics.nextSunrise, s.t)}</dd></div>
+                    <div><dt>{r.metrics.earthUp ? 'Earth sets' : 'Earth rises'}</dt><dd>{eventText(r.metrics.earthUp ? r.metrics.nextEarthset : r.metrics.nextEarthrise, s.t)}</dd></div>
                   </dl>
                 </>
-              ) : <div className="loading">Loading…</div>}
+              ) : <div className="loading">Loading this site…</div>}
             </article>
           );
         })}
@@ -104,15 +108,15 @@ export default function Compare({ sites, scenarios, onChange, range }: {
       <div className="table-wrap">
         <table className="compare-table">
           <thead>
-            <tr><th scope="col">Metric</th>{scenarios.map((s, i) => <th scope="col" key={i}>{LETTERS[i]} · {sites.find((x) => x.id === s.siteId)?.short}<br /><small>{toInput(s.t).replace('T', ' ')}</small></th>)}</tr>
+            <tr><th scope="col"><span className="sr-only">Quantity</span></th>{scenarios.map((s, i) => <th scope="col" key={i}>{LETTERS[i]}  {sites.find((x) => x.id === s.siteId)?.short}<small>{toInput(s.t).replace('T', ' ')} UTC</small></th>)}</tr>
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Power verdict</th>
+              <th scope="row">Power</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.power.level !== results[0].power.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Power" v={r.power} compact /> : '…'}</td>)}
             </tr>
             <tr>
-              <th scope="row">Comms verdict</th>
+              <th scope="row">Direct-to-Earth comms</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.comms.level !== results[0].comms.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Comms" v={r.comms} compact /> : '…'}</td>)}
             </tr>
             {ROWS.map((row) => {
@@ -130,9 +134,8 @@ export default function Compare({ sites, scenarios, onChange, range }: {
                     const delta = i > 0 && isFinite(vals[0]) ? v - vals[0] : null;
                     return (
                       <td key={i} className={isBest ? 'best' : ''}>
-                        {isBest && <span className="sr-only">Best: </span>}
-                        {row.fmt(v, r)}{isBest && <span aria-hidden> ★</span>}
-                        {delta !== null && Math.abs(delta) > 0.005 && <small className="delta"> Δ {delta > 0 ? '+' : ''}{delta.toFixed(1)}{row.unit}</small>}
+                        {row.fmt(v, r)}{isBest && <span className="best-tag">best</span>}
+                        {delta !== null && Math.abs(delta) > 0.005 && <small className="delta">{delta > 0 ? '+' : '−'}{Math.abs(delta).toFixed(1)}{row.unit} vs A</small>}
                       </td>
                     );
                   })}

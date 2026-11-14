@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { SiteData } from '../lib/data';
 import { skyAt } from '../lib/ephemeris';
 import { decodeI16 } from '../lib/series';
+import { useTheme } from '../lib/theme';
 import { siteOf } from '../lib/useScenario';
 
 interface Tile { n: number; halfKm: number; z: Int16Array }
@@ -19,6 +20,7 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
   const [tile, setTile] = useState<Tile | null>(null);
   const [missing, setMissing] = useState(false);
   const [exag, setExag] = useState(2);
+  const { c: k } = useTheme();
   const ctx = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; sun: THREE.DirectionalLight; sunDisk: THREE.Mesh; earth: THREE.Mesh; mesh: THREE.Mesh; controls: OrbitControls; render: () => void } | null>(null);
   const site = useMemo(() => siteOf(data), [data]);
   const id = data.info.id;
@@ -44,7 +46,7 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#03050b');
+    scene.background = new THREE.Color(k.sky);
     const half = tile.halfKm * 1000;
     const camera = new THREE.PerspectiveCamera(50, w / h, 10, 200000);
     camera.position.set(half * 0.9, half * 0.6, half * 0.9);
@@ -53,21 +55,21 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     const pos = geo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) pos.setY(i, tile.z[i] * exag);
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#9aa1ad', roughness: 0.95, metalness: 0 }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#a19d96', roughness: 0.95, metalness: 0 }));
     mesh.receiveShadow = true; mesh.castShadow = true;
     scene.add(mesh);
-    scene.add(new THREE.HemisphereLight('#5a6f99', '#20242c', 0.55)); // dim fill light (stand-in for earthshine) so unlit terrain stays readable
+    scene.add(new THREE.HemisphereLight('#8f8a82', '#2a2826', 0.5)); // dim fill light (stand-in for earthshine) so unlit terrain stays readable
     const sun = new THREE.DirectionalLight('#fff4dc', 2.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -half * 1.5, right: half * 1.5, top: half * 1.5, bottom: -half * 1.5, near: 1, far: half * 8 });
     sun.shadow.bias = -0.0005; sun.shadow.normalBias = 40;
     scene.add(sun); scene.add(sun.target);
-    const sunDisk = new THREE.Mesh(new THREE.SphereGeometry(half * 0.05, 16, 16), new THREE.MeshBasicMaterial({ color: '#ffc94d' }));
-    const earth = new THREE.Mesh(new THREE.SphereGeometry(half * 0.08, 24, 24), new THREE.MeshBasicMaterial({ color: '#5cc8ff' }));
+    const sunDisk = new THREE.Mesh(new THREE.SphereGeometry(half * 0.05, 16, 16), new THREE.MeshBasicMaterial({ color: k.sunDisk }));
+    const earth = new THREE.Mesh(new THREE.SphereGeometry(half * 0.08, 24, 24), new THREE.MeshBasicMaterial({ color: k.earth }));
     scene.add(sunDisk); scene.add(earth);
     // site marker: mast
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 600, 8), new THREE.MeshBasicMaterial({ color: '#ff6b4a' }));
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 600, 8), new THREE.MeshBasicMaterial({ color: k.accent }));
     mast.position.set(0, 300, 0); scene.add(mast);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0, 0);
@@ -81,7 +83,7 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
       ro.disconnect(); controls.dispose(); renderer.dispose(); geo.dispose();
       el.removeChild(renderer.domElement); ctx.current = null;
     };
-  }, [tile, exag]);
+  }, [tile, exag, k]);
 
   // update Sun/Earth for time
   useEffect(() => {
@@ -95,18 +97,20 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     c.sunDisk.position.copy(sd.clone().multiplyScalar(half * 1.6));
     c.earth.position.copy(ed.clone().multiplyScalar(half * 1.6));
     c.render();
-  }, [t, site, tile, exag]);
+  }, [t, site, tile, exag, k]);
 
-  if (missing) return <div className="terrain3d muted">The 3D view is available for the curated south-polar sites only, which have 40 m terrain tiles.</div>;
+  if (missing) return <div className="terrain3d empty">3D needs a 40 m terrain tile, and only the listed south-polar sites have one. Use Skyline or Overhead for this site.</div>;
   return (
-    <div className="terrain3d">
-      <div ref={mount} className="three-mount" aria-label="3D terrain view; drag to orbit, scroll to zoom" role="img" />
+    <>
+      <div className="terrain3d">
+        <div ref={mount} className="three-mount" aria-label="3D terrain around the site. Drag to orbit, scroll to zoom." role="img" />
+      </div>
       <div className="three-bar">
-        <span className="pano-note">The 24 × 24 km of terrain around the site (red mast), lit from the true Sun direction with real shadows (a dim blue fill keeps unlit ground readable). Drag to orbit, scroll to zoom. Terrain beyond the tile also shades the site; the panorama is the authoritative view.</span>
-        <label className="speed">Vertical ×
-          <select value={exag} onChange={(e) => setExag(Number(e.target.value))}>{[1, 2, 4].map((x) => <option key={x} value={x}>{x}</option>)}</select>
+        <p className="note">24 × 24 km around the site (orange mast), lit from where the Sun actually is, with cast shadows. A faint fill light keeps shadowed ground visible. Drag to orbit, scroll to zoom. Terrain outside this square also casts shadows here, so trust the Skyline view for the verdict.</p>
+        <label className="speed">Height ×
+          <select id="exag" value={exag} onChange={(e) => setExag(Number(e.target.value))}>{[1, 2, 4].map((x) => <option key={x} value={x}>{x}</option>)}</select>
         </label>
       </div>
-    </div>
+    </>
   );
 }

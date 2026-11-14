@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react';
 
 export const GLOSSARY: Record<string, string> = {
-  elevation: 'Angle above the local horizontal plane (the plane tangent to the Moon at the site). Negative values are below it.',
+  elevation: 'Angle above the flat horizon: the plane that touches the Moon at the site. Negative means below it.',
   azimuth: 'Compass direction measured clockwise from local north: 0° N, 90° E, 180° S, 270° W.',
-  'terrain-horizon': 'The skyline formed by mountains and crater rims, computed from NASA LOLA elevation data. The Sun or Earth must rise above this line, not just above 0°, to be seen.',
-  libration: "The Moon's slight wobble as seen from Earth. From the lunar surface it makes Earth drift by about ±7° in the sky over a month, enough to dip it behind nearby ridges.",
-  dte: 'Direct-to-Earth: a radio link straight to ground stations on Earth, with no relay satellite. It needs Earth above the terrain horizon.',
-  'lunar-day': 'One synodic month, 29.53 Earth days: a full cycle of sunlight at any spot on the Moon.',
-  psr: 'Permanently Shadowed Region: crater floors near the poles that sunlight never reaches. They are very cold and may hold water ice.',
-  'axial-tilt': "The Moon's spin axis is tilted only ~1.54° to the ecliptic, so at the poles the Sun always grazes the horizon.",
+  'terrain-horizon': 'The line of mountains and crater rims, traced from NASA LOLA elevation data. The Sun or Earth has to clear this line, not just 0°, to be seen.',
+  libration: "The Moon's monthly wobble. Seen from the surface, Earth drifts about ±7° up and down, enough to drop behind a nearby ridge.",
+  dte: 'Direct-to-Earth: radio straight to dishes on Earth, no relay satellite. Needs Earth above the skyline.',
+  'lunar-day': '29.53 Earth days: one full cycle of light and dark anywhere on the Moon.',
+  psr: 'Crater floors near the poles that sunlight never reaches. Cold enough to trap water ice.',
+  'axial-tilt': "The Moon's spin axis leans only 1.54° from upright, so at the poles the Sun always skims the horizon.",
   exaggeration: 'The vertical axis is stretched so that one-degree ridges are visible. Real slopes look much flatter.',
 };
 

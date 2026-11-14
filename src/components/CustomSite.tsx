@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { registerSite, type SiteData, type SitesDoc } from '../lib/data';
 import { upFraction, type Series } from '../lib/series';
@@ -15,7 +16,7 @@ export default function CustomSite({ doc, onReady }: Props) {
 
   const run = () => {
     const la = Number(lat), lo = Number(lon);
-    if (!isFinite(la) || !isFinite(lo) || la > -80.5 || la < -90) { setErr('Enter a latitude between −90 and −80.5 (south-polar terrain only).'); return; }
+    if (!isFinite(la) || !isFinite(lo) || la > -80.5 || la < -90) { setErr('Latitude has to be between −90 and −80.5. Terrain is only loaded for the south polar cap.'); return; }
     setErr(null); setBusy('Starting…');
     worker.current ??= new Worker(new URL('../workers/customSite.ts', import.meta.url), { type: 'module' });
     const stepMin = doc.range.stepMin;
@@ -52,12 +53,12 @@ export default function CustomSite({ doc, onReady }: Props) {
 
   return (
     <details className="custom-site">
-      <summary>Custom coordinates <span className="approx-tag">approximate</span></summary>
-      <p className="muted small">Enter any south-polar point (80.5°S–90°S). The horizon and 3-year series are computed in your browser from coarse 400 m terrain, which takes a few seconds.</p>
+      <summary><ChevronRight size={16} aria-hidden /> Try your own coordinates</summary>
+      <p>Any point from 80.5° S to the pole. Your browser computes the skyline from 400 m terrain, then three years of Sun and Earth timing. It takes about three seconds. Results are marked <span className="flag flag-approx">approximate</span>: skylines run 0.1–0.6° off the 40 m data on average.</p>
       <div className="custom-row">
-        <label>Lat °<input id="custom-lat" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
-        <label>Lon °E<input id="custom-lon" inputMode="decimal" value={lon} onChange={(e) => setLon(e.target.value)} /></label>
-        <button onClick={run} disabled={!!busy}>{busy ? 'Working…' : 'Compute'}</button>
+        <label>Latitude °<input id="custom-lat" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
+        <label>Longitude ° E<input id="custom-lon" inputMode="decimal" value={lon} onChange={(e) => setLon(e.target.value)} /></label>
+        <button className="btn-primary" onClick={run} disabled={!!busy}>{busy ? 'Working…' : 'Compute'}</button>
       </div>
       {busy && <p className="small" aria-live="polite">{busy}</p>}
       {err && <p className="small err" role="alert">{err}</p>}
