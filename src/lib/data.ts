@@ -7,6 +7,7 @@ export interface SiteInfo {
   snappedM: number; region: string; mission: string; description: string; source: string; verify: boolean;
   siteHeightM: number; dem: string; demResolutionM: number | null; synthetic: boolean;
   stats: { sunPct: number; sunDiskPct: number; earthPct: number };
+  approximate?: boolean;
 }
 export interface SitesDoc { generated: string; range: { start: string; end: string; stepMin: number }; sites: SiteInfo[] }
 export interface HorizonFile {
@@ -42,6 +43,12 @@ export function loadSite(id: string): Promise<SiteData> {
   return p;
 }
 export const getLoaded = (id: string) => resolved.get(id);
+
+/** Register a site computed in the browser (custom coordinates). */
+export function registerSite(d: SiteData) {
+  resolved.set(d.info.id, d);
+  cache.set(d.info.id, Promise.resolve(d));
+}
 
 export function useSites() {
   const [doc, setDoc] = useState<SitesDoc | null>(null);

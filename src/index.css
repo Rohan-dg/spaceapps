@@ -199,3 +199,21 @@ code { background: #1a2338; padding: 1px 5px; border-radius: 4px; font-size: 0.9
 .small { font-size: 12px; margin: 4px 0 0; }
 .sun-txt { color: var(--sun); } .earth-txt { color: var(--earth); }
 @media (max-width: 900px) { .hm-body { grid-template-columns: 1fr; } .pano-head .seg { margin-left: 0; } }
+
+/* ---- P2: custom coordinates ---- */
+.custom-site { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; font-size: 14px; }
+.custom-site summary { cursor: pointer; font-weight: 600; }
+.custom-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.custom-row label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 2px; }
+.custom-row input { width: 92px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
+.approx-tag { display: inline-block; margin-left: 8px; background: #2a2140; color: #c9b6ff; border-radius: 4px; padding: 0 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; vertical-align: middle; letter-spacing: 0.04em; }
+.approx-banner { background: #2a2140; color: #ddd0ff; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+.err { color: var(--red); }
+.terrain3d { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px; }
+.terrain3d.muted { padding: 30px; text-align: center; }
+.three-mount { width: 100%; border-radius: 6px; overflow: hidden; }
+.three-mount canvas { display: block; }
+.three-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.export { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.export-box { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.export-box textarea { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; font: 12px ui-monospace, monospace; padding: 8px; }

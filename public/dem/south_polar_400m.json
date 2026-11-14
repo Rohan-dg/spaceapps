@@ -1,0 +1,1 @@
+{"name": "south_polar_400m", "source": "LDEM_80S_40M", "size": 1520, "resM": 400.0, "scaleFactor": 0.5, "projection": "south polar stereographic (PDS DSMAP_POLAR), R=1737.4 km", "note": "row = c - y/res, col = c + x/res, c=(size-1)/2, x=r sin(lon), y=r cos(lon), r=2R tan((90+lat)/2)"}
