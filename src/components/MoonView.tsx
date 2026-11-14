@@ -37,7 +37,8 @@ function decodeHeights(url: string, hMin: number, quantum: number) {
   const id = ++reqId;
   return new Promise<{ w: number; h: number; data: Float32Array }>((res, rej) => {
     pending.set(id, (v) => (v instanceof Error ? rej(v) : res(v)));
-    worker!.postMessage({ id, url, hMin, quantum });
+    // resolve against the page: inside the worker a relative URL would resolve against the worker script in /assets/
+    worker!.postMessage({ id, url: new URL(url, document.baseURI).href, hMin, quantum });
   });
 }
 
