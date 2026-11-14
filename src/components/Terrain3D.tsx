@@ -99,14 +99,14 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     c.render();
   }, [t, site, tile, exag, k]);
 
-  if (missing) return <div className="terrain3d empty">3D needs a 40 m terrain tile, and only the listed south-polar sites have one. Use Skyline or Overhead for this site.</div>;
+  if (missing) return <div className="terrain3d empty">The 3D landscape is only available for the south-pole sites, which have detailed 40 m terrain. Switch to the Horizon view or Sky from above for this site.</div>;
   return (
     <>
       <div className="terrain3d">
         <div ref={mount} className="three-mount" aria-label="3D terrain around the site. Drag to orbit, scroll to zoom." role="img" />
       </div>
       <div className="three-bar">
-        <p className="note">24 × 24 km around the site (orange mast), lit from where the Sun actually is, with cast shadows. A faint fill light keeps shadowed ground visible. Drag to orbit, scroll to zoom. Terrain outside this square also casts shadows here, so trust the Skyline view for the verdict.</p>
+        <p className="note">A 24 × 24 km patch of real terrain around the site (orange mast), lit from where the Sun actually is at this moment. <b>Drag to rotate, scroll to zoom.</b> Mountains outside this patch can also cast shadows, so the ratings come from the Horizon view.</p>
         <label className="speed">Height ×
           <select id="exag" value={exag} onChange={(e) => setExag(Number(e.target.value))}>{[1, 2, 4].map((x) => <option key={x} value={x}>{x}</option>)}</select>
         </label>

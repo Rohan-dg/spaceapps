@@ -4,6 +4,7 @@ import { type SiteData, type SiteInfo, useSiteData } from '../lib/data';
 import { formatDuration } from '../lib/metrics';
 import { type ScenarioResult, useScenario } from '../lib/useScenario';
 import { eventText, VerdictBadge } from './Metrics';
+import { Loading } from './Help';
 import Panorama, { autoYRange } from './Panorama';
 import { fromInput, toInput } from './TimeControls';
 
@@ -20,10 +21,10 @@ interface RowDef {
 }
 
 const ROWS: RowDef[] = [
-  { label: 'Sun elevation', get: (r) => r.metrics.sky.sun.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Sun above the skyline by', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
-  { label: 'Earth elevation', get: (r) => r.metrics.sky.earth.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Earth above the skyline by', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Sun height above flat horizon', get: (r) => r.metrics.sky.sun.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
+  { label: 'Sun clears the mountains by', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Earth height above flat horizon', get: (r) => r.metrics.sky.earth.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
+  { label: 'Earth clears the mountains by', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
   { label: 'Sunlit, next lunar day', get: (r) => r.metrics.sunPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
   { label: 'Earth visible, next lunar day', get: (r) => r.metrics.earthPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
   { label: 'Longest stretch without sun', get: (r) => r.metrics.longestDarkH, fmt: (v, r) => `${r.metrics.longestDarkClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
@@ -60,12 +61,13 @@ export default function Compare({ sites, scenarios, onChange, range }: {
     <section className="compare" aria-label="Compare scenarios">
       <div className="compare-intro">
         <div>
-          <h2>Same question, different site or day</h2>
-          <p>Up to four scenarios, each a site plus a moment. {yRange ? 'The skylines share one vertical scale.' : 'The skylines use different vertical scales because their elevation ranges are too far apart to share one. Read the axis labels.'} The table marks the best value in each row and shows the change from A.</p>
+          <h2>Which landing plan wins?</h2>
+          <p>Each column is one plan: a site plus a date. Change either and watch the ratings for solar power and the radio link to Earth update. Up to four plans.</p>
+          {!yRange && <p className="note">These horizons use different vertical scales because their terrain heights are too far apart to share one. Read the axis labels.</p>}
         </div>
         <div className="btn-row">
-          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}><Plus size={15} aria-hidden /> Add a scenario</button>}
-          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}><CalendarSync size={15} aria-hidden /> Use A's date for all</button>
+          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}><Plus size={15} aria-hidden /> Add a plan</button>}
+          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}><CalendarSync size={15} aria-hidden /> Same date for all</button>
         </div>
       </div>
       <div className="compare-grid" style={{ gridTemplateColumns: `repeat(${scenarios.length}, minmax(0, 1fr))` }}>
@@ -100,11 +102,13 @@ export default function Compare({ sites, scenarios, onChange, range }: {
                     <div><dt>{r.metrics.earthUp ? 'Earth sets' : 'Earth rises'}</dt><dd>{eventText(r.metrics.earthUp ? r.metrics.nextEarthset : r.metrics.nextEarthrise, s.t)}</dd></div>
                   </dl>
                 </>
-              ) : <div className="loading">Loading this site…</div>}
+              ) : <Loading label="Loading this site…" />}
             </article>
           );
         })}
       </div>
+      <details className="disclosure">
+        <summary>Show the side-by-side numbers <span className="muted small">best value in each row is marked; changes are relative to A</span></summary>
       <div className="table-wrap">
         <table className="compare-table">
           <thead>
@@ -112,11 +116,11 @@ export default function Compare({ sites, scenarios, onChange, range }: {
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Power</th>
+              <th scope="row">Solar power</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.power.level !== results[0].power.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Power" v={r.power} compact /> : '…'}</td>)}
             </tr>
             <tr>
-              <th scope="row">Direct-to-Earth comms</th>
+              <th scope="row">Radio link to Earth</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.comms.level !== results[0].comms.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Comms" v={r.comms} compact /> : '…'}</td>)}
             </tr>
             {ROWS.map((row) => {
@@ -145,6 +149,7 @@ export default function Compare({ sites, scenarios, onChange, range }: {
           </tbody>
         </table>
       </div>
+      </details>
     </section>
   );
 }

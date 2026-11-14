@@ -1,5 +1,6 @@
-import { Pause, Play } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Pause, Play, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { HelpTip } from './Help';
 
 export const toInput = (t: number) => new Date(t).toISOString().slice(0, 16);
 export const fromInput = (s: string) => Date.parse(s + ':00Z');
@@ -35,36 +36,49 @@ export default function TimeControls({ t, t0, t1, onChange, playing, onPlaying, 
 
   const clamp = (x: number) => Math.max(t0, Math.min(t1, x));
   const step = (h: number) => onChange(clamp(t + h * 3600000));
+  const [more, setMore] = useState(false);
   return (
     <div className="time-controls" role="group" aria-label="Time">
-      <label className="dt">
-        <span className="sr-only">Date and time, UTC</span>
-        <input id="main-time" type="datetime-local" value={toInput(t)} min={toInput(t0)} max={toInput(t1)} step={60}
-          onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) onChange(clamp(v)); }} />
-        <span className="utc">UTC</span>
-      </label>
-      <div className="btn-row" role="group" aria-label="Step">
-        <button onClick={() => step(-240)} title="Back 10 days">−10 d</button>
-        <button onClick={() => step(-24)} title="Back 1 day (Shift + ←)">−1 d</button>
-        <button onClick={() => step(-1)} title="Back 1 hour (←)">−1 h</button>
+      <div className="time-main">
         <button className="btn-primary play" onClick={() => onPlaying(!playing)} aria-pressed={playing} title="Play or pause (Space)">
-          {playing ? <><Pause size={15} aria-hidden /> Pause</> : <><Play size={15} aria-hidden /> Play</>}
+          {playing ? <><Pause size={16} aria-hidden /> Pause</> : <><Play size={16} aria-hidden /> Play</>}
         </button>
-        <button onClick={() => step(1)} title="Forward 1 hour (→)">+1 h</button>
-        <button onClick={() => step(24)} title="Forward 1 day (Shift + →)">+1 d</button>
-        <button onClick={() => step(240)} title="Forward 10 days">+10 d</button>
+        <div className="btn-group" role="group" aria-label="Step one day">
+          <button onClick={() => step(-24)} title="Back 1 day (Shift + ←)"><ChevronLeft size={15} aria-hidden /> 1 day</button>
+          <button onClick={() => step(24)} title="Forward 1 day (Shift + →)">1 day <ChevronRight size={15} aria-hidden /></button>
+        </div>
+        <label className="dt">
+          <span className="sr-only">Date and time, UTC</span>
+          <input id="main-time" type="datetime-local" value={toInput(t)} min={toInput(t0)} max={toInput(t1)} step={60}
+            onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) onChange(clamp(v)); }} />
+          <span className="utc">UTC <HelpTip label="Why UTC?" align="right">All times are Coordinated Universal Time, the standard clock for spaceflight. The Moon has no time zones.</HelpTip></span>
+        </label>
+        <button className={`more-toggle${more ? ' on' : ''}`} onClick={() => setMore((x) => !x)} aria-expanded={more} aria-controls="time-more">
+          <SlidersHorizontal size={14} aria-hidden /> {more ? 'Fewer' : 'More'} controls
+        </button>
       </div>
-      <label className="speed">
-        <span>Speed</span>
-        <select id="speed" value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
-          {SPEEDS.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
-        </select>
-      </label>
+      {more && (
+        <div className="time-more" id="time-more">
+          <div className="btn-row" role="group" aria-label="Fine steps">
+            <button onClick={() => step(-240)} title="Back 10 days">−10 days</button>
+            <button onClick={() => step(-1)} title="Back 1 hour (←)">−1 hour</button>
+            <button onClick={() => step(1)} title="Forward 1 hour (→)">+1 hour</button>
+            <button onClick={() => step(240)} title="Forward 10 days">+10 days</button>
+          </div>
+          <label className="speed">
+            <span>Play speed</span>
+            <select id="speed" value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
+              {SPEEDS.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
+            </select>
+          </label>
+          <span className="muted small">Keys: <kbd>Space</kbd> play · <kbd>←</kbd> <kbd>→</kbd> 1 hour · <kbd>Shift</kbd> + arrows 1 day</span>
+        </div>
+      )}
       <div className="scrub">
         <input className="scrubber" type="range" min={t0} max={t1} step={1800000} value={t}
-          aria-label="Scrub through time" aria-valuetext={new Date(t).toUTCString()}
+          aria-label="Drag to travel through time" aria-valuetext={new Date(t).toUTCString()}
           onChange={(e) => onChange(Number(e.target.value))} />
-        <div className="scrub-labels"><span>{toInput(t0).slice(0, 10)}</span><span>{toInput(t1).slice(0, 10)}</span></div>
+        <div className="scrub-labels"><span>{toInput(t0).slice(0, 4)}</span><span className="scrub-hint">Drag to travel through time</span><span>{toInput(t1).slice(0, 4)}</span></div>
       </div>
     </div>
   );

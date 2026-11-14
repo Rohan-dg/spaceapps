@@ -100,7 +100,7 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
       <canvas ref={cv} style={{ width: w, height: w }} role="img"
         aria-label={`Top-down sky plot. Sun azimuth ${sky.sun.az.toFixed(0)}°, elevation ${sky.sun.el.toFixed(1)}°. Earth azimuth ${sky.earth.az.toFixed(0)}°, elevation ${sky.earth.el.toFixed(1)}°.`} />
     </div>
-    <p className="note">Looking down on the site: zenith in the middle, north up, east right. The radius is stretched so the band from the lowest terrain up to 10° fills the outer 80%; rings are labelled. Shaded ring: terrain. Dashed ring: 0°. Anything lower than the plot edge is pinned to it. Markers show direction, not size.</p>
+    <p className="note">Imagine lying on your back at the site: straight up is the centre, the horizon is the edge, north is at the top. The shaded ring is the surrounding terrain. The scale is stretched near the edge so the low Sun and Earth are easy to see. Markers show direction, not size.</p>
     </>
   );
 }

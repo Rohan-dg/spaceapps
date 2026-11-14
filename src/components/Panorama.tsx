@@ -4,6 +4,8 @@ import { skyAt } from '../lib/ephemeris';
 import { horizonAt } from '../lib/horizon';
 import { mix, useTheme } from '../lib/theme';
 import { siteOf } from '../lib/useScenario';
+import { Key } from './Guide';
+import { HelpTip } from './Help';
 
 /** Stable y-range for a site: covers terrain + typical Sun/Earth elevations. */
 export function autoYRange(d: SiteData): [number, number] {
@@ -181,10 +183,17 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
         )}
       </div>
       {!compact && (
-        <p className="note">
-          Height stretched {exaggeration.toFixed(1)}× so one-degree ridges show. Sun and Earth are drawn at their true angular size on the same axes.
-          Dotted lines: their paths over the next {trailHours} h, with a square every 6 h. Dashed outline: hidden behind terrain. Dashed rule: 0°, the flat horizon.
-        </p>
+        <ul className="chart-legend" aria-label="Chart legend">
+          <li><Key k="terrain" /> Mountains on the horizon</li>
+          <li><Key k="sun" /> Sun</li>
+          <li><Key k="earth" /> Earth</li>
+          <li><Key k="hidden" /> Behind terrain</li>
+          <li><Key k="path" /> Next {trailHours} h</li>
+          <li><Key k="flat" /> Flat horizon (0°)</li>
+          <li className="legend-note">Height stretched {exaggeration.toFixed(1)}×
+            <HelpTip label="Why is the height stretched?" align="right">The Sun only moves about 1.5° up and down at the pole, so the vertical axis is magnified to make one-degree ridges visible. Real slopes look much flatter. Sun and Earth are drawn at their true size on the same scale. Hover over the chart to read exact angles.</HelpTip>
+          </li>
+        </ul>
       )}
     </>
   );

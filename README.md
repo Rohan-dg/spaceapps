@@ -7,11 +7,14 @@ and a green/amber/red verdict with a plain-language reason.
 
 ![panels](docs/screenshot.png)
 
-* **One site:** pick a site, then scrub or play through time. The Skyline view (or the Overhead plot) shows
-  the terrain silhouette, the Sun and Earth at true angular size and their next-24 h paths. Metric cards give
-  rise and set countdowns and per-lunar-day statistics. A 30-day strip and a 3-year calendar with "best windows" sit underneath.
+* **First visit:** a short *How to use* guide (3-step quick start, legend, one-click examples) opens automatically and is always one click away
+  (button top right, or press <kbd>?</kbd>). An **example bar** under the header loads ready-made scenarios. `?` icons explain terms in place.
+* **Explore a site:** pick a site, then scrub or play through time. The Horizon view (or Sky from above) shows
+  the terrain silhouette, the Sun and Earth at true angular size and their next-24 h paths. An answer panel up top shows
+  what is true right now and Good / Marginal / Poor ratings for solar power and the radio link to Earth. A 30-day strip sits underneath;
+  the 3-year "best landing dates" calendar and the exact numbers + CSV/JSON export sit under **Go deeper**.
   Light (paper) and dark themes; the toggle sits top right.
-* **Side by side:** set 2–4 scenarios (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
+* **Compare sites:** set 2–4 plans (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
 * **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
   downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
 * **3D terrain:** 24 × 24 km around each polar site, lit from the true Sun direction with real shadows (three.js, lazy-loaded).

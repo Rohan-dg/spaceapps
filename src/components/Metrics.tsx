@@ -3,6 +3,7 @@ import type { Level } from '../config/thresholds';
 import { formatDuration, type Event, type Metrics } from '../lib/metrics';
 import type { ScenarioResult } from '../lib/useScenario';
 import type { Verdict } from '../lib/verdict';
+import { HelpTip } from './Help';
 import Term from './Term';
 
 const CLS: Record<Level, string> = { green: 'good', amber: 'warn', red: 'poor' };
@@ -20,7 +21,7 @@ export function VerdictBadge({ kind, v, compact = false }: { kind: 'Power' | 'Co
     <div className={`verdict ${CLS[v.level]}${compact ? ' compact' : ''}`}>
       <span className="verdict-icon"><LevelIcon level={v.level} size={compact ? 16 : 22} /></span>
       <div className="verdict-head">
-        {!compact && <span className="verdict-kind">{kind === 'Power' ? 'Power' : 'Direct-to-Earth comms'}</span>}
+        {!compact && <span className="verdict-kind">{kind === 'Power' ? 'Solar power' : 'Radio link to Earth'}</span>}
         <span className="verdict-word">{WORD[v.level]}</span>
       </div>
       {!compact && <p className="verdict-reason">{v.reason}</p>}
@@ -28,15 +29,45 @@ export function VerdictBadge({ kind, v, compact = false }: { kind: 'Power' | 'Co
   );
 }
 
-export function Verdicts({ r }: { r: ScenarioResult }) {
+/** The answer, up top: what is true right now, then the two traffic-light ratings for the next lunar day. */
+export function Summary({ r }: { r: ScenarioResult }) {
+  const m = r.metrics;
+  const sunNext = m.sunUp ? m.nextSunset : m.nextSunrise;
+  const eNext = m.earthUp ? m.nextEarthset : m.nextEarthrise;
   return (
-    <section aria-label="Verdicts">
-      <div className="verdicts">
-        <VerdictBadge kind="Power" v={r.power} />
-        <VerdictBadge kind="Comms" v={r.comms} />
+    <section className="answer" aria-label="The answer">
+      <div className="answer-now">
+        <span className="eyebrow">Right now</span>
+        <p className={`now-line${m.sunUp ? ' on-sun' : ''}`}>
+          {m.sunUp ? <Sun size={20} className="ico-sun on" aria-hidden /> : <SunDim size={20} className="ico-off" aria-hidden />}
+          <span><b>{m.sunUp ? 'In sunlight' : 'In shadow'}</b><small>{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</small></span>
+        </p>
+        <p className={`now-line${m.earthUp ? ' on-earth' : ''}`}>
+          <Earth size={20} className={m.earthUp ? 'ico-earth on' : 'ico-off'} aria-hidden />
+          <span><b>{m.earthUp ? 'Earth in view' : 'Earth hidden'}</b><small>{m.earthUp ? 'Sets' : 'Rises'} {eventText(eNext, m.t)}</small></span>
+        </p>
       </div>
-      <p className="verdict-window">Judged over the next <Term t="lunar-day">lunar day</Term> ({r.metrics.windowDays.toFixed(1)} days{r.metrics.windowTruncated ? ', cut short by the end of the data' : ''}). Thresholds live in <code>src/config/thresholds.ts</code>.</p>
+      <AnswerCard title="Solar power" question="Enough sunlight to keep the lander alive?" v={r.power} />
+      <AnswerCard title="Radio link to Earth" question="Can it talk to Earth directly?" v={r.comms} />
+      <p className="answer-foot">
+        Ratings cover the next {m.windowDays.toFixed(1)} days{m.windowTruncated ? ' (cut short by the end of the data)' : ''}, one full <Term t="lunar-day">lunar day</Term>, starting at the moment you picked.
+        <HelpTip label="How the ratings work" align="right">
+          <b>Good</b>: power needs sun at least 70% of the time and no dark spell over about 4 days; radio needs Earth in view at least 90% of the time and no gap over 24 hours.
+          <b> Marginal</b>: workable with planning. <b>Poor</b>: needs a different site, date or a relay satellite.
+        </HelpTip>
+      </p>
     </section>
+  );
+}
+
+function AnswerCard({ title, question, v }: { title: string; question: string; v: Verdict }) {
+  return (
+    <div className={`answer-card ${CLS[v.level]}`}>
+      <span className="answer-kind">{title}</span>
+      <span className="answer-q">{question}</span>
+      <span className="answer-word"><LevelIcon level={v.level} size={24} /> {WORD[v.level]}</span>
+      <p className="answer-reason">{v.reason}</p>
+    </div>
   );
 }
 
@@ -71,12 +102,12 @@ export function Readout({ r }: { r: ScenarioResult }) {
           <td><span className="state">{m.earthUp ? <><Earth size={18} className="ico-earth on" aria-hidden /> In view</> : <><Earth size={18} className="ico-off" aria-hidden /> Hidden</>}</span></td>
         </tr>
         <tr>
-          <th scope="row"><Term t="elevation">Elevation</Term></th>
+          <th scope="row">Height above the flat horizon <HelpTip>Angle above a perfectly flat horizon (0°). Negative means below it. At the pole the Sun stays within about ±1.5°.</HelpTip></th>
           <td>{deg(m.sky.sun.el)}<small>azimuth {m.sky.sun.az.toFixed(1)}°</small></td>
           <td>{deg(m.sky.earth.el)}<small>azimuth {m.sky.earth.az.toFixed(1)}°</small></td>
         </tr>
         <tr>
-          <th scope="row">Clearance over the <Term t="terrain-horizon">skyline</Term></th>
+          <th scope="row">Clears the mountains by <HelpTip>Positive: the Sun or Earth is above the terrain in that direction and visible. Negative: it is behind a mountain.</HelpTip></th>
           <td>{signed(m.sky.sun.el - m.sunHorizon)}<small>skyline at {deg(m.sunHorizon)}</small></td>
           <td>{signed(m.sky.earth.el - m.earthHorizon)}<small>skyline at {deg(m.earthHorizon)}</small></td>
         </tr>
@@ -96,7 +127,7 @@ export function Readout({ r }: { r: ScenarioResult }) {
           <td>{m.earthPct.toFixed(0)}%<small>in view</small></td>
         </tr>
         <tr>
-          <th scope="row">Longest gap in that window</th>
+          <th scope="row">Longest gap in that time</th>
           <td>{span(m.longestDarkH, m.longestDarkClipped)}<small>without sun</small></td>
           <td>{span(m.longestNoCommH, m.longestNoCommClipped)}<small>without <Term t="dte">direct link</Term></small></td>
         </tr>

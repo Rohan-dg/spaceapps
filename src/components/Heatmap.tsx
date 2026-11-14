@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { bestWindows, dailyStats, type DayStat, type Metric } from '../lib/calendar';
 import type { SiteData } from '../lib/data';
 import { mix, useTheme } from '../lib/theme';
+import { HelpTip } from './Help';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const LABEL: Record<Metric, string> = { sun: 'Sunlight', earth: 'Earth in view', both: 'Both at once' };
@@ -31,7 +32,10 @@ export default function Heatmap({ data, t, onPick }: Props) {
   return (
     <section className="calendar" aria-labelledby="hm-h">
       <div className="cal-head">
-        <h2 id="hm-h">Three years, day by day <span>share of each UTC day</span></h2>
+        <div>
+          <h2 id="hm-h">Find the best landing dates</h2>
+          <p className="muted small">Each square is one day from 2027 to 2029. Darker means more of that day had sunlight or Earth in view. Click any day to jump there.</p>
+        </div>
         <div className="seg" role="radiogroup" aria-label="Colour the calendar by">
           {(['sun', 'earth', 'both'] as Metric[]).map((m) => (
             <button key={m} role="radio" aria-checked={metric === m} onClick={() => setMetric(m)}>
@@ -84,12 +88,12 @@ export default function Heatmap({ data, t, onPick }: Props) {
           </div>
           <div className="best">
             <div className="best-head">
-              <h3>Best {winLen}-day windows</h3>
+              <h3>Best {winLen}-day stretches <HelpTip label="How stretches are ranked" align="right">The periods with the highest average of the measure you picked above (sunlight, Earth in view, or both at once). They are outlined in orange on the calendar and never overlap.</HelpTip></h3>
               <select id="win-len" aria-label="Window length" value={winLen} onChange={(e) => setWinLen(Number(e.target.value))}>
                 {[3, 7, 14, 28].map((n) => <option key={n} value={n}>{n} days</option>)}
               </select>
             </div>
-            <p className="muted small" style={{ marginTop: 4 }}>Ranked by average {LABEL[metric].toLowerCase()}, no overlaps. Outlined on the calendar.</p>
+            <p className="muted small" style={{ marginTop: 4 }}>Ranked by {LABEL[metric].toLowerCase()}. Click one to jump there.</p>
             <ol>
               {best.map((w) => (
                 <li key={w.start}>
