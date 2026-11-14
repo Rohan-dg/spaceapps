@@ -49,6 +49,10 @@ export function encodeRuns(flags: ArrayLike<boolean | number>): Runs {
   return runs;
 }
 
+// Node's Buffer when available (precompute scripts), browser atob/btoa otherwise.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Buffer = (globalThis as any).Buffer as undefined | { from(...a: unknown[]): any };
+
 function b64encode(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
   let s = '';
