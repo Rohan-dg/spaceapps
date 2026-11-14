@@ -1,0 +1,15 @@
+# Cloudflare cache rules. Vite copies this file into dist/.
+# Hashed build files never change, so cache them for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+# Precomputed data: one day.
+/series/*
+  Cache-Control: public, max-age=86400
+/horizons/*
+  Cache-Control: public, max-age=86400
+/terrain/*
+  Cache-Control: public, max-age=86400
+/dem/*
+  Cache-Control: public, max-age=86400
+/sites.json
+  Cache-Control: public, max-age=3600
