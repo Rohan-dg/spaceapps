@@ -63,3 +63,31 @@ export function computeHorizon(dem: PolarDem, lat: number, lon: number, observer
   }
   return { horizonDeg, horizonDistKm, siteHeightM: hSite, coverage: inside / total };
 }
+
+export interface TerrainTile { n: number; halfKm: number; z: Int16Array }
+
+/**
+ * Local height grid around a site for the 3D view (TypeScript port of write_terrain_tile in
+ * scripts/build_horizons.py): n×n samples on the site's tangent plane, row 0 = north edge,
+ * west to east, heights in metres relative to the site's surface, curvature drop included.
+ */
+export function terrainTile(dem: PolarDem, lat: number, lon: number, halfKm = 12, n = 161): TerrainTile {
+  const h0 = demHeight(dem, lat, lon);
+  if (!isFinite(h0)) throw new Error('Site is outside the DEM coverage (south of 80°S only).');
+  const half = halfKm * 1000, step = (2 * half) / (n - 1);
+  const φ1 = lat * D2R, λ1 = lon * D2R, sφ1 = Math.sin(φ1), cφ1 = Math.cos(φ1);
+  const z = new Int16Array(n * n);
+  for (let r = 0; r < n; r++) {
+    const N = half - r * step;
+    for (let c = 0; c < n; c++) {
+      const E = -half + c * step;
+      const d = Math.hypot(E, N), α = Math.atan2(E, N), δ = d / R_M;
+      const sφ2 = sφ1 * Math.cos(δ) + cφ1 * Math.sin(δ) * Math.cos(α);
+      const φ2 = Math.asin(Math.max(-1, Math.min(1, sφ2)));
+      const λ2 = λ1 + Math.atan2(Math.sin(α) * Math.sin(δ) * cφ1, Math.cos(δ) - sφ1 * sφ2);
+      const h = demHeight(dem, φ2 / D2R, λ2 / D2R);
+      z[r * n + c] = isFinite(h) ? Math.round(h - h0 - (d * d) / (2 * R_M)) : 0;
+    }
+  }
+  return { n, halfKm, z };
+}

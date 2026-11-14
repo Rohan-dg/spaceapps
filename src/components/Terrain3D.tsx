@@ -3,11 +3,34 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { SiteData } from '../lib/data';
 import { skyAt } from '../lib/ephemeris';
+import { terrainTile, type PolarDem, type TerrainTile } from '../lib/raymarch';
 import { decodeI16 } from '../lib/series';
 import { useTheme } from '../lib/theme';
 import { siteOf } from '../lib/useScenario';
 
-interface Tile { n: number; halfKm: number; z: Int16Array }
+interface Tile extends TerrainTile { source: string }
+
+const base = import.meta.env.BASE_URL;
+let demP: Promise<PolarDem> | null = null;
+/** The 400 m south-polar DEM (same file the custom-site worker uses), fetched once on demand. */
+const loadPolarDem = () => (demP ??= fetch(`${base}dem/south_polar_400m.json`)
+  .then((r) => { if (!r.ok) throw new Error(`DEM: HTTP ${r.status}`); return r.json(); })
+  .then((m) => ({ data: decodeI16(m.data), size: m.size, resM: m.resM, scaleFactor: m.scaleFactor }))
+  .catch((e) => { demP = null; throw e; }));
+
+/** Precomputed tile from public/terrain if there is one, else one built here from the 400 m DEM. */
+async function loadTile(id: string, lat: number, lon: number): Promise<Tile> {
+  if (!id.startsWith('custom_')) {
+    const r = await fetch(`${base}terrain/${id}.json`).catch(() => null);
+    if (r?.ok) {
+      const m = await r.json();
+      return { n: m.n, halfKm: m.halfKm, z: decodeI16(m.data), source: m.dem ?? 'LOLA' };
+    }
+  }
+  if (lat > -80.5) throw new Error('no terrain');
+  const dem = await loadPolarDem();
+  return { ...terrainTile(dem, lat, lon), source: 'LDEM_80S_40M, 400 m downsample (built in your browser)' };
+}
 
 /** Unit vector in three.js axes (x = east, y = up, z = −north) for an azimuth/elevation. */
 function dirVec(az: number, el: number) {
@@ -19,6 +42,7 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
   const mount = useRef<HTMLDivElement>(null);
   const [tile, setTile] = useState<Tile | null>(null);
   const [missing, setMissing] = useState(false);
+  const [building, setBuilding] = useState(false);
   const [exag, setExag] = useState(2);
   const { c: k } = useTheme();
   const ctx = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; sun: THREE.DirectionalLight; sunDisk: THREE.Mesh; earth: THREE.Mesh; mesh: THREE.Mesh; controls: OrbitControls; render: () => void } | null>(null);
@@ -26,13 +50,14 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
   const id = data.info.id;
 
   useEffect(() => {
-    setTile(null); setMissing(false);
-    if (data.info.approximate || data.info.demResolutionM === null || data.info.demResolutionM > 100) { setMissing(true); return; }
-    const base = import.meta.env.BASE_URL;
-    fetch(`${base}terrain/${id}.json`).then((r) => r.json())
-      .then((m) => setTile({ n: m.n, halfKm: m.halfKm, z: decodeI16(m.data) }))
-      .catch(() => setMissing(true));
-  }, [id, data.info]);
+    let live = true;
+    setTile(null); setMissing(false); setBuilding(true);
+    loadTile(id, data.horizon.lat, data.horizon.lon)
+      .then((tl) => live && setTile(tl))
+      .catch(() => live && setMissing(true))
+      .finally(() => live && setBuilding(false));
+    return () => { live = false; };
+  }, [id, data.horizon.lat, data.horizon.lon]);
 
   // build scene when tile/exaggeration changes
   useEffect(() => {
@@ -63,14 +88,14 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -half * 1.5, right: half * 1.5, top: half * 1.5, bottom: -half * 1.5, near: 1, far: half * 8 });
-    sun.shadow.bias = -0.0005; sun.shadow.normalBias = 40;
+    sun.shadow.bias = -0.0005; sun.shadow.normalBias = half / 300;
     scene.add(sun); scene.add(sun.target);
     const sunDisk = new THREE.Mesh(new THREE.SphereGeometry(half * 0.05, 16, 16), new THREE.MeshBasicMaterial({ color: k.sunDisk }));
     const earth = new THREE.Mesh(new THREE.SphereGeometry(half * 0.08, 24, 24), new THREE.MeshBasicMaterial({ color: k.earth }));
     scene.add(sunDisk); scene.add(earth);
     // site marker: mast
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 600, 8), new THREE.MeshBasicMaterial({ color: k.accent }));
-    mast.position.set(0, 300, 0); scene.add(mast);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(half / 300, half / 300, half / 20, 8), new THREE.MeshBasicMaterial({ color: k.accent }));
+    mast.position.set(0, half / 40, 0); scene.add(mast);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0, 0);
     controls.maxPolarAngle = Math.PI / 2 - 0.02;
@@ -99,14 +124,16 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     c.render();
   }, [t, site, tile, exag, k]);
 
-  if (missing) return <div className="terrain3d empty">The 3D landscape is only available for the south-pole sites, which have detailed 40 m terrain. Switch to the Horizon view or Sky from above for this site.</div>;
+  if (missing) return <div className="terrain3d empty">No terrain model covers this point, so there is no 3D landscape. Switch to the Horizon view or Sky from above for this site.</div>;
+  const size = tile ? `${tile.halfKm * 2} × ${tile.halfKm * 2} km` : '';
   return (
     <>
       <div className="terrain3d">
+        {building && <div className="loading">Building the 3D terrain…</div>}
         <div ref={mount} className="three-mount" aria-label="3D terrain around the site. Drag to orbit, scroll to zoom." role="img" />
       </div>
       <div className="three-bar">
-        <p className="note">A 24 × 24 km patch of real terrain around the site (orange mast), lit from where the Sun actually is at this moment. <b>Drag to rotate, scroll to zoom.</b> Mountains outside this patch can also cast shadows, so the ratings come from the Horizon view.</p>
+        <p className="note">A {size} patch of real terrain around the site (orange mast), from {tile?.source ?? 'LOLA'}, lit from where the Sun actually is at this moment. <b>Drag to rotate, scroll to zoom.</b> Mountains outside this patch can also cast shadows, so the ratings come from the Horizon view.</p>
         <label className="speed">Height ×
           <select id="exag" value={exag} onChange={(e) => setExag(Number(e.target.value))}>{[1, 2, 4].map((x) => <option key={x} value={x}>{x}</option>)}</select>
         </label>
