@@ -19,15 +19,19 @@ function level(pct: number, maxGapH: number, c: { greenPct: number; amberPct: nu
 /** Describe why a body is blocked during a gap: below the horizon entirely, or behind terrain. */
 function blockerPhrase(site: Site, hz: HorizonProfile, s: Series, startT: number, hours: number, body: 'sun' | 'earth') {
   const els = body === 'sun' ? s.sunEl : s.earthEl;
-  const i0 = Math.max(0, Math.floor(indexAt(s, startT)));
-  const i1 = Math.min(s.n, i0 + Math.round((hours * 3600_000) / s.stepMs));
+  const g0 = Math.max(0, Math.floor(indexAt(s, startT)));
+  const g1 = Math.min(s.n, g0 + Math.round((hours * 3600_000) / s.stepMs));
+  // Ignore the first/last 15% of the gap: at its edges the body is, by definition, right at the skyline.
+  const trim = Math.floor((g1 - g0) * 0.15);
+  const i0 = g0 + trim, i1 = Math.max(i0 + 1, g1 - trim);
   let best = -1e9, bi = i0;
   for (let i = i0; i < i1; i++) if (els[i] > best) { best = els[i]; bi = i; }
   const maxEl = best / 100;
   const k = skyAt(site, new Date(s.t0 + bi * s.stepMs))[body];
   const h = horizonAt(hz, k.az);
   const name = body === 'sun' ? 'Sun' : 'Earth';
-  if (maxEl <= 0) return `${name} stays below the local horizontal`;
+  if (maxEl < -3) return `${name} stays well below the horizon (at most ${maxEl.toFixed(1)}°)`;
+  if (maxEl <= h) return `${name} never clears the skyline (at most ${maxEl.toFixed(1)}° vs ${h.toFixed(1)}° terrain to the ${compass(k.az)})`;
   return `${name} never clears the ${h.toFixed(1)}° terrain to the ${compass(k.az)}`;
 }
 
