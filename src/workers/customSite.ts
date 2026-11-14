@@ -3,9 +3,9 @@ import { bodyFixedGeometry, skyFromGeometry, type BodyFixedGeometry } from '../l
 import { enuBasis } from '../lib/geometry';
 import { horizonAt } from '../lib/horizon';
 import { computeHorizon, type PolarDem } from '../lib/raymarch';
-import { encodeRuns } from '../lib/series';
+import { decodeI16, encodeRuns } from '../lib/series';
 
-export interface CustomRequest { lat: number; lon: number; demUrl: string; metaUrl: string; start: string; n: number; stepMin: number }
+export interface CustomRequest { lat: number; lon: number; demUrl: string; start: string; n: number; stepMin: number }
 
 let dem: PolarDem | null = null;
 let geomKey = '';
@@ -15,9 +15,9 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
   const q = e.data;
   try {
     if (!dem) {
-      self.postMessage({ progress: 'Downloading coarse terrain (4.6 MB)…' });
-      const [meta, buf] = await Promise.all([fetch(q.metaUrl).then((r) => r.json()), fetch(q.demUrl).then((r) => r.arrayBuffer())]);
-      dem = { data: new Int16Array(buf), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
+      self.postMessage({ progress: 'Downloading coarse terrain (6 MB)…' });
+      const meta = await fetch(q.demUrl).then((r) => r.json());
+      dem = { data: decodeI16(meta.data), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
     }
     self.postMessage({ progress: 'Ray-marching the horizon…' });
     const hz = computeHorizon(dem, q.lat, q.lon, 2, 150);

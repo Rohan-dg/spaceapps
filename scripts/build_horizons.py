@@ -18,6 +18,7 @@ Requires only numpy (no GDAL/rasterio needed: PDS3 .IMG files are raw int16 + te
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import math
 import os
@@ -213,12 +214,14 @@ def write_coarse_dem(dem: Dem, factor: int):
     out = ROOT / "public" / "dem"
     out.mkdir(parents=True, exist_ok=True)
     name = f"south_polar_{int(dem.res_m * factor)}m"
-    np.round(a).astype("<i2").tofile(out / f"{name}.bin")
-    meta = {"name": name, "source": dem.name.upper(), "size": n // factor, "resM": dem.res_m * factor,
+    for old in out.glob("*.bin"):
+        old.unlink()
+    meta = {"name": name, "encoding": "base64 little-endian int16 DN, row-major; height_m = DN * scaleFactor", "source": dem.name.upper(), "size": n // factor, "resM": dem.res_m * factor,
             "scaleFactor": dem.k, "projection": "south polar stereographic (PDS DSMAP_POLAR), R=1737.4 km",
             "note": "row = c - y/res, col = c + x/res, c=(size-1)/2, x=r sin(lon), y=r cos(lon), r=2R tan((90+lat)/2)"}
+    meta["data"] = base64.b64encode(np.round(a).astype("<i2").tobytes()).decode()
     (out / f"{name}.json").write_text(json.dumps(meta))
-    print(f"wrote coarse DEM public/dem/{name}.bin ({(n // factor) ** 2 * 2 / 1e6:.1f} MB) for custom sites")
+    print(f"wrote coarse DEM public/dem/{name}.json ({(out / f'{name}.json').stat().st_size / 1e6:.1f} MB) for custom sites")
 
 
 def write_terrain_tile(dem: Dem, site_id: str, lat: float, lon: float, half_km=12.0, n=161):
@@ -238,9 +241,11 @@ def write_terrain_tile(dem: Dem, site_id: str, lat: float, lon: float, half_km=1
     h = dem.height(np.degrees(φ2), np.degrees(λ2))
     h0 = float(dem.height(np.array([lat]), np.array([lon]))[0])
     z = h - h0 - d * d / (2 * R_MOON)
-    np.round(z).astype("<i2").tofile(out / f"{site_id}.bin")
+    (out / f"{site_id}.bin").unlink(missing_ok=True)
     (out / f"{site_id}.json").write_text(json.dumps({"n": n, "halfKm": half_km, "spacingM": 2 * half_km * 1000 / (n - 1),
-        "unit": "m relative to site surface, tangent plane, curvature included", "dem": dem.name.upper()}))
+        "unit": "m relative to site surface, tangent plane, curvature included", "dem": dem.name.upper(),
+        "encoding": "base64 little-endian int16, row 0 = north edge, west to east",
+        "data": base64.b64encode(np.round(z).astype("<i2").tobytes()).decode()}))
 
 
 # ----------------------------------------------------------------------------- main

@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { computeHorizon, demHeight, type PolarDem } from '../raymarch';
+import { decodeI16 } from '../series';
 
 const meta = JSON.parse(readFileSync('public/dem/south_polar_400m.json', 'utf8'));
-const buf = readFileSync('public/dem/south_polar_400m.bin');
-const dem: PolarDem = { data: new Int16Array(buf.buffer, buf.byteOffset, buf.byteLength / 2), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
+const dem: PolarDem = { data: decodeI16(meta.data), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
 
 describe('in-browser horizon (coarse DEM) vs pipeline (40 m DEM)', () => {
   for (const id of ['connecting-ridge', 'malapert', 'shackleton-floor']) {
