@@ -27,7 +27,7 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
         <h3>Where the numbers come from</h3>
         <ul>
           <li><b>Sun and Earth positions:</b> <a href="https://github.com/cosinekitty/astronomy">astronomy-engine</a>, rotated into the IAU Moon-fixed frame and then into each site's east-north-up frame. There is no refraction to model. Checked against <a href="https://ssd.jpl.nasa.gov/horizons/">JPL Horizons</a> (DE441) at 10 site/time points: worst error 0.004°.</li>
-          <li><b>Skyline:</b> NASA LRO <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm">LOLA</a> elevation grids ({dems.join(', ')}). For each degree of azimuth, a ray runs 150 km out from a 2 m mast, with lunar curvature included.</li>
+          <li><b>Horizon (skyline):</b> NASA LRO <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm">LOLA</a> elevation grids ({dems.join(', ')}). For each degree of azimuth, a ray runs 150 km out from a 2 m mast, with lunar curvature included.</li>
           <li><b>Timing:</b> Sun and Earth visibility every 30 minutes from {doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC. Rise and set times are refined to about a minute.</li>
           <li><b>Coordinates:</b> each site lists its source. A "verify" flag means the coordinate has not been checked against the source. Rim and summit points are moved onto the nearby high ground, and the app says how far.</li>
         </ul>
