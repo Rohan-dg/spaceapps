@@ -9,7 +9,7 @@
  * Lighting uses the true Sun and Earth directions at the selected time; shadows are ray-marched on the heights.
  */
 import gsap from 'gsap';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as Astro from 'astronomy-engine';
@@ -18,6 +18,7 @@ import { bodyFixedGeometry, eqjToMoonFixed } from '../lib/ephemeris';
 import { type EqGrid, type PolarGrid, R_KM, type V3, dirOf, enu, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from '../lib/moon/frames';
 import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V } from '../lib/moon/shaders';
 import { Icon } from './Icons';
+const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
 const base = import.meta.env.BASE_URL;
 
@@ -30,7 +31,7 @@ interface Heights { w: number; h: number; data: Float32Array; mips: HeightMip[] 
 let worker: Worker | null = null;
 let reqId = 0;
 const pending = new Map<number, (v: Heights | Error) => void>();
-function decodeHeights(url: string, hMin: number, quantum: number) {
+export function decodeHeights(url: string, hMin: number, quantum: number) {
   worker ??= (() => {
     const w = new Worker(new URL('../workers/heightDecode.ts', import.meta.url), { type: 'module' });
     w.onmessage = (e) => { const cb = pending.get(e.data.id); pending.delete(e.data.id); cb?.(e.data.error ? new Error(e.data.error) : e.data); };
@@ -90,6 +91,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   const [relief, setRelief] = useState(1);
   const [hiInfo, setHiInfo] = useState<HiMeta | null>(null);
   const [fail, setFail] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   // everything three.js lives here so React re-renders never rebuild the scene
   const S = useRef<{
@@ -357,12 +359,12 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       b.className = `moon-marker${s.id === selectedId ? ' on' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Fly to ${s.name}`);
-      b.onclick = () => onSelect(s.id);
+      b.onclick = () => { onSelect(s.id); if (s.lat < -80.5 && !s.id.startsWith('custom')) setViewer(s.id); };
       layer.appendChild(b);
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) + 30)) };
     });
     st.request();
-  }, [siteList, selectedId, onSelect]);
+  }, [siteList, selectedId, onSelect]); // setViewer is stable
 
   /* ---------- camera flights ---------- */
   const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6) => {
@@ -560,9 +562,15 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
           <button className={`hud-toggle${shadows ? ' on' : ''}`} aria-pressed={shadows} onClick={() => setShadows((x) => !x)} title="Cast shadows, ray-traced on the LOLA heights"><Icon name="shadow" /> Shadows</button>
           <button className={`hud-toggle${relief > 1 ? ' on' : ''}`} aria-pressed={relief > 1} onClick={() => setRelief((x) => (x > 1 ? 1 : 3))} title="Exaggerate the relief 3×"><Icon name="mountain" /> Relief ×3</button>
           <button className={`hud-toggle${detail ? ' on' : ''}`} aria-pressed={detail} onClick={() => setDetail((x) => !x)} title="Procedural craters and rocks below the resolution of the real data. Illustrative only."><Icon name="sparkle" /> Fine detail</button>
+          {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
         </div>
         {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>
+      {viewer && sel && sel.id === viewer && (
+        <Suspense fallback={null}>
+          <TerrainViewport siteId={sel.id} siteName={sel.name} lat={sel.lat} lon={sel.lon} sunEl={sunInfo?.el ?? null} sunAz={sunInfo?.az ?? null} onClose={() => setViewer(null)} />
+        </Suspense>
+      )}
     </section>
   );
 }

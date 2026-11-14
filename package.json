@@ -12,7 +12,9 @@
     "validate": "NODE_USE_ENV_PROXY=1 tsx scripts/validate_horizons.ts",
     "series": "tsx scripts/build_series.ts",
     "horizons": "python3 scripts/build_horizons.py",
-    "demo-detail": "tsx scripts/demo_detail.ts"
+    "demo-detail": "tsx scripts/demo_detail.ts",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "@types/three": "^0.187.0",
@@ -24,6 +26,7 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
     "@types/d3": "^7.4.3",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
