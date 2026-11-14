@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import About, { Explainer } from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import { MetricCards, VerdictBadge } from './components/Metrics';
+import Heatmap from './components/Heatmap';
 import Panorama from './components/Panorama';
+import SkyPlot from './components/SkyPlot';
 import SiteList from './components/SiteList';
 import TimeControls from './components/TimeControls';
 import Timeline from './components/Timeline';
@@ -33,6 +35,7 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [about, setAbout] = useState(false);
+  const [view, setView] = useState<'panorama' | 'sky'>('panorama');
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
     { siteId: 'shackleton-floor', t: init.t },
@@ -120,14 +123,19 @@ export default function App() {
                 <div className="pano-head">
                   <h2>{data.info.name}</h2>
                   <span className="muted">{new Date(t).toUTCString().replace('GMT', 'UTC')}</span>
+                  <div className="seg" role="radiogroup" aria-label="Sky view">
+                    <button role="radio" aria-checked={view === 'panorama'} className={view === 'panorama' ? 'active' : ''} onClick={() => setView('panorama')}>Horizon panorama</button>
+                    <button role="radio" aria-checked={view === 'sky'} className={view === 'sky' ? 'active' : ''} onClick={() => setView('sky')}>Sky from above</button>
+                  </div>
                 </div>
-                <Panorama data={data} t={t} height={320} />
+                {view === 'panorama' ? <Panorama data={data} t={t} height={320} /> : <SkyPlot data={data} t={t} />}
                 <Timeline data={data} t={t} onSeek={onT} />
                 <div className="verdicts">
                   <VerdictBadge kind="Power" v={res.power} />
                   <VerdictBadge kind="Comms" v={res.comms} />
                 </div>
                 <MetricCards r={res} />
+                <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
               </>
             ) : <div className="loading">Loading terrain and time series…</div>}
             <Explainer />
