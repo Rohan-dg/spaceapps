@@ -1,4 +1,5 @@
-import { CircleHelp, Contrast, Info } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal } from './components/Icons';
+import CommandPalette, { type Command, ModKey } from './components/CommandPalette';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -65,6 +66,7 @@ export default function App() {
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
+  const [palette, setPalette] = useState(false);
   const [deep, setDeep] = useState<Deep>('calendar');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
@@ -115,10 +117,51 @@ export default function App() {
       }
       if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        document.querySelectorAll<HTMLButtonElement>('.masthead .tabs button')[Number(e.key) - 1]?.click();
+      }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [range, closeGuide]);
+  // ⌘K / Ctrl+K toggles the command menu from anywhere, including inside inputs
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((x) => !x); }
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+
+  const goMode = useCallback((m: Mode) => {
+    if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
+    setMode(m);
+    window.scrollTo({ top: 0 });
+  }, [mode, siteId, t]);
+  const commands = useMemo<Command[]>(() => {
+    const showDeep = (d: Deep) => () => { setMode('explore'); setDeep(d); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+    return [
+      ...allSites.map((s) => ({
+        id: `site-${s.id}`, group: 'Sites', title: s.name, keywords: `${s.short} ${s.mission} ${s.region}`,
+        icon: <Globe size={16} />, accessory: <span className="num">{Math.abs(s.lat).toFixed(2)}°{s.lat < 0 ? 'S' : 'N'}</span>,
+        run: () => pickSite(s.id),
+      })),
+      ...PRESETS.map((p) => ({
+        id: `preset-${p.id}`, group: 'Presets', title: p.title, keywords: p.blurb, icon: <Sparkles size={16} />,
+        accessory: <span>{p.mode === 'compare' ? 'Compare' : 'Explore'}</span>, run: () => applyPreset(p),
+      })),
+      { id: 'mode-explore', group: 'Views', title: 'Explore a site', icon: <Search size={16} />, accessory: <kbd>1</kbd>, run: () => goMode('explore') },
+      { id: 'mode-compare', group: 'Views', title: 'Compare sites side by side', icon: <Columns2 size={16} />, accessory: <kbd>2</kbd>, run: () => goMode('compare') },
+      { id: 'mode-calc', group: 'Views', title: 'Calculator', keywords: 'solve equation variable', icon: <CalcIcon size={16} />, accessory: <kbd>3</kbd>, run: () => goMode('calc') },
+      { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
+      { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
+      { id: 'deep-numbers', group: 'Views', title: 'Readout and export', keywords: 'csv json numbers', icon: <SlidersHorizontal size={16} />, run: showDeep('numbers') },
+      { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
+      { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
+      { id: 'act-about', group: 'Actions', title: 'Data and method', keywords: 'about sources lola', icon: <Info size={16} />, run: () => setAbout(true) },
+      { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
+    ];
+  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle]);
 
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
@@ -128,13 +171,16 @@ export default function App() {
     <div className="app">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <header className="masthead wrap">
-        <h1 className="brand">Lunar Site Compare</h1>
+        <h1 className="brand"><span className="brand-mark" aria-hidden />Lunar Site Compare</h1>
         <nav className="tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
+          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore <kbd>1</kbd></button>
           <button role="tab" aria-selected={mode === 'compare'}
-            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
-          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
+            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare <kbd>2</kbd></button>
+          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator <kbd>3</kbd></button>
         </nav>
+        <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
+          <Search size={15} /><span>Search sites and actions…</span><span className="keys"><ModKey /><kbd>K</kbd></span>
+        </button>
         <label className="preset-pick">
           <span>Preset</span>
           <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
@@ -251,6 +297,19 @@ export default function App() {
       </footer>
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
+      <div className="action-bar" role="toolbar" aria-label="Quick actions">
+        <span className="ab-ctx">
+          <span className="brand-mark" aria-hidden />
+          <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : 'Calculator'}</b>
+          <span className="num muted">{when(t)} UTC</span>
+        </span>
+        <span className="ab-actions">
+          <button className="ab-btn" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'} <kbd>Space</kbd></button>
+          <span className="ab-sep" aria-hidden />
+          <button className="ab-btn" onClick={() => setPalette(true)}>Actions <ModKey /><kbd>K</kbd></button>
+        </span>
+      </div>
     </div>
   );
 }
