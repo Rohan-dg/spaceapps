@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { SiteData } from '../lib/data';
 import { skyAt } from '../lib/ephemeris';
+import { decodeI16 } from '../lib/series';
 import { siteOf } from '../lib/useScenario';
 
 interface Tile { n: number; halfKm: number; z: Int16Array }
@@ -26,8 +27,8 @@ export default function Terrain3D({ data, t }: { data: SiteData; t: number }) {
     setTile(null); setMissing(false);
     if (data.info.approximate || data.info.demResolutionM === null || data.info.demResolutionM > 100) { setMissing(true); return; }
     const base = import.meta.env.BASE_URL;
-    Promise.all([fetch(`${base}terrain/${id}.json`).then((r) => r.json()), fetch(`${base}terrain/${id}.bin`).then((r) => r.arrayBuffer())])
-      .then(([m, b]) => setTile({ n: m.n, halfKm: m.halfKm, z: new Int16Array(b) }))
+    fetch(`${base}terrain/${id}.json`).then((r) => r.json())
+      .then((m) => setTile({ n: m.n, halfKm: m.halfKm, z: decodeI16(m.data) }))
       .catch(() => setMissing(true));
   }, [id, data.info]);
 

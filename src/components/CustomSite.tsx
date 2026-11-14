@@ -21,7 +21,7 @@ export default function CustomSite({ doc, onReady }: Props) {
     const stepMin = doc.range.stepMin;
     const n = Math.floor((Date.parse(doc.range.end) - Date.parse(doc.range.start)) / (stepMin * 60000)) + 1;
     const base = new URL(import.meta.env.BASE_URL, location.href).href;
-    const req: CustomRequest = { lat: la, lon: lo, demUrl: `${base}dem/south_polar_400m.bin`, metaUrl: `${base}dem/south_polar_400m.json`, start: doc.range.start, n, stepMin };
+    const req: CustomRequest = { lat: la, lon: lo, demUrl: `${base}dem/south_polar_400m.json`, start: doc.range.start, n, stepMin };
     worker.current.onmessage = (e) => {
       const m = e.data;
       if (m.progress) setBusy(m.progress);
