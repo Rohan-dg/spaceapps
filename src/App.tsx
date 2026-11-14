@@ -2,11 +2,13 @@ import { ChevronRight, CircleHelp, Contrast, Info, Sparkles } from 'lucide-react
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About, { Explainer } from './components/About';
 import Compare, { type Scenario } from './components/Compare';
+import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
 import { HelpTip, Loading, Step } from './components/Help';
 import Heatmap from './components/Heatmap';
+import MissionPanel from './components/MissionPanel';
 import { Readout, Summary } from './components/Metrics';
 import Panorama from './components/Panorama';
 import SiteList from './components/SiteList';
@@ -16,11 +18,18 @@ import Timeline from './components/Timeline';
 import { type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
+import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
+import { simSnapshot, useMission } from './lib/useMission';
 import { useScenario } from './lib/useScenario';
 
-type Mode = 'explore' | 'compare';
+type Mode = 'explore' | 'compare' | 'calc';
+const PLAN_KEY = 'lsc-mission-plan';
+function loadPlan(t: number): MissionPlan {
+  try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
+  return { ...DEFAULT_PLAN, departure: t };
+}
 type View = 'panorama' | 'sky' | '3d';
-type Deep = 'calendar' | 'numbers';
+type Deep = 'calendar' | 'numbers' | 'mission';
 const VIEWS: { id: View; label: string; caption: string }[] = [
   { id: 'panorama', label: 'Horizon view', caption: 'A 360° view of the horizon from the site, as if you turned around once. Anything below the grey mountain line is blocked from view.' },
   { id: 'sky', label: 'Sky from above', caption: 'The whole sky as a circle: the centre is straight overhead and the edge is the horizon. Useful for seeing which direction the Sun and Earth are in.' },
@@ -87,6 +96,10 @@ export default function App() {
   const data = useSiteData(siteId);
   const res = useScenario(data, t);
   const info = allSites.find((s) => s.id === siteId);
+  const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
+  useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
+  const mission = useMission(data, res, plan, t);
+  const [calc, setCalc] = useState<CalcState>(initialCalc);
 
   useEffect(() => {
     if (playing) return;
@@ -148,6 +161,7 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore a site</button>
           <button role="tab" aria-selected={mode === 'compare'}
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare sites</button>
+          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
         </nav>
         <div className="mast-tools">
           <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={16} /><span className="sr-only">Theme</span></button>
@@ -240,10 +254,16 @@ export default function App() {
                     <div className="seg" role="tablist" aria-label="Detail panels">
                       <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Best landing dates</button>
                       <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>Exact numbers &amp; download</button>
+                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission variables</button>
                     </div>
                   </div>
                   {deep === 'calendar' ? (
                     <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+                  ) : deep === 'mission' ? (
+                    mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
+                      onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
+                      onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
+                      onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <div className="loading">Working out the mission…</div>
                   ) : (
                     <div className="numbers">
                       <Readout r={res} />
@@ -255,6 +275,10 @@ export default function App() {
             ) : <Loading label="Loading this site's terrain and timeline…" />}
             <Explainer />
           </section>
+        </main>
+      ) : mode === 'calc' ? (
+        <main className="compare-main wrap">
+          <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
         </main>
       ) : (
         <main className="compare-main wrap">

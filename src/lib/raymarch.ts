@@ -7,11 +7,19 @@ const D2R = Math.PI / 180;
 
 export interface PolarDem { data: Int16Array; size: number; resM: number; scaleFactor: number }
 
-function rowcol(dem: PolarDem, lat: number, lon: number): [number, number] {
+export function rowcol(dem: PolarDem, lat: number, lon: number): [number, number] {
   const r = 2 * R_M * Math.tan(((90 + lat) * D2R) / 2);
   const x = r * Math.sin(lon * D2R), y = r * Math.cos(lon * D2R);
   const c = (dem.size - 1) / 2;
   return [c - y / dem.resM, c + x / dem.resM];
+}
+
+/** Inverse of rowcol: grid (row, col) to planetocentric lat/lon (deg). */
+export function latLonOf(dem: PolarDem, row: number, col: number): [number, number] {
+  const c = (dem.size - 1) / 2;
+  const x = (col - c) * dem.resM, y = (c - row) * dem.resM;
+  const r = Math.hypot(x, y);
+  return [(2 * Math.atan(r / (2 * R_M))) / D2R - 90, ((Math.atan2(x, y) / D2R) + 360) % 360];
 }
 
 /** Bilinear height (m) or NaN outside the grid. */

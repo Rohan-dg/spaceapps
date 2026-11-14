@@ -18,6 +18,13 @@ and a green/amber/red verdict with a plain-language reason.
 * **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
   downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
 * **3D terrain:** 24 × 24 km around each polar site, lit from the true Sun direction with real shadows (three.js, lazy-loaded).
+* **Mission variables:** all 33 variables from `data/NASA_Variable_Table.xlsx` in one live table (One site → Go deeper → Mission variables), grouped and
+  tagged by priority and source (sim, your plan, estimate, reference). A mission plan form sets departure, duration, destination,
+  rover speed and slope limit, battery, panels and loads. Near the pole, a Web Worker plans a slope-aware route (A* on the 400 m DEM),
+  traces the skyline at each waypoint, and steps the rover through the mission for battery, sunlight and Earth visibility along the way.
+* **Calculator:** 16 equations behind those variables (travel time, slope speed, terrain clearance, ridge horizon angle, solar power,
+  battery, darkness survival, range, availability, temperature, surface distance and more). Pick the unknown, fill in the rest
+  (or pull live values from the sim), and it solves for that one numerically.
 * **Export** the current scenario's metrics and verdicts as CSV or JSON.
 * The URL hash keeps the current site, time and comparison, so links are shareable.
   Keyboard: <kbd>Space</kbd> play/pause, <kbd>←</kbd>/<kbd>→</kbd> ±1 h, <kbd>Shift</kbd>+arrows ±1 day.
