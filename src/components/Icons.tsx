@@ -43,6 +43,8 @@ export const Copy = (p: P) => <Svg {...p}><rect x="8.5" y="8.5" width="11" heigh
 export const Download = (p: P) => <Svg {...p}><path d="M12 3.8v11.4M7.4 10.8 12 15.4l4.6-4.6M4.5 15.5v2.2a2.5 2.5 0 0 0 2.5 2.5h10a2.5 2.5 0 0 0 2.5-2.5v-2.2" /></Svg>;
 export const Info = (p: P) => <Svg {...p}><circle cx="12" cy="12" r="8.8" /><path d="M12 11v5.4" /><circle cx="12" cy="7.9" r="0.4" fill="currentColor" /></Svg>;
 export const CircleHelp = (p: P) => <Svg {...p}><circle cx="12" cy="12" r="8.8" /><path d="M9.6 9.6a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8v.5" /><circle cx="12" cy="16.9" r="0.4" fill="currentColor" /></Svg>;
+export const Search = (p: P) => <Svg {...p}><circle cx="10.8" cy="10.8" r="6.3" /><path d="m15.5 15.5 4.5 4.5" /></Svg>;
+export const Globe = (p: P) => <Svg {...p}><circle cx="12" cy="12" r="8.6" /><circle cx="9" cy="9.5" r="1.8" /><circle cx="15" cy="14.5" r="2.4" /><circle cx="8.6" cy="15.6" r="0.9" /></Svg>;
 /** circle.lefthalf.filled */
 export const Contrast = (p: P) => <Svg {...p}><circle cx="12" cy="12" r="8.6" /><path d="M12 3.4a8.6 8.6 0 0 0 0 17.2z" fill="currentColor" stroke="none" /></Svg>;
 export const Sparkles = (p: P) => (
