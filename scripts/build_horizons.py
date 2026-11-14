@@ -294,6 +294,8 @@ def main():
             h_site, hz, dist, cov = horizon_profile(dem, lat, lon, args.observer_m, range_m)
             if dem.polar:
                 write_terrain_tile(dem, s["id"], lat, lon)
+            else:  # ~1.9 km/px global DEM: a wider, coarser tile so the 3D view still shows landforms
+                write_terrain_tile(dem, s["id"], lat, lon, half_km=60.0, n=121)
             rec.update(lat=round(lat, 5), lon=round(lon, 5), snappedM=round(snap_m),synthetic=False, dem=dem.name.upper(), demResolutionM=round(dem.res_m, 1),
                        siteHeightM=round(h_site, 1), rayCoverage=round(cov, 4),
                        horizonDeg=[round(float(v), 3) for v in hz],

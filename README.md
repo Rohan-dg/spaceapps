@@ -17,7 +17,7 @@ and a green/amber/red verdict with a plain-language reason.
 * **Compare sites:** set 2–4 plans (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
 * **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
   downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
-* **3D terrain:** 24 × 24 km around each polar site, lit from the true Sun direction with real shadows (three.js, lazy-loaded).
+* **3D terrain:** works for every site and any custom coordinate. Polar sites get 24 × 24 km from the 40 m DEM; custom points get the same area built in the browser from the 400 m DEM; the three non-polar sites get 120 × 120 km from the 1.9 km global DEM. Lit from the true Sun direction with real shadows (three.js, lazy-loaded).
 * **Mission variables:** all 33 variables from `data/NASA_Variable_Table.xlsx` in one live table (One site → Go deeper → Mission variables), grouped and
   tagged by priority and source (sim, your plan, estimate, reference). A mission plan form sets departure, duration, destination,
   rover speed and slope limit, battery, panels and loads. Near the pole, a Web Worker plans a slope-aware route (A* on the 400 m DEM),
