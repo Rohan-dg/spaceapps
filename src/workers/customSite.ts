@@ -15,11 +15,11 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
   const q = e.data;
   try {
     if (!dem) {
-      self.postMessage({ progress: 'Downloading coarse terrain (6 MB)…' });
+      self.postMessage({ progress: 'Fetching 400 m terrain (6 MB)…' });
       const meta = await fetch(q.demUrl).then((r) => r.json());
       dem = { data: decodeI16(meta.data), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
     }
-    self.postMessage({ progress: 'Ray-marching the horizon…' });
+    self.postMessage({ progress: 'Tracing the skyline…' });
     const hz = computeHorizon(dem, q.lat, q.lon, 2, 150);
     const key = `${q.start}|${q.n}|${q.stepMin}`;
     if (key !== geomKey) {
@@ -27,11 +27,11 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
       const t0 = Date.parse(q.start);
       for (let i = 0; i < q.n; i++) {
         geoms.push(bodyFixedGeometry(new Date(t0 + i * q.stepMin * 60000)));
-        if (i % 5000 === 0) self.postMessage({ progress: `Computing Sun/Earth positions… ${Math.round((i / q.n) * 100)}%` });
+        if (i % 5000 === 0) self.postMessage({ progress: `Working out Sun and Earth positions: ${Math.round((i / q.n) * 100)}%` });
       }
       geomKey = key;
     }
-    self.postMessage({ progress: 'Building the time series…' });
+    self.postMessage({ progress: 'Marking when each is in view…' });
     const site = { lat: q.lat, lon: q.lon, heightM: hz.siteHeightM + 2 };
     const basis = enuBasis(site);
     const sunEl = new Int16Array(q.n), earthEl = new Int16Array(q.n), sunFrac = new Uint8Array(q.n);
