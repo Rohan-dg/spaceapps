@@ -12,7 +12,7 @@ import { useAllSites, useSiteData, useSites } from './lib/data';
 import { useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare';
-const DEFAULT_T = Date.parse('2027-01-03T00:00:00Z');
+const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
@@ -38,7 +38,7 @@ export default function App() {
   const [view, setView] = useState<'panorama' | 'sky'>('panorama');
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
-    { siteId: 'shackleton-floor', t: init.t },
+    { siteId: 'de-gerlache-rim', t: init.t },
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
