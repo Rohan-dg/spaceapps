@@ -13,3 +13,8 @@
   Cache-Control: public, max-age=86400
 /sites.json
   Cache-Control: public, max-age=3600
+# 3D Moon textures and site height windows: large and stable, one week.
+/moon/*
+  Cache-Control: public, max-age=604800
+/hires/*
+  Cache-Control: public, max-age=604800
