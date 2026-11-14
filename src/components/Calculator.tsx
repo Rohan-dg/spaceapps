@@ -33,17 +33,11 @@ export default function Calculator({ state, onState, sim, simLabel }: Props) {
 
   return (
     <div className="calc">
-      <div className="compare-intro">
-        <div>
-          <h2>Calculator</h2>
-          <p>Pick an equation, choose the variable you don’t know, and fill in the rest. It solves for that one, whichever it is. “Fill from the sim” pulls in the live numbers for {simLabel}.</p>
-        </div>
-      </div>
       <div className="calc-body">
         <nav className="calc-list" aria-label="Equations">
           {groups.map((g) => (
             <div key={g}>
-              <span className="eyebrow">{g}</span>
+              <span className="calc-group">{g}</span>
               <ul>
                 {EQUATIONS.filter((e) => e.group === g).map((e) => (
                   <li key={e.id}><button aria-current={e.id === eq.id ? 'true' : undefined} onClick={() => onState({ ...state, eq: e.id })}>{e.title}</button></li>
@@ -53,12 +47,11 @@ export default function Calculator({ state, onState, sim, simLabel }: Props) {
           ))}
         </nav>
         <section className="calc-main" aria-labelledby="calc-h">
-          <h3 id="calc-h">{eq.title}</h3>
+          <h3 id="calc-h" title={eq.about}>{eq.title}</h3>
           <p className="calc-formula num">{eq.formula}</p>
-          <p className="muted">{eq.about}</p>
-          <p className="small muted">Mission variables: {eq.covers.map((n) => `#${n} ${variable(n).name}`).join(', ')}</p>
+          <p className="calc-covers">Variables {eq.covers.map((n) => `#${n} ${variable(n).name}`).join(', ')}</p>
           <div className="btn-row">
-            <button onClick={fill} disabled={!fromSim.length} title={fromSim.length ? `Fills ${fromSim.map((v) => v.label).join(', ')}` : 'Nothing in this equation comes from the sim'}><Satellite size={14} aria-hidden /> Fill from the sim</button>
+            <button onClick={fill} disabled={!fromSim.length} title={fromSim.length ? `Fills ${fromSim.map((v) => v.label).join(', ')} from ${simLabel}` : 'No sim inputs for this equation'}><Satellite size={14} aria-hidden /> Fill from sim</button>
             <button onClick={reset}><RotateCcw size={14} aria-hidden /> Reset</button>
           </div>
           <table className="calc-table">
@@ -69,7 +62,7 @@ export default function Calculator({ state, onState, sim, simLabel }: Props) {
                 return (
                   <tr key={v.key} className={isT ? 'is-target' : undefined}>
                     <td><input type="radio" name={`solve-${eq.id}`} checked={isT} onChange={() => setTarget(v.key)} aria-label={`Solve for ${v.label}`} /></td>
-                    <th scope="row"><label htmlFor={`cv-${eq.id}-${v.key}`}>{v.label}</label>{v.hint && <small>{v.hint}</small>}</th>
+                    <th scope="row"><label htmlFor={`cv-${eq.id}-${v.key}`} title={v.hint}>{v.label}</label></th>
                     <td>
                       {isT ? (
                         <output id={`cv-${eq.id}-${v.key}`} className="calc-out num" aria-live="polite">
@@ -93,7 +86,7 @@ export default function Calculator({ state, onState, sim, simLabel }: Props) {
             {result.error ? <p className="err">{result.error}</p> : (
               <>
                 <p><b>{tv.label}</b> = <span className="num big">{fmt(result.roots[0])}</span> {tv.unit}</p>
-                {result.roots.length > 1 && <p className="small muted">Other solutions in range: {result.roots.slice(1, 6).map(fmt).join(', ')} {tv.unit}</p>}
+                {result.roots.length > 1 && <p className="small">Other roots: <span className="num">{result.roots.slice(1, 6).map(fmt).join(', ')}</span> {tv.unit}</p>}
               </>
             )}
           </div>

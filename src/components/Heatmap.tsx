@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { bestWindows, dailyStats, type DayStat, type Metric } from '../lib/calendar';
 import type { SiteData } from '../lib/data';
 import { mix, useTheme } from '../lib/theme';
-import { HelpTip } from './Help';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const LABEL: Record<Metric, string> = { sun: 'Sunlight', earth: 'Earth in view', both: 'Both at once' };
@@ -27,15 +26,13 @@ export default function Heatmap({ data, t, onPick }: Props) {
   const hue = metric === 'sun' ? c.sun : metric === 'earth' ? c.earth : c.ink;
   const color = (f: number) => (f <= 0 ? mix(c.bg, c.ink, 0.07) : mix(mix(c.bg, c.ink, 0.07), hue, 0.18 + 0.82 * Math.min(1, f)));
   const today = fmt(t);
+  const shown = hover ?? days.find((d) => fmt(d.t) === today) ?? null;
   const inBest = (d: DayStat) => best.some((w) => d.t >= w.start && d.t < w.start + w.days * 86400000);
 
   return (
     <section className="calendar" aria-labelledby="hm-h">
       <div className="cal-head">
-        <div>
-          <h2 id="hm-h">Find the best landing dates</h2>
-          <p className="muted small">Each square is one day from 2027 to 2029. Darker means more of that day had sunlight or Earth in view. Click any day to jump there.</p>
-        </div>
+        <h2 id="hm-h">Daily visibility</h2>
         <div className="seg" role="radiogroup" aria-label="Colour the calendar by">
           {(['sun', 'earth', 'both'] as Metric[]).map((m) => (
             <button key={m} role="radio" aria-checked={metric === m} onClick={() => setMetric(m)}>
@@ -72,14 +69,14 @@ export default function Heatmap({ data, t, onPick }: Props) {
         </div>
         <aside className="cal-side">
           <div className="readout-box" aria-live="polite">
-            {hover ? (
+            {shown ? (
               <>
-                <span className="date">{fmt(hover.t)}</span>
-                <span>Sunlight</span><span className="num">{pct(hover.sun)}</span>
-                <span>Earth in view</span><span className="num">{pct(hover.earth)}</span>
-                <span>Both at once</span><span className="num">{pct(hover.both)}</span>
+                <span className="date">{fmt(shown.t)}</span>
+                <span>Sunlight</span><span className="num">{pct(shown.sun)}</span>
+                <span>Earth in view</span><span className="num">{pct(shown.earth)}</span>
+                <span>Both at once</span><span className="num">{pct(shown.both)}</span>
               </>
-            ) : <span className="muted" style={{ gridColumn: '1 / -1' }}>Point at a day to read it. Click to jump there.</span>}
+            ) : <span className="date">No data</span>}
           </div>
           <div id="hm-legend" className="legend">
             <span className="num">0%</span>
@@ -88,12 +85,12 @@ export default function Heatmap({ data, t, onPick }: Props) {
           </div>
           <div className="best">
             <div className="best-head">
-              <h3>Best {winLen}-day stretches <HelpTip label="How stretches are ranked" align="right">The periods with the highest average of the measure you picked above (sunlight, Earth in view, or both at once). They are outlined in orange on the calendar and never overlap.</HelpTip></h3>
+              <h3>Best windows, {LABEL[metric].toLowerCase()}</h3>
               <select id="win-len" aria-label="Window length" value={winLen} onChange={(e) => setWinLen(Number(e.target.value))}>
                 {[3, 7, 14, 28].map((n) => <option key={n} value={n}>{n} days</option>)}
               </select>
             </div>
-            <p className="muted small" style={{ marginTop: 4 }}>Ranked by {LABEL[metric].toLowerCase()}. Click one to jump there.</p>
+            <div className="bw-head" aria-hidden><span>#</span><span>Start</span><span className="bw-vals"><span>Sun</span><span>Earth</span></span></div>
             <ol>
               {best.map((w) => (
                 <li key={w.start}>

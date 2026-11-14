@@ -4,6 +4,7 @@ import { skyAt } from '../lib/ephemeris';
 import { horizonAt } from '../lib/horizon';
 import { mix, useTheme } from '../lib/theme';
 import { siteOf } from '../lib/useScenario';
+import { fitCanvas, useDpr } from './useDpr';
 
 /**
  * Top-down sky plot: zenith at centre, azimuth around the circle (north up, east right as on a map).
@@ -17,6 +18,7 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
   const cv = useRef<HTMLCanvasElement>(null);
   const [w, setW] = useState(420);
   const { c: k } = useTheme();
+  const dpr = useDpr();
   const site = useMemo(() => siteOf(data), [data]);
   const sky = useMemo(() => skyAt(site, new Date(t)), [site, t]);
   const trail = useMemo(() => {
@@ -36,9 +38,8 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
 
   useEffect(() => {
     const c = cv.current; if (!c) return;
-    const dpr = window.devicePixelRatio || 1, H = w;
-    c.width = w * dpr; c.height = H * dpr;
-    const g = c.getContext('2d')!; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const H = w;
+    const g = fitCanvas(c, w, H, dpr);
     g.clearRect(0, 0, w, H);
     const cx = w / 2, cy = H / 2, R = w / 2 - 26;
     const LO = Math.floor(Math.min(-2, ...data.horizon.horizonDeg.filter((v) => v < KNEE)) - 1);
@@ -92,15 +93,12 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
     ([[0, 'N'], [90, 'E'], [180, 'S'], [270, 'W']] as [number, string][]).forEach(([az, s]) => {
       const a = (az * Math.PI) / 180; g.fillText(s, cx + (R + 14) * Math.sin(a), cy - (R + 14) * Math.cos(a) + 4);
     });
-  }, [w, data, sky, trail, k]);
+  }, [w, dpr, data, sky, trail, k]);
 
   return (
-    <>
     <div className="skyplot" ref={wrap}>
       <canvas ref={cv} style={{ width: w, height: w }} role="img"
         aria-label={`Top-down sky plot. Sun azimuth ${sky.sun.az.toFixed(0)}°, elevation ${sky.sun.el.toFixed(1)}°. Earth azimuth ${sky.earth.az.toFixed(0)}°, elevation ${sky.earth.el.toFixed(1)}°.`} />
     </div>
-    <p className="note">Imagine lying on your back at the site: straight up is the centre, the horizon is the edge, north is at the top. The shaded ring is the surrounding terrain. The scale is stretched near the edge so the low Sun and Earth are easy to see. Markers show direction, not size.</p>
-    </>
   );
 }

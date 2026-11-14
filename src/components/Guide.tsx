@@ -1,6 +1,5 @@
-import { ArrowRight, Earth, Sun, X } from './Icons';
+import { Earth, Sun, X } from './Icons';
 import { useEffect, useRef } from 'react';
-import { PRESETS, type Preset } from '../lib/presets';
 import { LevelIcon } from './Metrics';
 
 /** Small inline keys that match what the charts draw, so the legend is literally the same marks. */
@@ -16,59 +15,43 @@ export function Key({ k }: { k: 'sun' | 'earth' | 'hidden' | 'path' | 'terrain' 
   }
 }
 
-interface Props { onClose: () => void; onPreset: (p: Preset) => void; firstVisit: boolean }
+interface Props { onClose: () => void }
 
-export default function Guide({ onClose, onPreset, firstVisit }: Props) {
+/** Help: chart legend and keyboard shortcuts. Opens only from the Help button or the ? key. */
+export default function Guide({ onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { closeRef.current?.focus(); }, []);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="guide-h" onClick={onClose}>
       <div className="modal guide" onClick={(e) => e.stopPropagation()}>
-        <button ref={closeRef} className="icon-btn modal-close" onClick={onClose} aria-label="Close the guide"><X size={18} /></button>
-        <span className="eyebrow">{firstVisit ? 'Welcome' : 'How to use'}</span>
-        <h2 id="guide-h">Can a Moon lander get sunlight and still call home?</h2>
-        <p className="guide-lead">
-          At the Moon's south pole the Sun never climbs more than a degree or two above the horizon. A small hill can mean
-          days of darkness (no solar power) or no line of sight to Earth (no radio). This app uses real NASA terrain to show,
-          for any landing site and date, when you get <b className="t-sun">sunlight</b> and when you can <b className="t-earth">see Earth</b>.
-        </p>
+        <button ref={closeRef} className="icon-btn modal-close" onClick={onClose} aria-label="Close help"><X size={16} /></button>
+        <h2 id="guide-h">Help</h2>
 
-        <h3>Quick start: 30 seconds</h3>
-        <ol className="quickstart">
-          <li><span className="step-n">1</span><div><b>Pick a landing site</b> from the list on the left. Twelve real sites, from Artemis III candidates to Apollo 11.</div></li>
-          <li><span className="step-n">2</span><div><b>Pick a moment.</b> Press <b>Play</b> to watch time pass, or drag the time slider anywhere in 2027–2029.</div></li>
-          <li><span className="step-n">3</span><div><b>Read the answer.</b> Two traffic lights rate <b>solar power</b> and the <b>radio link to Earth</b> for the next month.</div></li>
-        </ol>
-
-        <h3>What you're looking at</h3>
+        <h3>Legend</h3>
         <dl className="legend-grid">
-          <dt><Key k="terrain" /></dt><dd><b>The horizon.</b> Mountains and crater rims all around the site, measured by NASA's LRO laser altimeter (LOLA).</dd>
-          <dt><Key k="sun" /></dt><dd><b>The Sun.</b> If it is above the grey terrain, the site is in sunlight and solar panels work.</dd>
-          <dt><Key k="earth" /></dt><dd><b>Earth.</b> If it is above the terrain, the lander can radio Earth directly.</dd>
-          <dt><Key k="hidden" /></dt><dd><b>Dashed outline:</b> the Sun or Earth is behind a mountain.</dd>
-          <dt><Key k="path" /></dt><dd><b>Dotted trail:</b> where it will move over the next 24 hours.</dd>
-          <dt><Key k="flat" /></dt><dd><b>Dashed line:</b> the "flat" horizon (0°). At the pole, terrain matters more than this line.</dd>
+          <dt><Key k="terrain" /></dt><dd><b>Terrain skyline</b>, LRO LOLA, per degree of azimuth.</dd>
+          <dt><Key k="sun" /></dt><dd><b>Sun</b>, drawn at true angular size. Above the skyline: sunlit.</dd>
+          <dt><Key k="earth" /></dt><dd><b>Earth</b>. Above the skyline: direct-to-Earth link possible.</dd>
+          <dt><Key k="hidden" /></dt><dd><b>Occluded</b>: Sun or Earth behind terrain.</dd>
+          <dt><Key k="path" /></dt><dd><b>Track</b>, next 24 h.</dd>
+          <dt><Key k="flat" /></dt><dd><b>0° horizon</b> (local tangent plane).</dd>
           <dt className="lvls"><LevelIcon level="green" size={16} /><LevelIcon level="amber" size={16} /><LevelIcon level="red" size={16} /></dt>
-          <dd><b>Good, Marginal, Poor.</b> The rating for the next 29.5 days (one lunar day): how much of the time there is sun or Earth, and the longest gap without it.</dd>
+          <dd><b>Good / Marginal / Poor</b> over the next 29.5 d (one lunar day). Power: Good at 70% or more sunlit and no dark spell over about 4 d. Comms: Good at 90% or more in view and no gap over 24 h.</dd>
           <dt className="lvls"><Sun size={16} className="ico-sun on" aria-hidden /><Earth size={16} className="ico-earth on" aria-hidden /></dt>
-          <dd><b>Site list icons:</b> lit icons mean sunlit or Earth in view <i>right now</i>. Greyed out means in shadow or hidden.</dd>
+          <dd><b>Site list</b>: filled when sunlit or Earth in view now; grey when not.</dd>
         </dl>
-        <p className="muted small">The vertical axis of the horizon chart is stretched so that one-degree ridges are visible. Hover over the chart to read the exact angles.</p>
+        <p className="small">Panorama height is exaggerated; the factor is shown under the chart. Hover the chart for exact angles.</p>
 
-        <h3>Try an example</h3>
-        <div className="preset-grid">
-          {PRESETS.map((p) => (
-            <button key={p.id} className="preset-card" onClick={() => onPreset(p)}>
-              <span className="preset-title">{p.title} <ArrowRight size={14} aria-hidden /></span>
-              <span className="preset-blurb">{p.blurb}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="guide-foot">
-          <p className="muted small">Shortcuts: <kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> one hour · <kbd>Shift</kbd> + arrows one day · <kbd>?</kbd> this guide</p>
-          <button className="btn-primary" onClick={onClose}>Start exploring <ArrowRight size={15} aria-hidden /></button>
-        </div>
+        <h3>Shortcuts</h3>
+        <table className="kbd-table">
+          <tbody>
+            <tr><th scope="row"><kbd>Space</kbd></th><td>Play / pause</td></tr>
+            <tr><th scope="row"><kbd>←</kbd> <kbd>→</kbd></th><td>Step 1 h</td></tr>
+            <tr><th scope="row"><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></th><td>Step 1 d</td></tr>
+            <tr><th scope="row"><kbd>?</kbd></th><td>Help</td></tr>
+            <tr><th scope="row"><kbd>Esc</kbd></th><td>Close dialog</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
