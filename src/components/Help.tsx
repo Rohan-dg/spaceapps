@@ -15,19 +15,6 @@ export function HelpTip({ children, label = 'What is this?', align = 'left' }: {
   );
 }
 
-/** Numbered step heading, so the screen itself reads as the three-step quick start. */
-export function Step({ n, title, hint, help }: { n: number; title: string; hint?: ReactNode; help?: ReactNode }) {
-  return (
-    <div className="step">
-      <span className="step-n" aria-hidden>{n}</span>
-      <div>
-        <h3 className="step-title"><span className="sr-only">Step {n}: </span>{title}{help && <HelpTip>{help}</HelpTip>}</h3>
-        {hint && <p className="step-hint">{hint}</p>}
-      </div>
-    </div>
-  );
-}
-
 export function Loading({ label }: { label: string }) {
   return (
     <div className="loading" role="status" aria-live="polite">

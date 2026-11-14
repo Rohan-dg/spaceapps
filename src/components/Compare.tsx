@@ -21,14 +21,14 @@ interface RowDef {
 }
 
 const ROWS: RowDef[] = [
-  { label: 'Sun height above flat horizon', get: (r) => r.metrics.sky.sun.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Sun clears the mountains by', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
-  { label: 'Earth height above flat horizon', get: (r) => r.metrics.sky.earth.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
-  { label: 'Earth clears the mountains by', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Sun elevation', get: (r) => r.metrics.sky.sun.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
+  { label: 'Sun terrain clearance', get: (r) => r.metrics.sky.sun.el - r.metrics.sunHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
+  { label: 'Earth elevation', get: (r) => r.metrics.sky.earth.el, fmt: (v) => `${v.toFixed(2)}°`, better: null, unit: '°' },
+  { label: 'Earth terrain clearance', get: (r) => r.metrics.sky.earth.el - r.metrics.earthHorizon, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}°`, better: 'high', unit: '°' },
   { label: 'Sunlit, next lunar day', get: (r) => r.metrics.sunPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
   { label: 'Earth visible, next lunar day', get: (r) => r.metrics.earthPct, fmt: (v) => `${v.toFixed(0)}%`, better: 'high', unit: ' pts' },
-  { label: 'Longest stretch without sun', get: (r) => r.metrics.longestDarkH, fmt: (v, r) => `${r.metrics.longestDarkClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
-  { label: 'Longest stretch without Earth', get: (r) => r.metrics.longestNoCommH, fmt: (v, r) => `${r.metrics.longestNoCommClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
+  { label: 'Longest gap, Sun', get: (r) => r.metrics.longestDarkH, fmt: (v, r) => `${r.metrics.longestDarkClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
+  { label: 'Longest gap, Earth', get: (r) => r.metrics.longestNoCommH, fmt: (v, r) => `${r.metrics.longestNoCommClipped ? '≥ ' : ''}${formatDuration(v * 3600000)}`, better: 'low', unit: ' h' },
 ];
 
 function useScenarioData(s: Scenario | undefined) {
@@ -59,16 +59,12 @@ export default function Compare({ sites, scenarios, onChange, range }: {
 
   return (
     <section className="compare" aria-label="Compare scenarios">
-      <div className="compare-intro">
-        <div>
-          <h2>Which landing plan wins?</h2>
-          <p>Each column is one plan: a site plus a date. Change either and watch the ratings for solar power and the radio link to Earth update. Up to four plans.</p>
-          {!yRange && <p className="note">These horizons use different vertical scales because their terrain heights are too far apart to share one. Read the axis labels.</p>}
-        </div>
+      <div className="compare-bar">
         <div className="btn-row">
-          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}><Plus size={15} aria-hidden /> Add a plan</button>}
-          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}><CalendarSync size={15} aria-hidden /> Same date for all</button>
+          {scenarios.length < 4 && <button onClick={() => onChange([...scenarios, { ...scenarios[scenarios.length - 1] }])}><Plus size={14} aria-hidden /> Add scenario</button>}
+          <button onClick={() => onChange(scenarios.map((s) => ({ ...s, t: scenarios[0].t })))}><CalendarSync size={14} aria-hidden /> Sync dates to A</button>
         </div>
+        {!yRange && <p className="compare-flag">Vertical scales differ per column</p>}
       </div>
       <div className="compare-grid" style={{ gridTemplateColumns: `repeat(${scenarios.length}, minmax(0, 1fr))` }}>
         {scenarios.map((s, i) => {
@@ -102,25 +98,23 @@ export default function Compare({ sites, scenarios, onChange, range }: {
                     <div><dt>{r.metrics.earthUp ? 'Earth sets' : 'Earth rises'}</dt><dd>{eventText(r.metrics.earthUp ? r.metrics.nextEarthset : r.metrics.nextEarthrise, s.t)}</dd></div>
                   </dl>
                 </>
-              ) : <Loading label="Loading this site…" />}
+              ) : <Loading label="Loading site" />}
             </article>
           );
         })}
       </div>
-      <details className="disclosure">
-        <summary>Show the side-by-side numbers <span className="muted small">best value in each row is marked; changes are relative to A</span></summary>
       <div className="table-wrap">
         <table className="compare-table">
           <thead>
-            <tr><th scope="col"><span className="sr-only">Quantity</span></th>{scenarios.map((s, i) => <th scope="col" key={i}>{LETTERS[i]}  {sites.find((x) => x.id === s.siteId)?.short}<small>{toInput(s.t).replace('T', ' ')} UTC</small></th>)}</tr>
+            <tr><th scope="col">Quantity</th>{scenarios.map((s, i) => <th scope="col" key={i}>{LETTERS[i]}  {sites.find((x) => x.id === s.siteId)?.short}<small>{toInput(s.t).replace('T', ' ')} UTC</small></th>)}</tr>
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Solar power</th>
+              <th scope="row">Power</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.power.level !== results[0].power.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Power" v={r.power} compact /> : '…'}</td>)}
             </tr>
             <tr>
-              <th scope="row">Radio link to Earth</th>
+              <th scope="row">DTE comms</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.comms.level !== results[0].comms.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Comms" v={r.comms} compact /> : '…'}</td>)}
             </tr>
             {ROWS.map((row) => {
@@ -149,7 +143,6 @@ export default function Compare({ sites, scenarios, onChange, range }: {
           </tbody>
         </table>
       </div>
-      </details>
     </section>
   );
 }

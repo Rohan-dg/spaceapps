@@ -13,7 +13,13 @@ import { BatteryChart, RouteProfile } from './MissionCharts';
 import { fromInput, toInput } from './TimeControls';
 
 type Src = 'live' | 'input' | 'estimate' | 'reference';
-const SRC_LABEL: Record<Src, string> = { live: 'Sim', input: 'Your plan', estimate: 'Estimate', reference: 'Reference' };
+const SRC_LABEL: Record<Src, string> = { live: 'Sim', input: 'Input', estimate: 'Estimate', reference: 'Reference' };
+const SRC_TIP: Record<Src, string> = {
+  live: 'Computed from LOLA terrain and the ephemeris at the sim time',
+  input: 'From the mission plan form',
+  estimate: 'Simple model: radiative balance, steady loads, continuous driving',
+  reference: 'Fixed site or validation data',
+};
 interface Row { n: number; value: string; detail?: string; src: Src }
 
 const fmtLat = (lat: number) => `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}`;
@@ -43,7 +49,7 @@ function PlanForm({ plan, set, m, sites, t }: { plan: MissionPlan; set: (p: Part
   const setDest = (d: Dest) => set({ dest: d });
   return (
     <details className="plan" open>
-      <summary><ChevronRight size={16} aria-hidden /> Mission plan <span className="muted small">your inputs: route, rover and power</span></summary>
+      <summary><ChevronRight size={14} aria-hidden /> Mission plan</summary>
       <div className="plan-grid">
         <fieldset>
           <legend>When</legend>
@@ -203,9 +209,9 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
     return (
       <tr key={n}>
         <td className="mv-n num">{n}</td>
-        <th scope="row"><span className="mv-name">{v.name}</span><small>{v.description}</small></th>
+        <th scope="row"><span className="mv-name" title={v.description}>{v.name}</span></th>
         <td className="mv-val">{row.value}{row.detail && <small>{row.detail}</small>}</td>
-        <td className="mv-tags"><span className={`prio ${PRIO[v.priority]}`}>{v.priority}</span><span className={`src src-${row.src}`}>{SRC_LABEL[row.src]}</span></td>
+        <td className="mv-tags"><span className={`prio ${PRIO[v.priority]}`}>{v.priority}</span><span className={`src src-${row.src}`} title={SRC_TIP[row.src]}>{SRC_LABEL[row.src]}</span></td>
       </tr>
     );
   };
@@ -213,9 +219,9 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
   return (
     <section className="mission" aria-labelledby="mv-h">
       <div className="cal-head">
-        <h2 id="mv-h">Mission variables <span>all 33, live at the sim time</span></h2>
+        <h2 id="mv-h">Mission variables</h2>
         <div className="btn-row">
-          <button onClick={onCalc}><Calculator size={14} aria-hidden /> Open the calculator</button>
+          <button onClick={onCalc}><Calculator size={14} aria-hidden /> Calculator</button>
           <button onClick={() => navigator.clipboard?.writeText(csv()).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })}><Copy size={14} aria-hidden /> {copied ? 'Copied' : 'Copy as CSV'}</button>
         </div>
       </div>
@@ -223,11 +229,11 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
 
       <div className="mission-charts">
         <div className="instrument">
-          <h3 className="mchart-h">Route profile <span className="muted small">{m.busy ?? `${m.route.lengthKm.toFixed(1)} km, ${m.wp.length} waypoints, steep stretches in red`}</span></h3>
+          <h3 className="mchart-h">Route profile <span className="unit num">{m.busy ?? `${m.route.lengthKm.toFixed(1)} km, ${m.wp.length} wp`}</span><span className="mchart-key"><span className="swatch" style={{ background: 'var(--poor)' }} aria-hidden /> &gt; {plan.maxSlopeDeg}°</span></h3>
           <RouteProfile m={m} />
         </div>
         <div className="instrument">
-          <h3 className="mchart-h">Battery <span className="muted small">shaded where the rover is sunlit; click to jump</span></h3>
+          <h3 className="mchart-h">Battery <span className="mchart-key"><span className="swatch swatch-sunlit" aria-hidden /> Sunlit</span></h3>
           <BatteryChart m={m} t={t} onSeek={onSeek} />
         </div>
       </div>
@@ -247,8 +253,8 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
 
       <div className="mv-rank">
         <div className="best-head">
-          <h3>Landing site comparison <span className="muted small">next lunar day from the sim time</span></h3>
-          <button onClick={() => onCompare(ranking.slice(0, 3).map((x) => x.id))}><Columns2 size={14} aria-hidden /> Top three side by side</button>
+          <h3>Site ranking, next lunar day</h3>
+          <button onClick={() => onCompare(ranking.slice(0, 3).map((x) => x.id))}><Columns2 size={14} aria-hidden /> Compare top 3</button>
         </div>
         <div className="table-wrap">
           <table className="compare-table">
@@ -264,7 +270,6 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
           </table>
         </div>
       </div>
-      <p className="note">Sources: <b>Sim</b> is computed from LOLA terrain and the ephemeris at the sim time. <b>Your plan</b> comes from the form above. <b>Estimate</b> uses simple models (radiative balance, steady loads, a rover that drives without stopping). <b>Reference</b> is fixed site or validation data.</p>
     </section>
   );
 }

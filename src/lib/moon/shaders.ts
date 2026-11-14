@@ -7,11 +7,21 @@
  * Cast shadows are real: each pixel marches toward the Sun across the height maps (the same idea the app
  * uses for its horizon profiles), and the visible fraction of the 0.53° solar disc sets the light.
  * Light = Lommel-Seeliger/Lambert mix (the "lunar-Lambert" law), a small opposition surge, and earthshine.
+ *
+ * Anti-aliasing: every height lookup takes the screen footprint (metres per pixel, `fp`) and reads the
+ * prefiltered mip level that matches it (the height textures carry a box-filtered mip chain). Normals use
+ * finite differences at max(texel, footprint), shadow edges soften with footprint over occluder distance,
+ * and each procedural layer fades out before it drops below about two pixels.
+ *
+ * Precision: world km at 1737 km has ~0.1 m float resolution, too coarse for metre-scale detail and for
+ * fwidth(). The globe and cap therefore pass vRel, the position relative to an anchor near the camera
+ * snapped to a 2048 m lattice (exact integers on the CPU), so cell ids are exact and footprints are clean.
  */
 
 export const COMMON = /* glsl */ `
 #define PI 3.141592653589793
 #define DEG 0.017453292519943295
+#define ANCHOR_M 2048.0
 const float R_M = 1737400.0;
 const float SUN_R = 0.00465;          // solar angular radius, rad
 uniform vec3 uSun;                    // unit, Moon-fixed
@@ -33,17 +43,29 @@ uniform vec2 uHiRC0;                  // (row0, col0) of the window in the sourc
 uniform float uHiN;
 uniform float uRelief;
 uniform float uShadows;
+uniform float uDetail;                // 0..1, procedural detail below the data resolution
+uniform vec3 uAnchorIdx;              // anchor, Moon-fixed, in whole units of ANCHOR_M
+uniform vec3 uAnchorKm;               // the same anchor in km, rounded to float32
+uniform vec3 uAnchorCorr;             // metres: (float32 anchor) minus (exact anchor)
+uniform vec3 uCamRel;                 // camera relative to the anchor, metres
 
 vec3 enuE(float lon) { return vec3(-sin(lon), cos(lon), 0.0); }
 vec3 enuN(float lat, float lon) { return vec3(-sin(lat) * cos(lon), -sin(lat) * sin(lon), cos(lat)); }
 vec3 enuU(float lat, float lon) { return vec3(cos(lat) * cos(lon), cos(lat) * sin(lon), sin(lat)); }
 vec3 toENU(vec3 v, float lat, float lon) { return vec3(dot(v, enuE(lon)), dot(v, enuN(lat, lon)), dot(v, enuU(lat, lon))); }
 
+/** Position (km, Moon-fixed) to metres relative to the anchor, without losing precision. */
+vec3 anchorRel(vec3 pKm) { return (pKm - uAnchorKm) * 1000.0 + uAnchorCorr; }
+
 vec2 stereo(float lat, float lon) { float r = 2.0 * R_M * tan((0.5 * PI + lat) * 0.5); return vec2(r * sin(lon), r * cos(lon)); }
 vec2 stereoLL(vec2 xy) { float r = length(xy); return vec2(2.0 * atan(r / (2.0 * R_M)) - 0.5 * PI, atan(xy.x, xy.y)); }
 
+/** Mip level whose texels match a footprint of fp metres on a map of texel metres per pixel. */
+float lodFor(float fp, float texel) { return log2(max(fp, texel) / texel); }
+
 vec2 eqUV(float lat, float lon) { return vec2((lon + PI) / (2.0 * PI), (0.5 * PI - lat) / PI); }
-float hEq(float lat, float lon) { return textureLod(uEqH, eqUV(lat, lon), 0.0).r; }
+float eqTexel() { return PI * R_M / float(textureSize(uEqH, 0).y); }
+float hEq(float lat, float lon, float fp) { return textureLod(uEqH, eqUV(lat, lon), lodFor(fp, eqTexel())).r; }
 vec2 capUV(vec2 xy) { return vec2(xy.x + uCapHalf, uCapHalf - xy.y) / (2.0 * uCapHalf); }
 vec2 hiUV(vec2 xy) {
   vec2 cr = vec2(xy.x / uHiRes + uHiOff - uHiRC0.y, uHiOff - xy.y / uHiRes - uHiRC0.x);
@@ -51,64 +73,98 @@ vec2 hiUV(vec2 xy) {
 }
 bool inBox(vec2 uv, float m) { return all(greaterThan(uv, vec2(m))) && all(lessThan(uv, vec2(1.0 - m))); }
 
-/** Height (m) at a polar stereographic point: site patch, then cap, then the global map. */
-float hPolar(vec2 xy) {
-  if (uHiOn > 0.5) { vec2 u = hiUV(xy); if (inBox(u, 0.0)) return textureLod(uHi, u, 0.0).r; }
+/** Height (m) at a polar stereographic point, filtered to fp metres: site patch, then cap, then the global map. */
+float hPolar(vec2 xy, float fp) {
+  if (uHiOn > 0.5) { vec2 u = hiUV(xy); if (inBox(u, 0.0)) return textureLod(uHi, u, lodFor(fp, uHiRes)).r; }
   vec2 c = capUV(xy);
-  if (uCapOn > 0.5 && inBox(c, 0.0)) return textureLod(uCap, c, 0.0).r;
+  if (uCapOn > 0.5 && inBox(c, 0.0)) return textureLod(uCap, c, lodFor(fp, uCapRes)).r;
   vec2 ll = stereoLL(xy);
-  return hEq(ll.x, ll.y);
+  return hEq(ll.x, ll.y, fp);
 }
 /** Height (m) at a latitude/longitude, picking the finest map that covers it. */
-float hAt(float lat, float lon) {
-  if (lat < -80.0 * DEG) return hPolar(stereo(lat, lon));
-  return hEq(lat, lon);
+float hAt(float lat, float lon, float fp) {
+  if (lat < -80.0 * DEG) return hPolar(stereo(lat, lon), fp);
+  return hEq(lat, lon, fp);
 }
 
-/** Visible fraction of the solar disc from a polar point, by marching toward the Sun (horizon method). */
-float sunVisPolar(vec2 xy, float lon, float h0, vec3 s, float d0) {
+/**
+ * Shadow edge for one march sample: the solar disc, widened by how much the horizon angle of an occluder
+ * at distance d changes across one footprint, so terminator shadows do not sparkle when zoomed out.
+ */
+float discVis(float el, float a, float fp, float d) {
+  float w = SUN_R + min(0.12 * fp / d, 0.015);
+  return smoothstep(-w, w, el - a);
+}
+
+/**
+ * Visible fraction of the solar disc from a polar point, by marching toward the Sun (horizon method).
+ * Each sample reads heights filtered to the larger of the pixel footprint and half the step length, so the
+ * result does not depend on exactly where the (footprint-scaled) samples land.
+ */
+float sunVisPolar(vec2 xy, float lon, float h0, vec3 s, float d0, float fp) {
   float el = asin(clamp(s.z, -1.0, 1.0));
   if (el < -0.06) return 0.0;
   if (uShadows < 0.5) return smoothstep(-SUN_R, SUN_R, el);
   vec2 hd = normalize(s.xy + 1e-9);
   float cl = cos(lon), sl = sin(lon);
   vec2 g = vec2(hd.x * cl + hd.y * sl, -hd.x * sl + hd.y * cl);   // east/north -> grid x/y
-  float k = exp(log(180000.0 / d0) / 72.0);
-  float d = d0, hz = -1.0;
+  float k = exp(max(log(180000.0 / d0), 0.0) / 72.0);
+  float d = d0, vis = 1.0;
   for (int i = 0; i < 72; i++) {
-    float h = hPolar(xy + g * d);
-    hz = max(hz, (h - h0) / d - d / (2.0 * R_M));
-    if (atan(hz) - el > SUN_R) return 0.0;
+    float h = hPolar(xy + g * d, max(fp, 0.5 * d * (k - 1.0)));
+    vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
+    if (vis < 0.002) return 0.0;
     d *= k;
   }
-  return smoothstep(-SUN_R, SUN_R, el - atan(hz));
+  return vis;
 }
 
 /** Same, on the latitude/longitude map (marches into the polar maps when it crosses 80°S). */
-float sunVisEq(float lat, float lon, float h0, vec3 s, float d0) {
+float sunVisEq(float lat, float lon, float h0, vec3 s, float d0, float fp) {
   float el = asin(clamp(s.z, -1.0, 1.0));
   if (el < -0.06) return 0.0;
   if (uShadows < 0.5) return smoothstep(-SUN_R, SUN_R, el);
   vec2 hd = normalize(s.xy + 1e-9);
-  float k = exp(log(220000.0 / d0) / 48.0);
-  float d = d0, hz = -1.0, cl = max(cos(lat), 0.02);
+  float k = exp(max(log(220000.0 / d0), 0.0) / 48.0);
+  float d = d0, vis = 1.0, cl = max(cos(lat), 0.02);
   for (int i = 0; i < 48; i++) {
     float la = lat + hd.y * d / R_M, lo = lon + hd.x * d / (R_M * cl);
-    float h = hAt(la, lo);
-    hz = max(hz, (h - h0) / d - d / (2.0 * R_M));
-    if (atan(hz) - el > SUN_R) return 0.0;
+    float h = hAt(la, lo, max(fp, 0.5 * d * (k - 1.0)));
+    vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
+    if (vis < 0.002) return 0.0;
     d *= k;
   }
-  return smoothstep(-SUN_R, SUN_R, el - atan(hz));
+  return vis;
+}
+
+/**
+ * Extra slope gain under a high Sun. With the Sun near the zenith, slopes barely change the incidence
+ * angle, so the lit side reads flat; this lifts the relief there and leaves the terminator (s.z < 0.25) alone.
+ */
+float reliefGain(float sz) { return 1.0 + 1.1 * smoothstep(0.25, 0.85, sz); }
+
+/** Bowl crater with a raised rim; x = distance / radius. Returns (height m, dh/d(distance)). */
+vec2 craterProfile(float x, float rad, float fresh) {
+  float depth = rad * mix(0.04, 0.34, fresh * fresh);   // depth/diameter 0.02..0.17, mostly old and soft
+  float rimH = depth * mix(0.15, 0.4, fresh), w = 0.32;
+  float xi = min(x, 1.0);
+  float rim = exp(-((x - 1.0) * (x - 1.0)) / (w * w));
+  float h = depth * (xi * xi - 1.0) + rimH * rim;
+  float dh = (x < 1.0 ? depth * 2.0 * x : 0.0) + rimH * rim * (-2.0 * (x - 1.0) / (w * w));
+  return vec2(h, dh / rad);
 }
 
 vec3 shade(vec3 albedo, vec3 n, vec3 s, vec3 v, vec3 e, float vis) {
+  // The WAC mosaic is photometrically normalised and flat; a mild luminance contrast curve (gamma 1.25
+  // about the mean) keeps maria, highlands and ray systems apart under a full Sun.
+  float lum = dot(albedo, vec3(0.2126, 0.7152, 0.0722));
+  albedo *= pow(max(lum, 1e-4) / 0.32, 0.25);
   float mu0 = max(dot(n, s), 0.0);
   float mu = max(dot(n, v), 0.0);
   float ls = mu0 / max(mu0 + mu, 1e-4);
-  float sunTerm = (0.42 * 2.0 * ls + 0.58 * mu0) * vis;
+  float sunTerm = (0.35 * 2.0 * ls + 0.65 * mu0) * vis;
   float g = acos(clamp(dot(s, v), -1.0, 1.0));
-  float phase = 1.0 + 0.3 * exp(-g / 0.1);
+  float phase = 1.0 + 0.15 * exp(-g / 0.08);
   vec3 c = albedo * vec3(1.0, 0.98, 0.94) * uSunPower * sunTerm * phase;
   float me = max(dot(n, e), 0.0) * smoothstep(-0.05, 0.05, e.z);
   c += albedo * vec3(0.62, 0.7, 0.9) * uEarthshine * me;
@@ -142,21 +198,134 @@ const TAIL_F = /* glsl */ `
   #include <colorspace_fragment>
 `;
 
+/*
+ * Sub-texel detail for the globe and cap: fBm slopes and albedo mottling plus small craters, seeded in
+ * Moon-fixed metres on power-of-two lattices (ANCHOR_M / 2^k), so the pattern is fixed to the ground while
+ * orbiting and continuous across the globe/cap seam. Cell ids are the anchor's integer index times 2^k
+ * plus floor(vRel / cell), which stays exact at any zoom.
+ */
+const DETAIL = /* glsl */ `
+uvec3 pcg3(uvec3 v) {
+  v = v * 1664525u + 1013904223u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  v ^= v >> 16u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  return v;
+}
+vec3 hash3i(ivec3 p, uint seed) {
+  uvec3 sd = uvec3(seed * 0x9E3779B9u, seed * 0x85EBCA6Bu, seed * 0xC2B2AE35u);
+  return vec3(pcg3(uvec3(p + ivec3(16777216)) ^ sd)) * (1.0 / 4294967296.0);
+}
+float hash1i(ivec3 p, uint seed) { return hash3i(p, seed).x; }
+
+/** Integer cell of size ANCHOR_M / 2^k containing the point, and the position inside it (0..1). */
+ivec3 cellOf(vec3 rel, int k, out vec3 f) {
+  float c = ANCHOR_M / float(1 << k);
+  vec3 q = rel / c, fl = floor(q);
+  f = q - fl;
+  return ivec3(round(uAnchorIdx)) * (1 << k) + ivec3(fl);
+}
+
+/** 3D value noise, wavelength ANCHOR_M / 2^k: (value -1..1, gradient per metre). */
+vec4 vnoise3(vec3 rel, int k, uint seed) {
+  vec3 f;
+  ivec3 i = cellOf(rel, k, f);
+  float c = ANCHOR_M / float(1 << k);
+  vec3 u = f * f * (3.0 - 2.0 * f), du = 6.0 * f * (1.0 - f);
+  float a = hash1i(i, seed), b = hash1i(i + ivec3(1, 0, 0), seed);
+  float cc = hash1i(i + ivec3(0, 1, 0), seed), d = hash1i(i + ivec3(1, 1, 0), seed);
+  float e = hash1i(i + ivec3(0, 0, 1), seed), ff = hash1i(i + ivec3(1, 0, 1), seed);
+  float g = hash1i(i + ivec3(0, 1, 1), seed), h = hash1i(i + ivec3(1, 1, 1), seed);
+  float k1 = b - a, k2 = cc - a, k3 = e - a, k4 = a - b - cc + d;
+  float k5 = a - cc - e + g, k6 = a - b - e + ff, k7 = -a + b + cc - d + e - ff - g + h;
+  float v = a + k1 * u.x + k2 * u.y + k3 * u.z + k4 * u.x * u.y + k5 * u.y * u.z + k6 * u.z * u.x + k7 * u.x * u.y * u.z;
+  vec3 gr = du * vec3(k1 + k4 * u.y + k6 * u.z + k7 * u.y * u.z,
+                      k2 + k5 * u.z + k4 * u.x + k7 * u.z * u.x,
+                      k3 + k6 * u.x + k5 * u.y + k7 * u.x * u.y);
+  return vec4(2.0 * v - 1.0, 2.0 * gr / c);
+}
+
+/**
+ * One layer of craters on a 3D lattice of cell c = ANCHOR_M / 2^k. Each cell may hold one crater whose
+ * rim stays within half a cell of its centre, so the 2x2x2 nearest cells are enough. The ground cuts each
+ * crater's sphere of influence, so craters centred off the surface show smaller and shallower, which
+ * widens the size mix. Returns (tangent slope, Moon-fixed; ejecta brightness).
+ */
+vec4 craters3(vec3 rel, int k, uint seed, vec3 up, float fp) {
+  float c = ANCHOR_M / float(1 << k);
+  vec3 f;
+  ivec3 i0 = cellOf(rel, k, f);
+  ivec3 st = ivec3(step(0.5, f)) * 2 - 1;
+  vec4 acc = vec4(0.0);
+  for (int n = 0; n < 8; n++) {
+    ivec3 o = ivec3(n & 1, (n >> 1) & 1, (n >> 2) & 1) * st;
+    ivec3 id = i0 + o;
+    vec3 r = hash3i(id, seed);
+    if (r.x > 0.6) continue;
+    float rad = c * (0.06 + 0.2 * r.y * r.y);            // <= 0.26 c, so 1.9 rad < 0.5 c
+    float q = smoothstep(0.7 * fp, 2.0 * fp, 0.32 * rad);   // rim narrower than about a pixel: fade out
+    if (q <= 0.0) continue;
+    vec3 dv = (f - (hash3i(id, seed + 7u) + vec3(o))) * c;
+    float rho = length(dv), x = rho / rad;
+    if (x > 1.9) continue;
+    vec2 pr = craterProfile(x, rad, r.z);
+    vec3 g = rho > 1e-6 ? dv / rho * pr.y : vec3(0.0);
+    g -= dot(g, up) * up;
+    float ej = r.z * r.z * exp(-((x - 1.15) * (x - 1.15)) / 0.2);   // bright halo on fresh craters
+    acc += q * vec4(g, ej);
+  }
+  return acc;
+}
+
+/**
+ * Detail below the data: returns (dh/dEast, dh/dNorth, albedo factor). nTexel is the metres per texel of
+ * the data that already supplies the relief, cTexel that of the colour. Every octave fades in only below
+ * its data texel and fades out by footprint before Nyquist, so nothing shimmers and nothing pops.
+ */
+vec3 subTexel(vec3 rel, float fp, vec3 up, vec3 E, vec3 N, float nTexel, float cTexel) {
+  if (uDetail < 0.001) return vec3(0.0, 0.0, 1.0);
+  vec3 g = vec3(0.0);
+  float alb = 0.0;
+  for (int k = 0; k < 14; k++) {
+    float lam = ANCHOR_M / float(1 << k);
+    float wq = smoothstep(2.0 * fp, 5.0 * fp, lam);
+    if (wq < 0.001) break;
+    float wn = wq * smoothstep(nTexel, 0.5 * nTexel, lam);
+    float wa = wq * smoothstep(cTexel, 0.5 * cTexel, lam);
+    if (wn + wa < 0.001) continue;
+    vec4 nz = vnoise3(rel, k, uint(k) + 11u);
+    g += nz.yzw * (0.02 * lam) * wn;
+    alb += nz.x * 0.035 * wa;
+  }
+  for (int k = 0; k < 12; k++) {
+    float c = ANCHOR_M / float(1 << k);
+    if (0.32 * 0.26 * c < 0.7 * fp) break;                 // every crater in this layer is below a pixel
+    float wl = smoothstep(2.5 * nTexel, 1.5 * nTexel, c);  // only craters the data cannot show
+    if (wl < 0.001) continue;
+    vec4 cr = craters3(rel, k, uint(k) * 31u + 5u, up, fp);
+    g += cr.xyz * wl;
+    alb += cr.w * 0.12 * wl;
+  }
+  g -= dot(g, up) * up;
+  return vec3(dot(g, E) * uDetail, dot(g, N) * uDetail, 1.0 + alb * uDetail);
+}
+`;
+
 /* ---------------- globe ---------------- */
 export const GLOBE_V = /* glsl */ `
 ${HEAD_V}
 ${COMMON}
 uniform float uExag;
 varying vec3 vDir;
-varying vec3 vWorld;
+varying vec3 vRel;
 void main() {
   vec3 d = normalize(position);
   float lat = asin(clamp(d.z, -1.0, 1.0)), lon = atan(d.y, d.x);
   float h = textureLod(uEqH, eqUV(lat, lon), 0.0).r;
   vec3 p = d * (R_M + h * uExag) / 1000.0;
   vDir = d;
+  vRel = anchorRel(p);
   vec4 w = modelMatrix * vec4(p, 1.0);
-  vWorld = w.xyz;
   gl_Position = projectionMatrix * viewMatrix * w;
   #include <logdepthbuf_vertex>
 }`;
@@ -165,26 +334,31 @@ export const GLOBE_F = /* glsl */ `
 ${HEAD_F}
 ${COMMON}
 ${FRAG_ONLY}
-uniform vec3 uCam;
+${DETAIL}
 varying vec3 vDir;
-varying vec3 vWorld;
+varying vec3 vRel;
 void main() {
   vec3 d = normalize(vDir);
   float lat = asin(clamp(d.z, -1.0, 1.0)), lon = atan(d.y, d.x);
   if (uCapOn > 0.5 && lat < -80.05 * DEG) discard;
+  float fp = max(length(fwidth(vRel)), 1e-3);   // metres per pixel on the ground
   vec2 uv = seamlessUV(lat, lon);
+  vec3 s = toENU(uSun, lat, lon);
+  float gs = reliefGain(s.z);
   vec3 albedo = texture(uColor, uv).rgb;
   vec3 nt = texture(uNormal, uv).xyz * 2.0 - 1.0;
-  nt.xy *= uRelief;
-  vec3 n = normalize(nt);
-  vec3 s = toENU(uSun, lat, lon);
-  vec3 v = toENU(normalize(uCam - vWorld), lat, lon);
+  nt.z = max(nt.z, 0.05);
+  float cTex = PI * R_M / float(textureSize(uColor, 0).y);
+  float nTex = PI * R_M / float(textureSize(uNormal, 0).y);
+  vec3 dt = subTexel(vRel, fp, d, enuE(lon), enuN(lat, lon), nTex, cTex);
+  vec3 n = normalize(vec3(nt.xy * uRelief * gs - dt.xy * gs * nt.z, nt.z));
+  albedo *= dt.z;
+  vec3 v = toENU(normalize(uCamRel - vRel), lat, lon);
   vec3 e = toENU(uEarthDir, lat, lon);
   float vis = 1.0;
   if (dot(n, s) > 0.0 && s.z < 0.45) {
-    float h0 = hEq(lat, lon);
-    float px = length(fwidth(vWorld)) * 1000.0;
-    vis = sunVisEq(lat, lon, h0 + 30.0, s, max(px * 1.5, 900.0));
+    float h0 = hEq(lat, lon, fp);
+    vis = sunVisEq(lat, lon, h0 + 30.0, s, max(fp * 1.5, 900.0), fp);
   } else if (s.z < -0.06) vis = 0.0;
   gl_FragColor = vec4(shade(albedo, n, s, v, e, vis), 1.0);
   ${TAIL_F}
@@ -196,7 +370,7 @@ ${HEAD_V}
 ${COMMON}
 uniform float uExag;
 varying vec2 vXY;
-varying vec3 vWorld;
+varying vec3 vRel;
 void main() {
   vec2 xy = position.xy * 1000.0;
   vec2 ll = stereoLL(xy);
@@ -204,8 +378,8 @@ void main() {
   vec3 d = vec3(cos(ll.x) * cos(ll.y), cos(ll.x) * sin(ll.y), sin(ll.x));
   vec3 p = d * (R_M + h * uExag) / 1000.0;
   vXY = xy;
+  vRel = anchorRel(p);
   vec4 w = modelMatrix * vec4(p, 1.0);
-  vWorld = w.xyz;
   gl_Position = projectionMatrix * viewMatrix * w;
   #include <logdepthbuf_vertex>
 }`;
@@ -214,31 +388,35 @@ export const CAP_F = /* glsl */ `
 ${HEAD_F}
 ${COMMON}
 ${FRAG_ONLY}
-uniform vec3 uCam;
+${DETAIL}
 varying vec2 vXY;
-varying vec3 vWorld;
+varying vec3 vRel;
 void main() {
   vec2 ll = stereoLL(vXY);
   float lat = ll.x, lon = ll.y;
   if (lat > -80.0 * DEG) discard;
   if (uHiOn > 0.5 && inBox(hiUV(vXY), 2.0 / uHiN)) discard;
-  float e = uCapRes;
+  float fp = max(length(fwidth(vRel)), 1e-3);
+  // slope from the 148 m heights, differenced over max(texel, footprint) on the matching mip
+  float e = max(uCapRes, fp), lod = lodFor(fp, uCapRes);
   vec2 c = capUV(vXY), du = vec2(e / (2.0 * uCapHalf), 0.0);
-  float hx1 = texture(uCap, c + du.xy).r, hx0 = texture(uCap, c - du.xy).r;
-  float hy1 = texture(uCap, c - du.yx).r, hy0 = texture(uCap, c + du.yx).r;   // +y is up the image
-  vec2 gg = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e) * uRelief;
+  float hx1 = textureLod(uCap, c + du.xy, lod).r, hx0 = textureLod(uCap, c - du.xy, lod).r;
+  float hy1 = textureLod(uCap, c - du.yx, lod).r, hy0 = textureLod(uCap, c + du.yx, lod).r;   // +y is up the image
+  vec3 s = toENU(uSun, lat, lon);
+  float gs = reliefGain(s.z);
+  vec2 gg = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e) * uRelief * gs;
   float cl = cos(lon), sl = sin(lon);
   vec2 gEN = vec2(gg.x * cl - gg.y * sl, gg.x * sl + gg.y * cl);
-  vec3 n = normalize(vec3(-gEN, 1.0));
-  vec3 s = toENU(uSun, lat, lon);
-  vec3 v = toENU(normalize(uCam - vWorld), lat, lon);
+  float cTex = PI * R_M / float(textureSize(uColor, 0).y);
+  vec3 dt = subTexel(vRel, fp, enuU(lat, lon), enuE(lon), enuN(lat, lon), uCapRes, cTex);
+  vec3 n = normalize(vec3(-gEN - dt.xy * gs, 1.0));
+  vec3 v = toENU(normalize(uCamRel - vRel), lat, lon);
   vec3 ee = toENU(uEarthDir, lat, lon);
-  vec3 albedo = texture(uColor, seamlessUV(lat, lon)).rgb;
+  vec3 albedo = texture(uColor, seamlessUV(lat, lon)).rgb * dt.z;
   float vis = 0.0;
   if (dot(n, s) > -0.02) {
-    float h0 = texture(uCap, c).r;
-    float px = length(fwidth(vWorld)) * 1000.0;
-    vis = sunVisPolar(vXY, lon, h0 + 4.0, s, max(px, e) * 0.8);
+    float h0 = textureLod(uCap, c, lod).r;
+    vis = sunVisPolar(vXY, lon, h0 + 4.0, s, max(fp, uCapRes) * 0.8, fp);
   }
   gl_FragColor = vec4(shade(albedo, n, s, v, ee, vis), 1.0);
   ${TAIL_F}
@@ -265,7 +443,6 @@ ${HEAD_F}
 ${COMMON}
 ${FRAG_ONLY}
 uniform vec3 uCamLocal;   // camera position relative to the patch origin, km
-uniform float uDetail;    // 0..1, procedural detail below the data resolution
 varying vec2 vXY;
 varying vec2 vLocal;
 varying vec3 vPos;
@@ -274,7 +451,8 @@ float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.y
 vec2 hash22(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973)); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.xx + p3.yz) * p3.zy); }
 
 // One layer of simple bowl craters with raised rims, cell size c (m). Returns (height, dh/dx, dh/dy).
-vec3 craters(vec2 p, float c, float seed) {
+// Craters whose rim is narrower than about a pixel fade out, so the smallest ones in a layer never alias.
+vec3 craters(vec2 p, float c, float seed, float fp) {
   vec3 acc = vec3(0.0);
   vec2 cell = floor(p / c);
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
@@ -282,23 +460,19 @@ vec3 craters(vec2 p, float c, float seed) {
     if (hash12(id + seed) > 0.3) continue;
     vec2 ctr = (id + 0.15 + 0.7 * hash22(id + seed * 1.7)) * c;
     float rad = c * (0.1 + 0.4 * pow(hash12(id * 1.31 + seed * 2.1), 2.2));
+    float q = smoothstep(0.7 * fp, 2.0 * fp, 0.32 * rad);
+    if (q <= 0.0) continue;
     vec2 dv = p - ctr;
     float rho = length(dv);
     float x = rho / rad;
     if (x > 1.9) continue;
-    float fresh = hash12(id * 0.7 + seed * 3.3);
-    float depth = rad * mix(0.04, 0.34, fresh * fresh);   // depth/diameter 0.02..0.17, mostly old and soft
-    float rimH = depth * mix(0.15, 0.4, fresh), w = 0.32;
-    float xi = min(x, 1.0);
-    float rim = exp(-((x - 1.0) * (x - 1.0)) / (w * w));
-    float h = depth * (xi * xi - 1.0) + rimH * rim;
-    float dh = (x < 1.0 ? depth * 2.0 * x : 0.0) + rimH * rim * (-2.0 * (x - 1.0) / (w * w));
-    acc += vec3(h, rho > 1e-6 ? dv / rho * dh / rad : vec2(0.0));
+    vec2 pr = craterProfile(x, rad, hash12(id * 0.7 + seed * 3.3));
+    acc += q * vec3(pr.x, rho > 1e-6 ? dv / rho * pr.y : vec2(0.0));
   }
   return acc;
 }
 // Boulders: a sparse layer of steep bumps.
-vec3 rocks(vec2 p, float c, float seed) {
+vec3 rocks(vec2 p, float c, float seed, float fp) {
   vec3 acc = vec3(0.0);
   vec2 cell = floor(p / c);
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
@@ -306,10 +480,12 @@ vec3 rocks(vec2 p, float c, float seed) {
     if (hash12(id + seed) > 0.12) continue;
     vec2 ctr = (id + 0.2 + 0.6 * hash22(id + seed)) * c;
     float rad = c * (0.08 + 0.2 * hash12(id + seed * 5.0));
+    float qa = smoothstep(fp, 3.0 * fp, rad);
+    if (qa <= 0.0) continue;
     vec2 dv = p - ctr; float rho = length(dv); float x = rho / rad;
     if (x >= 1.0) continue;
     float ht = rad * 0.9, q = 1.0 - x * x;
-    acc += vec3(ht * q * q, dv / max(rho, 1e-6) * (ht * 2.0 * q * (-2.0 * x)) / rad);
+    acc += qa * vec3(ht * q * q, dv / max(rho, 1e-6) * (ht * 2.0 * q * (-2.0 * x)) / rad);
   }
   return acc;
 }
@@ -330,11 +506,11 @@ vec3 micro(vec2 p, float fp, out float wsum) {
   float c = uHiRes * 1.6;
   for (int k = 0; k < 7; k++) {
     float w = smoothstep(fp * 3.0, fp * 9.0, c * 0.3) * uDetail;
-    if (w > 0.001) { acc += craters(p, c, float(k) * 17.0) * w; wsum = max(wsum, w); }
+    if (w > 0.001) { acc += craters(p, c, float(k) * 17.0, fp) * w; wsum = max(wsum, w); }
     c *= 0.42;
   }
   float wr = smoothstep(fp * 3.0, fp * 9.0, 0.35) * uDetail;
-  if (wr > 0.001) acc += rocks(p, 2.2, 5.0) * wr + rocks(p, 0.8, 9.0) * wr;
+  if (wr > 0.001) acc += rocks(p, 2.2, 5.0, fp) * wr + rocks(p, 0.8, 9.0, fp) * wr;
   float wn = smoothstep(fp * 2.0, fp * 6.0, 0.05) * uDetail;
   if (wn > 0.001) { vec3 nz = vnoise(p * 9.0); acc += vec3(nz.x * 0.012, nz.yz * 0.012 * 9.0) * wn; }
   return acc;
@@ -346,29 +522,31 @@ float microH(vec2 p, float fp) {
 void main() {
   vec2 ll = stereoLL(vXY);
   float lat = ll.x, lon = ll.y;
-  // data gradient (grid space) from the LOLA patch
-  float e = uHiRes;
-  vec2 c = hiUV(vXY), du = vec2(1.0 / uHiN, 0.0);
-  float h0 = texture(uHi, c).r;
-  vec2 gg = vec2(texture(uHi, c + du.xy).r - texture(uHi, c - du.xy).r,
-                 texture(uHi, c - du.yx).r - texture(uHi, c + du.yx).r) / (2.0 * e);
-  // procedural detail below the data resolution (illustrative)
   float fp = max(length(fwidth(vLocal)), 1e-4);
+  // data gradient (grid space) from the LOLA patch, differenced over max(texel, footprint) on the matching mip
+  float e = max(uHiRes, fp), lod = lodFor(fp, uHiRes);
+  vec2 c = hiUV(vXY), du = vec2(e / (uHiRes * uHiN), 0.0);
+  float h0 = textureLod(uHi, c, lod).r;
+  vec2 gg = vec2(textureLod(uHi, c + du.xy, lod).r - textureLod(uHi, c - du.xy, lod).r,
+                 textureLod(uHi, c - du.yx, lod).r - textureLod(uHi, c + du.yx, lod).r) / (2.0 * e);
+  // procedural detail below the data resolution (illustrative)
   float wsum;
   vec3 m = micro(vLocal, fp, wsum);
   float cl = cos(lon), sl = sin(lon);
-  vec2 gd = gg * uRelief, gt = gd + m.yz;
+  vec3 s = toENU(uSun, lat, lon);
+  vec2 gd = gg * uRelief * reliefGain(s.z), gt = gd + m.yz;
   vec2 gEN = vec2(gt.x * cl - gt.y * sl, gt.x * sl + gt.y * cl);
   vec3 n = normalize(vec3(-gEN, 1.0));
   vec3 nb = normalize(vec3(-vec2(gd.x * cl - gd.y * sl, gd.x * sl + gd.y * cl), 1.0));   // data-only normal
-  vec3 s = toENU(uSun, lat, lon);
   vec3 v = toENU(normalize(uCamLocal - vPos), lat, lon);
   vec3 ee = toENU(uEarthDir, lat, lon);
   vec3 albedo = texture(uColor, seamlessUV(lat, lon)).rgb;
-  albedo *= 0.93 + 0.14 * hash12(floor(vLocal * 3.0));       // speckle of fresh regolith
+  // mottling of fresh regolith at ~30 cm, faded out before it drops below a couple of pixels
+  float wsp = smoothstep(2.0 * fp, 5.0 * fp, 0.33) * uDetail;
+  albedo *= 1.0 + 0.07 * (2.0 * vnoise(vLocal * 3.0).x - 1.0) * wsp;
   float vis = 0.0;
   if (dot(n, s) > -0.02) {
-    vis = sunVisPolar(vXY, lon, h0 + 0.4 * e, s, e * 0.75);
+    vis = sunVisPolar(vXY, lon, h0 + 0.4 * e, s, max(0.75 * uHiRes, 0.8 * fp), fp);
     // micro shadows: march the procedural relief toward the Sun for a few metres
     if (vis > 0.0 && wsum > 0.01 && uShadows > 0.5) {
       vec2 hd = normalize(s.xy + 1e-9);

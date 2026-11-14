@@ -22,7 +22,7 @@ export default function Export({ d, r }: { d: SiteData; r: ScenarioResult }) {
   };
   return (
     <div className="export">
-      <span>Take these numbers with you</span>
+      <span className="export-label">Export</span>
       <button onClick={() => go('csv')}><Download size={14} aria-hidden /> CSV</button>
       <button onClick={() => go('json')}><Download size={14} aria-hidden /> JSON</button>
       {text && (

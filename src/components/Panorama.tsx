@@ -5,7 +5,7 @@ import { horizonAt } from '../lib/horizon';
 import { mix, useTheme } from '../lib/theme';
 import { siteOf } from '../lib/useScenario';
 import { Key } from './Guide';
-import { HelpTip } from './Help';
+import { fitCanvas, useDpr } from './useDpr';
 
 /** Stable y-range for a site: covers terrain + typical Sun/Earth elevations. */
 export function autoYRange(d: SiteData): [number, number] {
@@ -29,6 +29,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
   const [width, setWidth] = useState(800);
   const [hover, setHover] = useState<{ x: number } | null>(null);
   const { c } = useTheme();
+  const dpr = useDpr();
   const site = useMemo(() => siteOf(data), [data]);
   const range = useMemo(() => yRange ?? autoYRange(data), [data, yRange]);
 
@@ -62,10 +63,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
-    cv.width = width * dpr; cv.height = height * dpr;
-    const g = cv.getContext('2d')!;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const g = fitCanvas(cv, width, height, dpr);
     g.clearRect(0, 0, width, height);
     const font = (px: number, w = 400, mono = true) => `${w} ${px}px ${mono ? c.mono : c.font}`;
     const grid = mix(c.sky, c.ink, 0.1);
@@ -160,7 +158,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
       g.strokeStyle = c.ink; g.globalAlpha = 0.5; g.lineWidth = 1;
       g.beginPath(); g.moveTo(hover.x + 0.5, padT); g.lineTo(hover.x + 0.5, padT + plotH); g.stroke(); g.globalAlpha = 1;
     }
-  }, [width, height, data, sky, trails, lo, hi, hover, compact, c]);
+  }, [width, height, dpr, data, sky, trails, lo, hi, hover, compact, c]);
 
   const hoverInfo = (() => {
     if (!hover) return null;
@@ -173,7 +171,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
   return (
     <>
       <div className="panorama" ref={wrapRef}>
-        <canvas ref={canvasRef} style={{ width: '100%', height }} role="img" aria-label={label}
+        <canvas ref={canvasRef} style={{ width, height }} role="img" aria-label={label}
           onMouseMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); setHover({ x: e.clientX - r.left }); }}
           onMouseLeave={() => setHover(null)} />
         {hoverInfo && (
@@ -184,15 +182,13 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
       </div>
       {!compact && (
         <ul className="chart-legend" aria-label="Chart legend">
-          <li><Key k="terrain" /> Mountains on the horizon</li>
+          <li><Key k="terrain" /> Terrain</li>
           <li><Key k="sun" /> Sun</li>
           <li><Key k="earth" /> Earth</li>
-          <li><Key k="hidden" /> Behind terrain</li>
+          <li><Key k="hidden" /> Occluded</li>
           <li><Key k="path" /> Next {trailHours} h</li>
-          <li><Key k="flat" /> Flat horizon (0°)</li>
-          <li className="legend-note">Height stretched {exaggeration.toFixed(1)}×
-            <HelpTip label="Why is the height stretched?" align="right">The Sun only moves about 1.5° up and down at the pole, so the vertical axis is magnified to make one-degree ridges visible. Real slopes look much flatter. Sun and Earth are drawn at their true size on the same scale. Hover over the chart to read exact angles.</HelpTip>
-          </li>
+          <li><Key k="flat" /> 0° horizon</li>
+          <li className="legend-note">Vertical <span className="num">{exaggeration.toFixed(1)}×</span></li>
         </ul>
       )}
     </>

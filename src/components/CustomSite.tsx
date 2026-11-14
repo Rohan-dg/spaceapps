@@ -53,12 +53,11 @@ export default function CustomSite({ doc, onReady }: Props) {
 
   return (
     <details className="custom-site">
-      <summary><ChevronRight size={16} aria-hidden /> Try your own coordinates</summary>
-      <p>Any point from 80.5° S to the pole. Your browser computes the skyline from 400 m terrain, then three years of Sun and Earth timing. It takes about three seconds. Results are marked <span className="flag flag-approx">approximate</span>: skylines run 0.1–0.6° off the 40 m data on average.</p>
+      <summary><ChevronRight size={14} aria-hidden /> Custom coordinates</summary>
       <div className="custom-row">
-        <label>Latitude °<input id="custom-lat" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
-        <label>Longitude ° E<input id="custom-lon" inputMode="decimal" value={lon} onChange={(e) => setLon(e.target.value)} /></label>
-        <button className="btn-primary" onClick={run} disabled={!!busy}>{busy ? 'Working…' : 'Compute'}</button>
+        <label>Lat ° (−90 to −80.5)<input id="custom-lat" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
+        <label>Lon ° E<input id="custom-lon" inputMode="decimal" value={lon} onChange={(e) => setLon(e.target.value)} /></label>
+        <button className="btn-primary" onClick={run} disabled={!!busy}>{busy ? 'Computing' : 'Compute'}</button>
       </div>
       {busy && <p className="small" aria-live="polite">{busy}</p>}
       {err && <p className="small err" role="alert">{err}</p>}

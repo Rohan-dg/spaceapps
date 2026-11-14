@@ -1,12 +1,12 @@
-import { ChevronRight, CircleHelp, Contrast, Info, Sparkles } from './components/Icons';
+import { CircleHelp, Contrast, Info } from './components/Icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import About, { Explainer } from './components/About';
+import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
-import { HelpTip, Loading, Step } from './components/Help';
+import { Loading } from './components/Help';
 import Heatmap from './components/Heatmap';
 import MissionPanel from './components/MissionPanel';
 import { Readout, Summary } from './components/Metrics';
@@ -30,12 +30,10 @@ function loadPlan(t: number): MissionPlan {
 }
 type View = 'panorama' | 'sky';
 type Deep = 'calendar' | 'numbers' | 'mission';
-const VIEWS: { id: View; label: string; caption: string }[] = [
-  { id: 'panorama', label: 'Horizon view', caption: 'A 360° view of the horizon from the site, as if you turned around once. Anything below the grey mountain line is blocked from view.' },
-  { id: 'sky', label: 'Sky from above', caption: 'The whole sky as a circle: the centre is straight overhead and the edge is the horizon. Useful for seeing which direction the Sun and Earth are in.' },
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'panorama', label: 'Panorama' },
+  { id: 'sky', label: 'Sky plot' },
 ];
-const GUIDE_KEY = 'lsc-guide-seen';
-const seenGuide = () => { try { return localStorage.getItem(GUIDE_KEY) === '1'; } catch { return true; } };
 const MoonView = lazy(() => import('./components/MoonView'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
@@ -49,17 +47,6 @@ function readHash() {
     mode: (p.get('mode') as Mode) ?? 'explore',
     scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
   };
-}
-
-export function Mark({ className }: { className?: string }) {
-  // Half-lit disc over a ridge line: the whole problem in one glyph.
-  return (
-    <svg className={className} viewBox="0 0 40 40" aria-hidden="true">
-      <circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M20 5a15 15 0 0 1 0 30z" fill="currentColor" />
-      <path d="M3.5 25.5c5-2.6 9.4-2.6 13.4-.6s9.6 2.6 19.6-1.4" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" />
-    </svg>
-  );
 }
 
 const fmtLon = (lon: number) => { const l = ((lon % 360) + 360) % 360; return l > 180 ? `${(360 - l).toFixed(3)}° W` : `${l.toFixed(3)}° E`; };
@@ -76,11 +63,9 @@ export default function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [about, setAbout] = useState(false);
-  // First-time visitors without a shared link get the guide; shared links go straight to the scene.
-  const [guide, setGuide] = useState(() => !location.hash && !seenGuide());
-  const [firstVisit] = useState(guide);
+  // Help opens only from its button (or the ? key), never on its own.
+  const [guide, setGuide] = useState(false);
   const [deep, setDeep] = useState<Deep>('calendar');
-  const [factsOpen, setFactsOpen] = useState(false);
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
@@ -109,10 +94,7 @@ export default function App() {
 
   const onT = useCallback((x: number) => setT(x), []);
   const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
-  const closeGuide = useCallback(() => {
-    setGuide(false);
-    try { localStorage.setItem(GUIDE_KEY, '1'); } catch { /* storage blocked */ }
-  }, []);
+  const closeGuide = useCallback(() => setGuide(false), []);
   const applyPreset = useCallback((p: Preset) => {
     setPlaying(false);
     setSiteId(p.siteId);
@@ -120,9 +102,7 @@ export default function App() {
     setView('panorama');
     if (p.compare) setScenarios(p.compare.map((id) => ({ siteId: id, t: p.t })));
     setMode(p.mode);
-    closeGuide();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [closeGuide]);
+  }, []);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -141,69 +121,56 @@ export default function App() {
   }, [range, closeGuide]);
 
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
-  if (!doc) return <div className="fatal wrap"><Loading label="Loading NASA terrain data and Sun and Earth positions…" /></div>;
+  if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
-  const yr = (s: string) => s.slice(0, 4);
-  const viewDef = VIEWS.find((v) => v.id === view)!;
 
   return (
     <div className="app">
-      {synthetic && <div className="banner" role="alert">Synthetic terrain. These horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> with network access to replace them.</div>}
+      {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <header className="masthead wrap">
-        <div className="brand">
-          <Mark className="brand-mark" />
-          <div>
-            <h1>Lunar Site Compare</h1>
-            <p>Sunlight and line of sight to Earth at the lunar south pole · {yr(doc.range.start)}–{yr(doc.range.end)}</p>
-          </div>
-        </div>
+        <h1 className="brand">Lunar Site Compare</h1>
         <nav className="tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
         </nav>
+        <label className="preset-pick">
+          <span>Preset</span>
+          <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
+            <option value="">Select</option>
+            {PRESETS.map((p) => <option key={p.id} value={p.id} title={p.blurb}>{p.title}</option>)}
+          </select>
+        </label>
         <div className="mast-tools">
-          <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={16} /><span className="sr-only">Theme</span></button>
-          <button onClick={() => setAbout(true)} aria-label="Method and sources"><Info size={16} /> <span className="mast-label">Data &amp; method</span></button>
-          <button className="btn-primary" onClick={() => setGuide(true)} aria-label="How to use this app"><CircleHelp size={16} /> <span className="lbl-long">How to use</span><span className="lbl-short">Help</span></button>
+          <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={15} /><span className="sr-only">Theme</span></button>
+          <button onClick={() => setAbout(true)} aria-label="Data and method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
+          <button onClick={() => setGuide(true)} aria-label="Help"><CircleHelp size={15} /> <span className="mast-label">Help</span></button>
         </div>
       </header>
-      <Suspense fallback={<div className="moon moon-wait"><Loading label="Starting the 3D Moon…" /></div>}>
-        <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} />
-      </Suspense>
-      <div className="try-bar wrap" role="region" aria-label="Examples">
-        <span className="try-label"><Sparkles size={14} aria-hidden /> Try an example:</span>
-        <div className="try-chips">
-          {PRESETS.slice(0, 4).map((p) => <button key={p.id} className="chip" title={p.blurb} onClick={() => applyPreset(p)}>{p.title}</button>)}
-          <button className="chip chip-more" onClick={() => setGuide(true)}>More examples <ChevronRight size={14} aria-hidden /></button>
-        </div>
+      <div className="hero wrap">
+        <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
+          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} />
+        </Suspense>
       </div>
 
       {mode === 'explore' ? (
         <main className="explore wrap">
           <aside className="rail">
-            <div className="rail-step">
-              <Step n={1} title="Pick a landing site" hint="Twelve real sites. Icons show conditions right now and the rating for the next month." />
-              <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
-            </div>
+            <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
             {info && (
-              <section className="site-info" aria-label="Site details">
-                <span className="eyebrow">About this site</span>
-                <h2>{info.name}</h2>
-                {info.approximate && <span><span className="flag flag-approx">approximate</span> horizon from 400 m terrain, computed in your browser</span>}
-                <p>{info.description}</p>
-                <details className="disclosure facts-wrap" open={factsOpen} onToggle={(e) => setFactsOpen(e.currentTarget.open)}>
-                  <summary>Coordinates and data source</summary>
-                  <dl className="facts">
-                    <dt>Position</dt><dd className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</dd>
-                    <dt>Elevation</dt><dd className="num">{info.siteHeightM.toFixed(0)} m</dd>
-                    {info.snappedM > 0 && <><dt>Adjusted</dt><dd>{info.snappedM} m from the cited point, onto the local high ground</dd></>}
-                    <dt>Terrain</dt><dd>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</dd>
-                    <dt>Source</dt><dd>{info.source}</dd>
-                    {info.verify && <><dt>Status</dt><dd><span className="flag flag-verify">verify</span> Coordinate not yet checked against the source</dd></>}
-                  </dl>
-                </details>
+              <section className="site-info" aria-labelledby="site-info-h">
+                <h3 id="site-info-h" className="sec-h">{info.name}{info.approximate && <span className="flag flag-approx">approximate</span>}</h3>
+                <table className="facts">
+                  <tbody>
+                    <tr><th scope="row">Position</th><td className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</td></tr>
+                    <tr><th scope="row">Elevation</th><td className="num">{info.siteHeightM.toFixed(0)} m</td></tr>
+                    {info.snappedM > 0 && <tr><th scope="row">Snapped</th><td className="num">{info.snappedM} m from cited point</td></tr>}
+                    <tr><th scope="row">DEM</th><td>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</td></tr>
+                    <tr><th scope="row">Source</th><td>{info.source}</td></tr>
+                    {info.verify && <tr><th scope="row">Status</th><td><span className="flag flag-verify">verify</span> coordinate unchecked</td></tr>}
+                  </tbody>
+                </table>
               </section>
             )}
             <CustomSite doc={doc} onReady={(d) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }} />
@@ -213,59 +180,51 @@ export default function App() {
             {data && res ? (
               <>
                 <div className="work-head">
-                  <span className="eyebrow">{data.info.mission}</span>
                   <h2>{data.info.name}</h2>
-                  <p className="when"><span className="num">{when(t)}</span> UTC · <span className="num">{fmtLat(data.info.lat)}</span></p>
+                  <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
                 </div>
 
-                <div className="step-block">
-                  <Step n={2} title="Pick a moment" hint="Press Play to watch the Sun circle the horizon, or drag the slider to any date." />
-                  <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
-                </div>
-
-                <div className="step-block">
-                  <Step n={3} title="Read the answer" hint="Green is good, amber is marginal, red is poor." />
-                  <Summary r={res} />
-                </div>
+                <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
+                <Summary r={res} />
 
                 <div className="instrument">
                   <div className="view-head">
-                    <h3>See why <HelpTip label="About these views">Both views show the same moment as the 3D Moon above. The Horizon view is the main one: it shows exactly which mountain blocks the Sun or Earth.</HelpTip></h3>
-                    <div className="seg" role="radiogroup" aria-label="Choose a view">
+                    <h3 className="sec-h">Horizon</h3>
+                    <div className="seg" role="radiogroup" aria-label="View">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
                       ))}
                     </div>
                   </div>
-                  <p className="view-caption">{viewDef.caption}</p>
-                  {view === 'panorama' ? <Panorama data={data} t={t} height={330} />
+                  {view === 'panorama' ? <Panorama data={data} t={t} height={300} />
                     : <SkyPlot data={data} t={t} />}
                 </div>
 
                 <div className="instrument">
                   <div className="view-head">
-                    <h3>The next 30 days</h3>
+                    <h3 className="sec-h">Next 30 days</h3>
+                    <ul className="chart-legend" aria-label="Legend">
+                      <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
+                      <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
+                      <li><span className="swatch swatch-line" aria-hidden /> Now</li>
+                    </ul>
                   </div>
-                  <p className="view-caption">Coloured bars mark when the site is <b className="t-sun">sunlit</b> and when <b className="t-earth">Earth is in view</b>. The orange line is now. Click anywhere on the strip to jump there.</p>
                   <Timeline data={data} t={t} onSeek={onT} />
                 </div>
 
-                <section className="deep" aria-label="Go deeper">
-                  <div className="deep-head">
-                    <h3>Go deeper</h3>
-                    <div className="seg" role="tablist" aria-label="Detail panels">
-                      <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Best landing dates</button>
-                      <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>Exact numbers &amp; download</button>
-                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission variables</button>
-                    </div>
+                <section className="deep" aria-label="Detail">
+                  <div className="seg" role="tablist" aria-label="Detail panels">
+                    <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
+                    <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>Readout</button>
+                    <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission variables</button>
                   </div>
                   {deep === 'calendar' ? (
-                    <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+                    <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }} />
                   ) : deep === 'mission' ? (
                     mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
                       onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
                       onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
-                      onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <div className="loading">Working out the mission…</div>
+                      onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
                   ) : (
                     <div className="numbers">
                       <Readout r={res} />
@@ -274,8 +233,7 @@ export default function App() {
                   )}
                 </section>
               </>
-            ) : <Loading label="Loading this site's terrain and timeline…" />}
-            <Explainer />
+            ) : <Loading label="Loading site" />}
           </section>
         </main>
       ) : mode === 'calc' ? (
@@ -285,15 +243,14 @@ export default function App() {
       ) : (
         <main className="compare-main wrap">
           <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />
-          <Explainer />
         </main>
       )}
       <footer className="footer wrap">
-        <span>Terrain: NASA LRO LOLA, PDS Geosciences Node. Positions: astronomy-engine, checked against JPL Horizons.</span>
-        <span>Covers {doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC. Not a NASA product.</span>
+        <span>Terrain: NASA LRO LOLA (PDS Geosciences). Ephemeris: astronomy-engine, validated against JPL Horizons.</span>
+        <span className="num">{doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC</span>
       </footer>
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
-      {guide && <Guide onClose={closeGuide} onPreset={applyPreset} firstVisit={firstVisit} />}
+      {guide && <Guide onClose={closeGuide} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SiteData } from '../lib/data';
 import { indexAt, timeAt } from '../lib/series';
 import { mix, useTheme } from '../lib/theme';
+import { fitCanvas, useDpr } from './useDpr';
 
 interface Props { data: SiteData; t: number; days?: number; onSeek?: (t: number) => void }
 
@@ -11,6 +12,7 @@ export default function Timeline({ data, t, days = 30, onSeek }: Props) {
   const cv = useRef<HTMLCanvasElement>(null);
   const [w, setW] = useState(800);
   const { c } = useTheme();
+  const dpr = useDpr();
   const H = 70, padL = 96, padR = 10;
   const day0 = Math.floor(t / 86400000) * 86400000 - 86400000; // stable while playing
   const t1 = day0 + days * 86400000;
@@ -23,9 +25,7 @@ export default function Timeline({ data, t, days = 30, onSeek }: Props) {
 
   useEffect(() => {
     const cnv = cv.current; if (!cnv) return;
-    const dpr = window.devicePixelRatio || 1;
-    cnv.width = w * dpr; cnv.height = H * dpr;
-    const g = cnv.getContext('2d')!; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const g = fitCanvas(cnv, w, H, dpr);
     g.clearRect(0, 0, w, H);
     const s = data.series;
     const pw = w - padL - padR;
@@ -51,12 +51,12 @@ export default function Timeline({ data, t, days = 30, onSeek }: Props) {
       g.fillStyle = c.line; g.fillRect(x, 54, 1, d % 5 === 0 ? 5 : 3);
       if (d % 5 === 0) { g.fillStyle = c.ink3; const dt = new Date(day0 + d * 86400000); g.fillText(`${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`, Math.min(x, w - 16), 68); }
     }
-    g.fillStyle = c.accent; g.fillRect(Math.round(X(t)) - 1, 2, 2, 52);
-  }, [w, data, t, day0, t1, days, c]);
+    g.fillStyle = c.ink; g.fillRect(Math.round(X(t)) - 1, 2, 2, 52);
+  }, [w, dpr, data, t, day0, t1, days, c]);
 
   return (
     <div className="timeline" ref={wrap}>
-      <canvas ref={cv} style={{ width: '100%', height: H, cursor: onSeek ? 'pointer' : 'default' }} role="img"
+      <canvas ref={cv} style={{ width: w, height: H, cursor: onSeek ? 'pointer' : 'default' }} role="img"
         aria-label={`Sunlight and Earth visibility for the next ${days} days`}
         onClick={(e) => {
           if (!onSeek) return;

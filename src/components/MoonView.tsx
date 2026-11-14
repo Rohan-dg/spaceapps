@@ -25,9 +25,11 @@ interface HiMeta { id: string; dem: string; resM: number; n: number; lat: number
 interface TexMeta { height_4k: { w: number; h: number; hMinM: number; quantumM: number }; south: { n: number; resM: number; halfM: number; hMinM: number; quantumM: number } }
 
 /* ---------- height decoding in a worker ---------- */
+interface HeightMip { data: Float32Array; w: number; h: number }
+interface Heights { w: number; h: number; data: Float32Array; mips: HeightMip[] }
 let worker: Worker | null = null;
 let reqId = 0;
-const pending = new Map<number, (v: { w: number; h: number; data: Float32Array } | Error) => void>();
+const pending = new Map<number, (v: Heights | Error) => void>();
 function decodeHeights(url: string, hMin: number, quantum: number) {
   worker ??= (() => {
     const w = new Worker(new URL('../workers/heightDecode.ts', import.meta.url), { type: 'module' });
@@ -35,16 +37,24 @@ function decodeHeights(url: string, hMin: number, quantum: number) {
     return w;
   })();
   const id = ++reqId;
-  return new Promise<{ w: number; h: number; data: Float32Array }>((res, rej) => {
+  return new Promise<Heights>((res, rej) => {
     pending.set(id, (v) => (v instanceof Error ? rej(v) : res(v)));
     // resolve against the page: inside the worker a relative URL would resolve against the worker script in /assets/
     worker!.postMessage({ id, url: new URL(url, document.baseURI).href, hMin, quantum });
   });
 }
 
-function floatTex(data: Float32Array, w: number, h: number, linear: boolean, repeatS = false) {
+/**
+ * Height texture (R32F). With a mip chain (box-filtered in the worker) the shaders read the level that
+ * matches the screen footprint, which is what keeps shadows and slopes from shimmering while zooming.
+ */
+function floatTex(data: Float32Array, w: number, h: number, linear: boolean, repeatS = false, mips: HeightMip[] = []) {
   const t = new THREE.DataTexture(data, w, h, THREE.RedFormat, THREE.FloatType);
-  t.magFilter = t.minFilter = linear ? THREE.LinearFilter : THREE.NearestFilter;
+  t.magFilter = linear ? THREE.LinearFilter : THREE.NearestFilter;
+  if (mips.length) {
+    t.minFilter = linear ? THREE.LinearMipmapLinearFilter : THREE.NearestMipmapNearestFilter;
+    t.mipmaps = [{ data, width: w, height: h }, ...mips.map((m) => ({ data: m.data, width: m.w, height: m.h }))];
+  } else t.minFilter = t.magFilter;
   t.wrapS = repeatS ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
   t.wrapT = THREE.ClampToEdgeWrapping;
   t.generateMipmaps = false;
@@ -99,7 +109,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
     } catch { setFail('WebGL is not available in this browser, so the 3D Moon cannot be shown.'); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -118,12 +128,15 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     const flat = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flat.needsUpdate = true;
     const u: Record<string, THREE.IUniform> = {
       uSun: { value: new THREE.Vector3(1, 0, 0) }, uEarthDir: { value: new THREE.Vector3(0, -1, 0) },
-      uEarthshine: { value: 0.02 }, uSunPower: { value: 1.55 },
+      uEarthshine: { value: 0.02 }, uSunPower: { value: 1.35 },
       uColor: { value: grey }, uNormal: { value: flat }, uEqH: { value: blank },
       uCap: { value: blank }, uCapHalf: { value: 304000 }, uCapRes: { value: 148.4 }, uCapOn: { value: 0 },
       uHi: { value: blank }, uHiOn: { value: 0 }, uHiRes: { value: 5 }, uHiOff: { value: 0 }, uHiRC0: { value: new THREE.Vector2() }, uHiN: { value: 1 },
       uRelief: { value: 1 }, uShadows: { value: 1 }, uExag: { value: 1 }, uCam: { value: new THREE.Vector3() },
       uCamLocal: { value: new THREE.Vector3() }, uDetail: { value: 1 },
+      // precision anchor for the globe and cap shaders (see shaders.ts): a 2048 m lattice point under the camera
+      uAnchorIdx: { value: new THREE.Vector3() }, uAnchorKm: { value: new THREE.Vector3() },
+      uAnchorCorr: { value: new THREE.Vector3() }, uCamRel: { value: new THREE.Vector3() },
     };
     const mat = (vertexShader: string, fragmentShader: string) => new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: u });
 
@@ -210,6 +223,17 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       const g = groundKm(camera.position), r = camera.position.length(), minAlt = 0.0006;
       if (r < g + minAlt) camera.position.multiplyScalar((g + minAlt) / r);
       u.uCam.value.copy(camera.position);
+      {
+        // anchor = ground point under the camera, snapped to whole 2048 m cells; everything here is float64,
+        // and uAnchorCorr carries the float32 rounding of the km value so the shader can undo it exactly
+        const r0 = camera.position.length() || 1, k = (R_KM * 1000) / r0, A = 2048;
+        const ai = [Math.round((camera.position.x * k) / A), Math.round((camera.position.y * k) / A), Math.round((camera.position.z * k) / A)];
+        const am = ai.map((i) => i * A), akm = am.map((m) => Math.fround(m / 1000));
+        u.uAnchorIdx.value.set(ai[0], ai[1], ai[2]);
+        u.uAnchorKm.value.set(akm[0], akm[1], akm[2]);
+        u.uAnchorCorr.value.set(akm[0] * 1000 - am[0], akm[1] * 1000 - am[1], akm[2] * 1000 - am[2]);
+        u.uCamRel.value.set(camera.position.x * 1000 - am[0], camera.position.y * 1000 - am[1], camera.position.z * 1000 - am[2]);
+      }
       if (st.patch) u.uCamLocal.value.copy(camera.position).sub(st.patch.position);
       st.sun.position.copy(camera.position).addScaledVector(u.uSun.value, 1e5);
       renderer.render(scene, camera);
@@ -273,13 +297,13 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         const eq = await decodeHeights(`${base}moon/height_4k.png`, eh.hMinM, eh.quantumM);
         if (!alive) return;
         st.eq = { h: eq.data, w: eq.w, hgt: eq.h };
-        u.uEqH.value = floatTex(eq.data, eq.w, eq.h, linearFloat, true); request();
+        u.uEqH.value = floatTex(eq.data, eq.w, eq.h, linearFloat, true, eq.mips); request();
         setStatus('Loading the south polar terrain');
         const sm = meta.south;
         const sp = await decodeHeights(`${base}moon/south_height.png`, sm.hMinM, sm.quantumM);
         if (!alive) return;
         st.cap = { h: sp.data, n: sp.w, resM: sm.resM, x0: -sm.halfM + sm.resM / 2, y0: sm.halfM - sm.resM / 2 };
-        u.uCap.value = floatTex(sp.data, sp.w, sp.h, linearFloat); u.uCapHalf.value = sm.halfM; u.uCapRes.value = sm.resM; u.uCapOn.value = 1;
+        u.uCap.value = floatTex(sp.data, sp.w, sp.h, linearFloat, false, sp.mips); u.uCapHalf.value = sm.halfM; u.uCapRes.value = sm.resM; u.uCapOn.value = 1;
         cap.visible = true; request();
         setStatus('Loading the 8k LROC mosaic');
         const [c8, n8] = await Promise.all([texture('moon/color_8k.jpg', true), texture('moon/normal_8k.jpg', false)]);
@@ -446,7 +470,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       st.hi = { h: dec.data, n, resM: res, x0, y0 };
       const u = st.u;
       u.uHi.value?.dispose?.();
-      u.uHi.value = floatTex(dec.data, n, n, st.renderer.extensions.has('OES_texture_float_linear'));
+      u.uHi.value = floatTex(dec.data, n, n, st.renderer.extensions.has('OES_texture_float_linear'), false, dec.mips);
       u.uHiRes.value = res; u.uHiOff.value = off; (u.uHiRC0.value as THREE.Vector2).set(meta.row0, meta.col0); u.uHiN.value = n; u.uHiOn.value = 1;
       // geometry: every 2nd sample for the 5 m windows (10 m vertices; lighting uses every sample)
       const step = n > 1100 ? 2 : 1, m = Math.floor((n - 1) / step) + 1;
@@ -515,7 +539,6 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       <div ref={labels} className="moon-markers" />
       <div ref={hud} className="moon-hud">
         <div className="hud-tl hud-anim">
-          <span className="hud-eyebrow">{sel?.mission || 'Lunar south pole'}</span>
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{Math.abs(sel.lat).toFixed(4)}° {sel.lat < 0 ? 'S' : 'N'}  ·  {((sel.lon % 360) + 360) % 360 > 180 ? `${(360 - (((sel.lon % 360) + 360) % 360)).toFixed(4)}° W` : `${(((sel.lon % 360) + 360) % 360).toFixed(4)}° E`}</p>}
         </div>
@@ -531,14 +554,14 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
               <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>
             ))}
           </div>
-          <p className="hud-hint">{status ? <><span className="hud-spin" aria-hidden />{status}…</> : 'Drag to orbit · scroll to zoom · right-drag to pan'}</p>
+          {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
         </div>
         <div className="hud-br hud-anim">
           <button className={`hud-toggle${shadows ? ' on' : ''}`} aria-pressed={shadows} onClick={() => setShadows((x) => !x)} title="Cast shadows, ray-traced on the LOLA heights"><Icon name="shadow" /> Shadows</button>
           <button className={`hud-toggle${relief > 1 ? ' on' : ''}`} aria-pressed={relief > 1} onClick={() => setRelief((x) => (x > 1 ? 1 : 3))} title="Exaggerate the relief 3×"><Icon name="mountain" /> Relief ×3</button>
           <button className={`hud-toggle${detail ? ' on' : ''}`} aria-pressed={detail} onClick={() => setDetail((x) => !x)} title="Procedural craters and rocks below the resolution of the real data. Illustrative only."><Icon name="sparkle" /> Fine detail</button>
         </div>
-        {hiInfo && scale !== 'moon' && <p className="hud-foot">Real terrain: {hiInfo.dem} at {hiInfo.resM} m per pixel, {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km across. {detail ? 'Craters and rocks smaller than that are procedural, for look only.' : ''} Sun and Earth at their true positions for {d.toISOString().slice(0, 16).replace('T', ' ')} UTC.</p>}
+        {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>
     </section>
   );
