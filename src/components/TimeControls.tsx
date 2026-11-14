@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Pause, Play, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pause, Play, SlidersHorizontal } from './Icons';
 import { useEffect, useRef, useState } from 'react';
 import { HelpTip } from './Help';
 

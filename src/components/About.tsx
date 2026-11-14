@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X } from './Icons';
 import type { SitesDoc } from '../lib/data';
 import Term from './Term';
 
@@ -29,6 +29,7 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           <li><b>Sun and Earth positions:</b> <a href="https://github.com/cosinekitty/astronomy">astronomy-engine</a>, rotated into the IAU Moon-fixed frame and then into each site's east-north-up frame. There is no refraction to model. Checked against <a href="https://ssd.jpl.nasa.gov/horizons/">JPL Horizons</a> (DE441) at 10 site/time points: worst error 0.004°.</li>
           <li><b>Horizon (skyline):</b> NASA LRO <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm">LOLA</a> elevation grids ({dems.join(', ')}). For each degree of azimuth, a ray runs 150 km out from a 2 m mast, with lunar curvature included.</li>
           <li><b>Timing:</b> Sun and Earth visibility every 30 minutes from {doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC. Rise and set times are refined to about a minute.</li>
+          <li><b>3D Moon:</b> colour from the LROC WAC mosaic and relief from LOLA, via the NASA SVS <a href="https://svs.gsfc.nasa.gov/4720">CGI Moon Kit</a>. Near the pole the view switches to LOLA at 148 m, then to 5, 10 or 20 m windows around each site. Shadows are traced toward the true Sun on those heights. Craters and rocks smaller than the data are procedural, for look only, and the view says so.</li>
           <li><b>Coordinates:</b> each site lists its source. A "verify" flag means the coordinate has not been checked against the source. Rim and summit points are moved onto the nearby high ground, and the app says how far.</li>
         </ul>
         <h3>Limits</h3>
@@ -42,6 +43,7 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           <li>NASA Lunar Reconnaissance Orbiter, LOLA team; PDS Geosciences Node, Washington University in St. Louis.</li>
           <li>NASA/JPL Solar System Dynamics: Horizons.</li>
           <li>NASA Moon Trek and LROC QuickMap, used for site context.</li>
+          <li>NASA Scientific Visualization Studio, CGI Moon Kit (LROC WAC colour, LOLA relief). LROC team, Arizona State University.</li>
           <li>Site sources are cited per site in <code>data/sites.json</code>.</li>
         </ul>
         <p className="disclaimer">Built with publicly available NASA data. NASA does not endorse any non-U.S. Government entity and is not responsible for information on non-U.S. Government websites.</p>

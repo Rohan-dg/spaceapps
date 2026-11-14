@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight } from './Icons';
 import { useRef, useState } from 'react';
 import { registerSite, type SiteData, type SitesDoc } from '../lib/data';
 import { upFraction, type Series } from '../lib/series';

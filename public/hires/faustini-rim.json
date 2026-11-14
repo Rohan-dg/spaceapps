@@ -1,0 +1,16 @@
+{
+ "id": "faustini-rim",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -87.99363,
+ "lon": 76.12652,
+ "siteRow": 1023.5811670702951,
+ "siteCol": 1023.7100845839923,
+ "row0": 11226,
+ "col0": 25958,
+ "projOffset": 15167.5,
+ "hMinM": -1113.0,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

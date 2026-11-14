@@ -1,4 +1,4 @@
-import { Calculator, ChevronRight, Copy, Columns2 } from 'lucide-react';
+import { Calculator, ChevronRight, Copy, Columns2 } from './Icons';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { variable, type Priority } from '../config/variables';
 import { bothCount } from '../lib/calendar';

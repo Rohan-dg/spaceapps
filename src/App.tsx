@@ -1,4 +1,4 @@
-import { ChevronRight, CircleHelp, Contrast, Info, Sparkles } from 'lucide-react';
+import { ChevronRight, CircleHelp, Contrast, Info, Sparkles } from './components/Icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About, { Explainer } from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -28,16 +28,15 @@ function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
   return { ...DEFAULT_PLAN, departure: t };
 }
-type View = 'panorama' | 'sky' | '3d';
+type View = 'panorama' | 'sky';
 type Deep = 'calendar' | 'numbers' | 'mission';
 const VIEWS: { id: View; label: string; caption: string }[] = [
   { id: 'panorama', label: 'Horizon view', caption: 'A 360° view of the horizon from the site, as if you turned around once. Anything below the grey mountain line is blocked from view.' },
   { id: 'sky', label: 'Sky from above', caption: 'The whole sky as a circle: the centre is straight overhead and the edge is the horizon. Useful for seeing which direction the Sun and Earth are in.' },
-  { id: '3d', label: '3D landscape', caption: 'The real ground around the site, lit by the Sun at this exact moment. Drag to rotate.' },
 ];
 const GUIDE_KEY = 'lsc-guide-seen';
 const seenGuide = () => { try { return localStorage.getItem(GUIDE_KEY) === '1'; } catch { return true; } };
-const Terrain3D = lazy(() => import('./components/Terrain3D'));
+const MoonView = lazy(() => import('./components/MoonView'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
@@ -56,9 +55,9 @@ export function Mark({ className }: { className?: string }) {
   // Half-lit disc over a ridge line: the whole problem in one glyph.
   return (
     <svg className={className} viewBox="0 0 40 40" aria-hidden="true">
-      <circle cx="20" cy="18" r="11" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M20 7a11 11 0 0 1 0 22z" fill="currentColor" />
-      <path d="M2 31l9-6 6 4 8-7 13 9v9H2z" fill="var(--accent)" />
+      <circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M20 5a15 15 0 0 1 0 30z" fill="currentColor" />
+      <path d="M3.5 25.5c5-2.6 9.4-2.6 13.4-.6s9.6 2.6 19.6-1.4" fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -109,6 +108,7 @@ export default function App() {
   }, [siteId, t, mode, scenarios, playing]);
 
   const onT = useCallback((x: number) => setT(x), []);
+  const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
   const closeGuide = useCallback(() => {
     setGuide(false);
     try { localStorage.setItem(GUIDE_KEY, '1'); } catch { /* storage blocked */ }
@@ -154,13 +154,13 @@ export default function App() {
           <Mark className="brand-mark" />
           <div>
             <h1>Lunar Site Compare</h1>
-            <p>Can a lander at the Moon's south pole get sunlight for power <i>and</i> see Earth to radio home? Pick a site and a date ({yr(doc.range.start)}–{yr(doc.range.end)}) to find out, using real NASA terrain.</p>
+            <p>Sunlight and line of sight to Earth at the lunar south pole · {yr(doc.range.start)}–{yr(doc.range.end)}</p>
           </div>
         </div>
         <nav className="tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore a site</button>
+          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
-            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare sites</button>
+            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
         </nav>
         <div className="mast-tools">
@@ -169,6 +169,9 @@ export default function App() {
           <button className="btn-primary" onClick={() => setGuide(true)} aria-label="How to use this app"><CircleHelp size={16} /> <span className="lbl-long">How to use</span><span className="lbl-short">Help</span></button>
         </div>
       </header>
+      <Suspense fallback={<div className="moon moon-wait"><Loading label="Starting the 3D Moon…" /></div>}>
+        <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} />
+      </Suspense>
       <div className="try-bar wrap" role="region" aria-label="Examples">
         <span className="try-label"><Sparkles size={14} aria-hidden /> Try an example:</span>
         <div className="try-chips">
@@ -227,7 +230,7 @@ export default function App() {
 
                 <div className="instrument">
                   <div className="view-head">
-                    <h3>See why <HelpTip label="About these views">All three views show the same moment. The Horizon view is the main one: it shows exactly which mountain blocks the Sun or Earth.</HelpTip></h3>
+                    <h3>See why <HelpTip label="About these views">Both views show the same moment as the 3D Moon above. The Horizon view is the main one: it shows exactly which mountain blocks the Sun or Earth.</HelpTip></h3>
                     <div className="seg" role="radiogroup" aria-label="Choose a view">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
@@ -236,8 +239,7 @@ export default function App() {
                   </div>
                   <p className="view-caption">{viewDef.caption}</p>
                   {view === 'panorama' ? <Panorama data={data} t={t} height={330} />
-                    : view === 'sky' ? <SkyPlot data={data} t={t} />
-                    : <Suspense fallback={<Loading label="Loading the 3D landscape…" />}><Terrain3D data={data} t={t} /></Suspense>}
+                    : <SkyPlot data={data} t={t} />}
                 </div>
 
                 <div className="instrument">

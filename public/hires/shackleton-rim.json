@@ -1,0 +1,16 @@
+{
+ "id": "shackleton-rim",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -89.68752,
+ "lon": -162.68368,
+ "siteRow": 1023.69972747465,
+ "siteCol": 1024.431664399326,
+ "row0": 15953,
+ "col0": 13579,
+ "projOffset": 15167.5,
+ "hMinM": -1322.0,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

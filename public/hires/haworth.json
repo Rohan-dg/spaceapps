@@ -1,0 +1,16 @@
+{
+ "id": "haworth",
+ "dem": "LDEM_85S_10M",
+ "resM": 10.0,
+ "n": 1536,
+ "lat": -87.45,
+ "lon": 355.04,
+ "siteRow": 767.729525454044,
+ "siteCol": 767.8397146445732,
+ "row0": 6695,
+ "col0": 13731,
+ "projOffset": 15167.5,
+ "hMinM": -3744.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

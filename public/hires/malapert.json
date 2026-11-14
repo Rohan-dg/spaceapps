@@ -1,0 +1,16 @@
+{
+ "id": "malapert",
+ "dem": "LDEM_85S_10M",
+ "resM": 10.0,
+ "n": 1536,
+ "lat": -85.99127,
+ "lon": 2.7992,
+ "siteRow": 768.2363798189599,
+ "siteCol": 768.3813981160965,
+ "row0": 2253,
+ "col0": 14993,
+ "projOffset": 15167.5,
+ "hMinM": 2027.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}
