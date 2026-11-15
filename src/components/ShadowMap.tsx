@@ -184,7 +184,7 @@ export default function ShadowMap({ data, t, mastPct, plain = false }: { data: S
       ctx.beginPath(); ctx.arc(x, y, 6, 0, 2 * Math.PI); ctx.stroke(); ctx.fill();
     }
     // north arrow and scale bar
-    ctx.font = `600 11px Inter, system-ui, sans-serif`; ctx.textAlign = 'center';
+    ctx.font = `600 11px -apple-system, BlinkMacSystemFont, system-ui, sans-serif`; ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(8, 8, 22, 30);
     ctx.fillStyle = '#ffffff'; ctx.fillText('N', 19, 22);
     ctx.beginPath(); ctx.moveTo(19, 26); ctx.lineTo(15, 34); ctx.lineTo(23, 34); ctx.closePath(); ctx.fill();
