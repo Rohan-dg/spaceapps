@@ -699,7 +699,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) {
-        pickRef.current(hit); topRef.current(hit);
+        pickRef.current(hit); topRef.current(hit, pointRef.current && selRef.current ? v3(posOf(selRef.current.lat, selRef.current.lon, 0)) : null);
         const r = hit.length();
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
@@ -959,7 +959,15 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const picked = firstSite.current === '\u0000picked' && !quiet;
     let arrived = false;
     // a single pick only ever shows the broad surface around the site; the terrain close-up is for a double-click
-    const arrive = (_fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo('region'); } };
+    const arrive = (_fallback: Scale) => {
+      if (!picked || arrived) return;
+      arrived = true;
+      const p = v3(posOf(sel.lat, sel.lon, 0));
+      // already overhead (a clicked point): stay put; otherwise glide to the broad overhead view
+      const c = S.current?.camera.position;
+      if (c && c.clone().normalize().angleTo(p.clone().normalize()) < 0.05) return;
+      topRef.current(p, null);
+    };
     // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
     // never waits for a download and then lurches
     if (sel.lat < -80.5 && !sel.id.startsWith('custom') && pendingClose.current !== sel.id) arrive('site');
@@ -1157,10 +1165,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
    * The view is tilted 1° from vertical: looking exactly along the camera's up axis leaves its roll undefined,
    * which made OrbitControls snap. Duration grows with how far the camera travels, so short hops stay quick.
    */
-  const topDown = useCallback((hit: THREE.Vector3) => {
+  const topDown = useCallback((hit: THREE.Vector3, also?: THREE.Vector3 | null) => {
     const st = S.current; if (!st) return;
     st.focus = null;
-    const U = hit.clone().normalize();
+    // with a second point in play, look down on the middle of the two and back off far enough to keep both in view
+    const sep = also ? also.clone().normalize().angleTo(hit.clone().normalize()) : 0;
+    const U = (also && sep > 1e-4 && sep < 1.4 ? hit.clone().normalize().add(also.clone().normalize()) : hit.clone()).normalize();
     const lat = Math.asin(U.z) * 180 / Math.PI, lon = Math.atan2(U.y, U.x) * 180 / Math.PI;
     const P = U.clone().multiplyScalar(st.surfaceRadius(U));
     let N = v3(enu(lat, lon).n);
@@ -1170,7 +1180,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     // clicking a point never zooms in step after step: the first click brings the camera to CLICK_KM above the
     // point; later clicks keep that distance (or a closer one the user zoomed to by hand) and only move across
     const CLICK_KM = 700; // broad surface: the region around the point, not its terrain
-    const D = CLICK_KM; // always the same broad view; only a double-click goes down to the terrain
+    const D = Math.max(CLICK_KM, sep * R_KM * 1.6); // always a broad view; only a double-click goes down to the terrain
     const tilt = Math.PI / 180;
     const off = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt));
     const to = P.clone().addScaledVector(off, D);
@@ -1178,6 +1188,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     fly(to, P, U, 'site', reduce ? 0.5 : Math.min(2.4, 1.3 + 0.6 * travel));
   }, [fly]);
+  const selRef = useRef(sel);
+  selRef.current = sel;
   const topRef = useRef(topDown);
   topRef.current = topDown;
   // expert "View close-up": fly to the requested site's close-up
