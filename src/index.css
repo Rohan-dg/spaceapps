@@ -680,3 +680,30 @@ kbd {
 .tv-canvas canvas { display: block; }
 .tv-err { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
 .tv-cur { margin-left: auto; color: #e6e6e6; }
+
+/* 3D Moon: rover range */
+.moon-probe-pin.range i { border-color: #7cc4ff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7), 0 0 10px rgba(124, 196, 255, 0.7); }
+.moon-probe-pin.range i::after { background: #7cc4ff; }
+.hud-range {
+  right: 14px; top: 112px; width: min(320px, calc(100% - 28px)); max-height: calc(100% - 170px); overflow-y: auto; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(20, 20, 24, 0.78); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  font-size: 12px; color: #fff;
+}
+.hud-range .range-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hud-range label { display: grid; gap: 3px; font-size: 11px; color: #bdbdbd; }
+.hud-range input { min-width: 0; height: 28px; padding: 0 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.35); color: #fff; font: 500 12px var(--font-mono); }
+.hud-range input:focus-visible { outline: 2px solid #7cc4ff; outline-offset: 1px; }
+.hud-range .range-actions { display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; flex-wrap: wrap; }
+.hud-range .range-go { height: 28px; padding: 0 12px; border-radius: 7px; border: 1px solid #7cc4ff; background: #7cc4ff; color: #04121f; font-weight: 600; font-size: 12px; }
+.hud-range .dim { color: #a9a9a9; }
+.hud-range dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; }
+.hud-range dt { color: #bdbdbd; }
+.hud-range dd { margin: 0; line-height: 1.35; }
+.hud-range b { font-weight: 600; }
+.hud-range b.ok { color: #4fae7a; } .hud-range b.no { color: #ef6a5f; }
+.hud-range .range-err { margin: 0 0 6px; color: #ef6a5f; }
+.hud-range .swatch { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-left: 4px; border-top: 2px solid #7cc4ff; }
+.hud-range .swatch.dashed { border-top-style: dashed; }
+@media (max-width: 760px) {
+  .hud-range { top: 56px; left: 14px; right: 14px; width: auto; max-height: calc(100% - 180px); z-index: 3; }
+}
