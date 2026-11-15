@@ -98,11 +98,12 @@ const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFix
 const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
 /** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
 const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
-interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null }
+interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null;
+  missionKm: number; startSunPct: number | null; startEarthUp: boolean | null; earthPct: number | null; longestNoEarthH: number | null }
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -112,6 +113,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   onComparePoint?: (lat: number, lon: number) => void;
   /** Any click on the ground (not a site marker): the app makes the point a comparable site. */
   onPointClick?: (lat: number, lon: number) => void;
+  /** Expert mode: rover range and other engineering tools appear. */
+  expert?: boolean;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
 }) {
@@ -143,12 +146,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [sunLineOn, setSunLineOn] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  expandedRef.current = expanded;
   const [probeMin, setProbeMin] = useState(false);
   const [rangeMin, setRangeMin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
+  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH), mission: '5' });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
@@ -575,7 +580,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       // Labels never overlap: every visible point is placed first, then each label tries the right of its point, then
       // the left, and only if both collide does it fade out. A shown label then counts its hidden neighbours ("+3").
       // Order: the selected site, then NASA's Artemis III candidate regions, then everything else.
-      const rank = (m: (typeof st.markers)[number]) => (m.el.classList.contains('on') ? 0 : m.el.classList.contains('nasa') ? 1 : 2);
+      const rank = (m: (typeof st.markers)[number]) => (m.el.classList.contains('on') ? 0 : m.el.classList.contains('mine') ? 1 : m.el.classList.contains('nasa') ? 2 : 3);
       const order = [...st.markers].sort((a, b) => rank(a) - rank(b));
       const boxes: [number, number, number, number][] = [];
       const hit = (x0: number, y0: number, x1: number, y1: number) => boxes.some(([a0, b0, a1, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0);
@@ -589,7 +594,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         const toCam = camera.position.clone().sub(m.pos);
         const facing = toCam.dot(m.pos) / (toCam.length() * m.pos.length());
         const sx = ((tmp.x + 1) / 2) * w, sy = ((1 - tmp.y) / 2) * h;
-        const show = tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
+        // your own points are hidden only when they are on the far side of the Moon (or behind the camera);
+        // listed sites also fade at the very edge of the disc, off screen or right under the camera
+        const mine = m.el.classList.contains('mine');
+        const show = mine ? tmp.z < 1 && facing > 0
+          : tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
         m.el.style.opacity = show ? '1' : '0';
         m.el.style.pointerEvents = show ? 'auto' : 'none';
         m.el.style.transform = `translate(${sx}px, ${sy}px)`;
@@ -605,7 +614,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         // a label may cover points of its own cluster (within 30 px; it speaks for them with "+N") but never another
         // label or a point outside the cluster; the selected site is always labelled
         const free = (b: [number, number, number, number]) => !hit(...b) || (!hitLabel(...b) && !hitFarDot(b, sx, sy));
-        const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') ? right : null;
+        // the selected site and your own points are always labelled
+        const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') || m.el.classList.contains('mine') ? right : null;
         m.el.classList.toggle('crowded', !side);
         m.el.classList.toggle('left', side === left);
         // a left-hand label: the row is reversed and shifted left so the point stays on the site
@@ -619,11 +629,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         }
       }
       for (const v of vis) { const l = labelled.find((x) => x.m === v.m); const sp = v.m.el.querySelector('span') as HTMLElement | null; if (sp) sp.dataset.more = l && l.more ? `+${l.more}` : ''; }
-      // Sun and Earth pointers: a ring on the body when it is on screen, otherwise an arrow at the edge
-      // pointing the shortest way to turn toward it
+      // Sun and Earth pointers: always an arrow pinned to the edge of the 3D window, on the line from the centre of
+      // the view toward the body (its screen position when it is in front, its direction when it is behind), so they
+      // never wander into the middle of the picture
       {
-        // keep edge arrows inside the band between the HUD's top text and its bottom button rows
-        const insX = 34, top = w < 760 ? 120 : 78, bottom = w < 760 ? 150 : 64;
+        // arrows ride the very edge of the window (just inside the border)
+        const insX = 16, top = 16, bottom = 16;
         const cx = w / 2, cy = (top + h - bottom) / 2, halfY = (h - bottom - top) / 2;
         const earthPos = new THREE.Vector3().setFromMatrixPosition(st.earth.matrix);
         const sunPos = camera.position.clone().addScaledVector(u.uSun.value as THREE.Vector3, 1e5);
@@ -635,20 +646,22 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           const o = camera.position, dir = world.clone().sub(o), len = dir.length(); dir.divideScalar(len);
           const bq = o.dot(dir), cq = o.lengthSq() - R_KM * R_KM, disc = bq * bq - cq;
           const blocked = disc > 0 && -bq - Math.sqrt(disc) > 0 && -bq - Math.sqrt(disc) < len;
-          const onScreen = d.z < 0 && Math.abs(tmp.x) < 0.9 && Math.abs(tmp.y) < 0.86;
-          let x: number, y: number, ang = 0;
-          if (onScreen) { x = ((tmp.x + 1) / 2) * w; y = ((1 - tmp.y) / 2) * h; }
-          else {
-            let dx = d.x, dy = d.y;
-            if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = -1; }
-            const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
-            x = cx + dx * k; y = cy - dy * k; ang = Math.atan2(-dy, dx);
-          }
+          // direction on screen (right, up) from the centre of the view toward the body
+          let dx: number, dy: number;
+          if (d.z < 0) { dx = ((tmp.x + 1) / 2) * w - cx; dy = cy - ((1 - tmp.y) / 2) * h; }
+          else { dx = d.x; dy = d.y; }
+          if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = 1; }
+          const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
+          const x = cx + dx * k, y = cy - dy * k, ang = Math.atan2(-dy, dx), n = Math.hypot(dx, dy);
           el.style.transform = `translate(${x}px, ${y}px)`;
           el.style.setProperty('--ang', `${ang}rad`);
-          el.classList.toggle('edge', !onScreen);
+          // the label sits just inside the arrow, toward the centre, so it never runs off the window
+          el.style.setProperty('--lx', `${(-dx / n) * 36}px`);
+          el.style.setProperty('--ly', `${(dy / n) * 24}px`);
           el.classList.toggle('blocked', blocked);
-          el.style.opacity = '1';
+          // no arrow while the body itself is visible in the window
+          const inView = d.z < 0 && !blocked && Math.abs(tmp.x) <= 1 && Math.abs(tmp.y) <= 1;
+          el.style.opacity = inView ? '0' : '1';
         }
       }
       // line to Earth: dot length follows the camera's distance to the probed point, so it reads as dotted at any zoom
@@ -698,7 +711,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) {
-        pickRef.current(hit); topRef.current(hit);
+        pickRef.current(hit); topRef.current(hit, pointRef.current && selRef.current ? v3(posOf(selRef.current.lat, selRef.current.lon, 0)) : null);
         const r = hit.length();
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
@@ -710,20 +723,29 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) zoomRef.current(hit);
     };
-    // The scroll wheel and trackpad pinch (a wheel event with ctrlKey) over any part of the 3D panel belong to the
-    // 3D view. OrbitControls only claims them on the bare canvas while it is enabled, so over the HUD, the markers
-    // or during a camera flight they fell through and scrolled or zoomed the whole page.
+    // The 3D panel fills most of the first screen, so a bare scroll over it scrolls the page. Clicking or dragging
+    // the Moon engages it: from then until the pointer leaves the panel the wheel zooms. Pinch (a wheel event with
+    // ctrlKey), Cmd/Ctrl + scroll and the expanded view always zoom. The listener runs in the capture phase so it
+    // decides before OrbitControls sees the event on the canvas.
     const box = el.parentElement ?? el;
+    let engaged = false;
+    const engage = () => { engaged = true; };
+    const disengage = () => { engaged = false; };
     const onWheel = (e: WheelEvent) => {
       const tgt = e.target as HTMLElement;
+      const zoom = engaged || e.ctrlKey || e.metaKey || expandedRef.current;
+      st.controls.enableZoom = zoom;
+      if (!zoom) return;   // let the page scroll
       if (!e.ctrlKey && tgt.closest('.hud-probe, .hud-menu')) return; // these panels scroll their own content
       e.preventDefault();
       if (tgt !== renderer.domElement && st.controls.enabled) {
-        renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, cancelable: true }));
+        renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, metaKey: e.metaKey, cancelable: true }));
       }
     };
     const noGesture = (e: Event) => e.preventDefault(); // Safari pinch
-    box.addEventListener('wheel', onWheel, { passive: false });
+    box.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    box.addEventListener('pointerdown', engage);
+    box.addEventListener('pointerleave', disengage);
     box.addEventListener('gesturestart', noGesture);
     box.addEventListener('gesturechange', noGesture);
     renderer.domElement.addEventListener('pointerdown', onDown);
@@ -780,7 +802,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     return () => {
       alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf); unhold();
       renderer.domElement.removeEventListener('pointerdown', onDown);
-      box.removeEventListener('wheel', onWheel); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
+      box.removeEventListener('wheel', onWheel, { capture: true }); box.removeEventListener('pointerdown', engage); box.removeEventListener('pointerleave', disengage); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
       renderer.domElement.removeEventListener('pointerup', onUp);
       renderer.domElement.removeEventListener('dblclick', onDbl);
       st.flying?.kill(); st.controls.dispose();
@@ -822,7 +844,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     st.markers = siteList.map((s) => {
       const b = document.createElement('button');
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
-      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') ? ' mine' : ''}${s.id === secondId ? ' pair' : ''}`;
+      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') || s.id.startsWith('pending') ? ' mine' : ''}${s.id.startsWith('pending') ? ' pending' : ''}${s.id === secondId ? ' pair' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
@@ -957,7 +979,16 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     quietPick.current = false;
     const picked = firstSite.current === '\u0000picked' && !quiet;
     let arrived = false;
-    const arrive = (fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo(scale === 'moon' ? fallback : scale); } };
+    // a single pick only ever shows the broad surface around the site; the terrain close-up is for a double-click
+    const arrive = (_fallback: Scale) => {
+      if (!picked || arrived) return;
+      arrived = true;
+      const p = v3(posOf(sel.lat, sel.lon, 0));
+      // already overhead (a clicked point): stay put; otherwise glide to the broad overhead view
+      const c = S.current?.camera.position;
+      if (c && c.clone().normalize().angleTo(p.clone().normalize()) < 0.05) return;
+      topRef.current(p, null);
+    };
     // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
     // never waits for a download and then lurches
     if (sel.lat < -80.5 && !sel.id.startsWith('custom') && pendingClose.current !== sel.id) arrive('site');
@@ -1112,7 +1143,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const g = st.terrainM(lat, lon);
       const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, lat, lon, g.h, g.resM);
       const distKm = sel ? v3(dirOf(sel.lat, sel.lon)).angleTo(v3(dirOf(lat, lon))) * R_KM : null;
-      st.probePos = v3(posOf(lat, lon, g.h * st.exag));
+      // a click that becomes one of your points is marked by its orange diamond alone, not the probe ring
+      st.probePos = pointRef.current ? null : v3(posOf(lat, lon, g.h * st.exag));
       setPeriod(null);
       setProbeMin(false); setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
@@ -1154,10 +1186,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
    * The view is tilted 1° from vertical: looking exactly along the camera's up axis leaves its roll undefined,
    * which made OrbitControls snap. Duration grows with how far the camera travels, so short hops stay quick.
    */
-  const topDown = useCallback((hit: THREE.Vector3) => {
+  const topDown = useCallback((hit: THREE.Vector3, also?: THREE.Vector3 | null) => {
     const st = S.current; if (!st) return;
     st.focus = null;
-    const U = hit.clone().normalize();
+    // with a second point in play, look down on the middle of the two and back off far enough to keep both in view
+    const sep = also ? also.clone().normalize().angleTo(hit.clone().normalize()) : 0;
+    const U = (also && sep > 1e-4 && sep < 1.4 ? hit.clone().normalize().add(also.clone().normalize()) : hit.clone()).normalize();
     const lat = Math.asin(U.z) * 180 / Math.PI, lon = Math.atan2(U.y, U.x) * 180 / Math.PI;
     const P = U.clone().multiplyScalar(st.surfaceRadius(U));
     let N = v3(enu(lat, lon).n);
@@ -1166,8 +1200,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const now = cam.distanceTo(P);
     // clicking a point never zooms in step after step: the first click brings the camera to CLICK_KM above the
     // point; later clicks keep that distance (or a closer one the user zoomed to by hand) and only move across
-    const CLICK_KM = 120;
-    const D = Math.max(1.5, Math.min(now, CLICK_KM));
+    const CLICK_KM = 700; // broad surface: the region around the point, not its terrain
+    const D = Math.max(CLICK_KM, sep * R_KM * 1.6); // always a broad view; only a double-click goes down to the terrain
     const tilt = Math.PI / 180;
     const off = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt));
     const to = P.clone().addScaledVector(off, D);
@@ -1175,6 +1209,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     fly(to, P, U, 'site', reduce ? 0.5 : Math.min(2.4, 1.3 + 0.6 * travel));
   }, [fly]);
+  const selRef = useRef(sel);
+  selRef.current = sel;
   const topRef = useRef(topDown);
   topRef.current = topDown;
   // expert "View close-up": fly to the requested site's close-up
@@ -1206,13 +1242,17 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const r = roverRange(q, 4);
     const h0 = groundAt(q.lat, q.lon).true;
     // can the battery carry the rover through the longest dark stretch here in the next lunar cycle?
-    let longestDarkH: number | null = null;
+    let longestDarkH: number | null = null, startSunPct: number | null = null, startEarthUp: boolean | null = null, earthPct: number | null = null, longestNoEarthH: number | null = null;
     try {
       const gg = st.terrainM(q.lat, q.lon);
       const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, h0, gg.resM);
-      longestDarkH = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000).longestDarkH;
+      const per = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000);
+      longestDarkH = per.longestDarkH; earthPct = per.earthPct; longestNoEarthH = per.longestNoEarthH;
+      const nowStart = probeNow(q.lat, q.lon, h0, hz, t);
+      startSunPct = nowStart.sunPct; startEarthUp = nowStart.earthUp;
     } catch { longestDarkH = null; }
-    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH });
+    const missionKm = Math.max(0, Number(inp.mission) || 0);
+    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH, missionKm, startSunPct, startEarthUp, earthPct, longestNoEarthH });
     // nearest sunlight the rover can drive to (or wait for) on this charge; deferred so the rings draw first
     setSunPlan('busy');
     const t0 = t;
@@ -1327,14 +1367,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div className="moon-markers sky-ptrs" hidden={!pointers} aria-hidden>
-        <div ref={sunPtr} className="sky-ptr sun"><i /><b /><span>Sun<em> · behind the Moon</em></span></div>
-        <div ref={earthPtr} className="sky-ptr earth"><i /><b /><span>Earth<em> · behind the Moon</em></span></div>
+        <div ref={sunPtr} className="sky-ptr sun"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Sun<em> · behind the Moon</em></span></div>
+        <div ref={earthPtr} className="sky-ptr earth"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Earth<em> · behind the Moon</em></span></div>
       </div>
       <div ref={hud} className="moon-hud">
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
+          {!probe && <p className="hud-hint">Drag to rotate · click the Moon, then scroll to zoom (or pinch) · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
         </div>
         <div className="hud-panels">
         {probe && (
@@ -1367,7 +1407,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             </div></div>
           </div>
         )}
-        {rangeOpen && (
+        {expert && rangeOpen && (
           <form className={`hud-range${rangeMin ? ' min' : ''}`} onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
             <div className="hud-probe-head">
               <button type="button" className="hud-collapse" aria-expanded={!rangeMin} onClick={() => setRangeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Rover range on battery</button>
@@ -1378,6 +1418,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               <label>Longitude ° E<input id="range-lon" inputMode="decimal" value={rangeIn.lon} onChange={(e) => setRangeIn({ ...rangeIn, lon: e.target.value })} placeholder="222.69" /></label>
               <label>Battery life without sun (h)<input id="range-hours" inputMode="decimal" value={rangeIn.hours} onChange={(e) => setRangeIn({ ...rangeIn, hours: e.target.value })} /></label>
               <label>Driving speed (km/h)<input id="range-speed" inputMode="decimal" value={rangeIn.speed} onChange={(e) => setRangeIn({ ...rangeIn, speed: e.target.value })} /></label>
+              <label>Mission drive, one way (km)<input id="range-mission" inputMode="decimal" value={rangeIn.mission} onChange={(e) => setRangeIn({ ...rangeIn, mission: e.target.value })} /></label>
             </div>
             <div className="range-actions">
               <button type="submit" className="range-go">Show range</button>
@@ -1395,6 +1436,23 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
                   : sunPlan.kind === 'drive' ? <><b className="ok">Yes, {sunPlan.km < 10 ? sunPlan.km.toFixed(2) : sunPlan.km.toFixed(1)} km away</b> <span className="swatch sun" /><br /><span className="dim">{sunPlan.hours.toFixed(1)} h of driving, {sunPlan.spareH.toFixed(1)} h of battery left on arrival · {fmtLatLon(sunPlan.target.lat, sunPlan.target.lon)}</span></>
                   : sunPlan.kind === 'wait' ? <><b className="part">Only by waiting</b><br /><span className="dim">No sunlit ground within {rangeShown.oneWayKm.toFixed(1)} km, but the Sun rises over the start in {sunPlan.hours.toFixed(1)} h, inside the battery life</span></>
                   : <><b className="no">No</b><br /><span className="dim">No sunlit ground within {sunPlan.searchedKm.toFixed(1)} km, and no sunrise at the start within {rangeShown.batteryH} h</span></>}</dd>
+                {rangeShown.missionKm > 0 && (() => {
+                  // the mission: drive missionKm out and back. Driving time against battery time, with the Sun and Earth at the start
+                  const driveH = (2 * rangeShown.missionKm) / rangeShown.speedKmH;
+                  const share = driveH / rangeShown.batteryH;
+                  const sunNow = (rangeShown.startSunPct ?? 0) > 50;
+                  return <>
+                    <dt>Mission ({rangeShown.missionKm} km out and back)</dt>
+                    <dd><b className={share <= 1 ? 'ok' : sunNow ? 'part' : 'no'}>
+                      {share <= 1 ? `Completes on battery: ${driveH.toFixed(1)} h of ${rangeShown.batteryH} h (${Math.round(share * 100)} %)`
+                        : sunNow ? `Needs sunlight: ${driveH.toFixed(1)} h of driving, ${(driveH - rangeShown.batteryH).toFixed(1)} h more than the battery`
+                        : `Not possible now: ${driveH.toFixed(1)} h of driving, the battery lasts ${rangeShown.batteryH} h and the start is dark`}</b>
+                      <br /><span className="dim">Sun at the start: {rangeShown.startSunPct === null ? 'unknown' : rangeShown.startSunPct >= 99.5 ? 'fully up, so the panels recharge while driving' : rangeShown.startSunPct > 0.5 ? `${rangeShown.startSunPct.toFixed(0)} % of the disc visible` : 'below the skyline'}</span></dd>
+                    <dt>Earth contact</dt>
+                    <dd><b className={rangeShown.startEarthUp ? 'ok' : 'no'}>{rangeShown.startEarthUp === null ? 'unknown' : rangeShown.startEarthUp ? 'Direct link to Earth now' : 'No direct link now: drive autonomously or via a relay'}</b>
+                      {rangeShown.earthPct !== null && <><br /><span className="dim">Earth in view {rangeShown.earthPct.toFixed(0)} % of the next 29.5 days{rangeShown.longestNoEarthH !== null ? `, longest blackout ${rangeShown.longestNoEarthH >= 708 ? 'the whole cycle' : `${rangeShown.longestNoEarthH.toFixed(0)} h`}` : ''}</span></>}</dd>
+                  </>;
+                })()}
                 <dt>Out and back</dt><dd><b>{rangeShown.returnKm < 10 ? rangeShown.returnKm.toFixed(2) : rangeShown.returnKm.toFixed(1)} km</b> radius <span className="swatch dashed" /></dd>
                 {rangeShown.longestDarkH !== null && <>
                   <dt>Longest dark here</dt>
@@ -1425,15 +1483,17 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
         </div>
         <div className="hud-br hud-anim">
-          <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
+          {expert && <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>}
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
+          {/* a direct switch in both modes, not tucked in the Display menu */}
+          <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
+            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (
               <div className="hud-menu" role="menu" aria-label="Display">
                 {([
-                  ['lamp', 'Light dark areas', fill, () => setFill((x) => !x), 'Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight.'],
-                  ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Show where the Sun and Earth are, with arrows when they are off screen'],
+                  ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Arrows on the edge of the window pointing toward the Sun and Earth'],
                   ['shadow', 'Shadows', shadows, () => setShadows((x) => !x), 'Cast shadows, ray-traced on the LOLA heights'],
                   ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],
                   ['sparkle', 'Fine detail', detail, () => setDetail((x) => !x), 'Procedural craters and rocks below the resolution of the real data. Illustrative only.'],

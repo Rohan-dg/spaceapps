@@ -1,6 +1,7 @@
-import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun, CircleCheck } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
+import { flushSync } from 'react-dom';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -33,7 +34,7 @@ import Panorama from './components/Panorama';
 import SiteList, { isAttempt } from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import FirstPerson from './components/FirstPerson';
-import TimeControls from './components/TimeControls';
+import TimeControls, { SPEEDS } from './components/TimeControls';
 import Timeline from './components/Timeline';
 import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { findRun, indexAt, type Runs, type Series } from './lib/series';
@@ -69,7 +70,11 @@ const VIEWS: { id: View; label: string }[] = [
 const COPY = {
   expert: {
     tabs: { explore: 'Explore', compare: 'Compare', calc: 'Calculator', launch: 'Launch', missions: 'Missions' },
-    kpi: { n: 'Sites tracked', sun: 'Sunlit now', earth: 'Earth in view now', good: 'Good for power, next lunar day' },
+    kpi: {
+      title: 'Now, all sites', cap: (n: number) => `of ${n} active sites (crash and impact points excluded)`,
+      state: { both: 'sunlit + Earth', sun: 'sunlit only', earth: 'Earth only', dark: 'dark' },
+      good: 'Good power, next lunar day', none: 'None in this window',
+    },
     sites: 'Landing sites', review: 'Review site', pick2: 'Click a second site to compare', plan: 'Plan launch', logic: 'Show logic', explain: 'Explain',
     fPos: 'Position', fElev: 'Elevation', fDem: 'Terrain model', fNow: 'Now', fSrc: 'Source', empty: 'Select a site in the table or on the Moon.',
     views: { panorama: 'Panorama', sky: 'Sky plot', first: 'First person', shadow: 'Shadow map' } as Record<string, string>,
@@ -88,7 +93,11 @@ const COPY = {
   },
   normal: {
     tabs: { explore: 'Explore', compare: 'Compare places', calc: 'How it works', launch: 'Plan a launch', missions: 'All missions' },
-    kpi: { n: 'Places on the map', sun: 'In sunlight now', earth: 'Can see Earth now', good: 'Good for solar power this month' },
+    kpi: {
+      title: 'Right now, every place', cap: (n: number) => `out of ${n} places (crash sites not counted)`,
+      state: { both: 'sunny and can call Earth', sun: 'sunny only', earth: 'can call Earth only', dark: 'dark' },
+      good: 'Sunniest over the next month', none: 'None at the moment',
+    },
     sites: 'Places to land', review: 'About this place', pick2: 'Pick a second place to compare', plan: 'Plan a trip here', logic: 'How it works', explain: 'About the app',
     fPos: 'Where it is', fElev: 'Height', fDem: 'Map used', fNow: 'Right now', fSrc: 'Where this comes from', empty: 'Pick a place from the list or click a dot on the Moon.',
     views: { panorama: 'Skyline', sky: 'Sky map', first: 'Stand here', shadow: 'Shadows nearby' } as Record<string, string>,
@@ -155,9 +164,22 @@ export default function App() {
   const [mode, setMode] = useState<Mode>(init.mode);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(ui === 'normal' ? 2 : 1);
-  const setUi = useCallback((u: Ui) => {
-    setUiState(u);
-    try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+  // switching modes cross-fades the whole page with the View Transitions API (instant without it, or with reduced motion)
+  const uiRef = useRef(ui);
+  useEffect(() => { uiRef.current = ui; }, [ui]);
+  const setUi = useCallback((u: Ui, alsoInside?: () => void) => {
+    const apply = () => {
+      setUiState(u);
+      try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+      if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+      alsoInside?.();
+    };
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduce || (u === uiRef.current && !alsoInside)) { apply(); return; }
+    const root = document.documentElement;
+    root.dataset.uiSwitch = u;
+    const vt = document.startViewTransition(() => flushSync(apply));
+    vt.finished.finally(() => { delete root.dataset.uiSwitch; });
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -182,6 +204,11 @@ export default function App() {
     const where = d.info.name.replace(/^Point\s+/, '');
     d.info.short = `Point ${letter}`; d.info.name = `Point ${letter} (${where})`;
   };
+  const removePoint = useCallback((id: string) => {
+    setCustoms((c) => c.filter((x) => x.id !== id));
+    setSiteId((cur) => (cur === id ? '' : cur));
+    setPartner((p) => (p === id ? null : p));
+  }, []);
   const clearPoints = useCallback(() => {
     setCustoms([]); letterSeq.current = 0;
     setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
@@ -189,8 +216,7 @@ export default function App() {
   }, []);
   const addCustom = useCallback((d: SiteData) => {
     if (d.info.id.startsWith('custom') && !/^Point [A-Z]+$/.test(d.info.short)) letterPoint(d, nextLetter());
-    // keep the last eight points so clicking around does not flood the list
-    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8));
+    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]);
     setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
   }, []);
   const [pointBusy, setPointBusy] = useState<string | null>(null);
@@ -202,7 +228,13 @@ export default function App() {
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
-  const allSites = useMemo(() => [...(doc?.sites ?? []), ...customs], [doc, customs]);
+  const allSites = useMemo(() => [...(doc?.sites ?? []), ...(expert ? customs : [])], [doc, customs, expert]);
+  // switching to Normal drops any custom point from the selection (it stays saved for Expert)
+  useEffect(() => {
+    if (expert) return;
+    setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
+    setPartner((p) => (p && p.startsWith('custom') ? null : p));
+  }, [expert]);
   const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
   // crash and impact sites load only when their (collapsed) group in the site list is opened
   const lazyIds = useMemo(() => new Set(allSites.filter(isAttempt).map((s) => s.id)), [allSites]);
@@ -218,17 +250,26 @@ export default function App() {
   const info = allSites.find((s) => s.id === siteId);
   // summary strip: how many tracked sites are sunlit / see Earth now, read from each site's precomputed series
   const tq = Math.floor(tl / 3600000) * 3600000;
+  // counted over the active sites only (crash and impact points are excluded), so the total stays fixed
+  const active = useMemo(() => all.filter((d, i): d is SiteData => !!d && !lazyIds.has(ids[i])), [all, ids, lazyIds]);
+  // one mark per active site, grouped by state now (sunlit + Earth, sunlit only, Earth only, dark), south to north
   const kpi = useMemo(() => {
-    let n = 0, sun = 0, earth = 0;
-    for (const d of all) {
-      if (!d) continue;
-      n++; if (upAt(d.series.sunUp, d.series, tq)) sun++; if (upAt(d.series.earthUp, d.series, tq)) earth++;
-    }
-    return { n, sun, earth };
-  }, [all, tq]);
+    const ORDER = { both: 0, sun: 1, earth: 2, dark: 3 } as const;
+    const marks = active.map((d) => {
+      const su = upAt(d.series.sunUp, d.series, tq), eu = upAt(d.series.earthUp, d.series, tq);
+      const state: keyof typeof ORDER = su && eu ? 'both' : su ? 'sun' : eu ? 'earth' : 'dark';
+      return { id: d.info.id, name: d.info.short || d.info.name, lat: d.info.lat, state };
+    }).sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.lat - b.lat);
+    const count = { both: 0, sun: 0, earth: 0, dark: 0 };
+    marks.forEach((m) => count[m.state]++);
+    return { n: marks.length, marks, count };
+  }, [active, tq]);
   // "good for power" needs the full verdict, which covers the next lunar day, so a 6-hour step is plenty and cheap
   const t6 = Math.floor(tl / 21600000) * 21600000;
-  const goodPower = useMemo(() => all.reduce((n, d) => n + (d && scenarioFor(d, t6).power.level === 'green' ? 1 : 0), 0), [all, t6]);
+  const goodSites = useMemo(() => active
+    .map((d) => ({ d, r: scenarioFor(d, t6) }))
+    .filter((x) => x.r.power.level === 'green')
+    .sort((a, b) => b.r.metrics.sunPct - a.r.metrics.sunPct), [active, t6]);
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, tl);
@@ -245,6 +286,22 @@ export default function App() {
   }, [siteId, t, mode, scenarios, playing, expert]);
 
   const onT = useCallback((x: number) => setT(x), []);
+  // Play: advance time here, in both modes, so the 3D Moon and every panel follow it
+  const playT = useRef(t);
+  playT.current = t;
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.25, (now - last) / 1000); last = now;
+      const next = playT.current + dt * SPEEDS[speed].hps * 3600000;
+      if (next >= range[1]) { setT(range[1]); setPlaying(false); return; }
+      playT.current = next; setT(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, speed, range]);
   const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
   // "Compare with another site": the next site picked (3D Moon or list) becomes the second column in Compare
   // Two points at a time: picking a different site keeps the previous one as the second site (B), so any two
@@ -255,6 +312,8 @@ export default function App() {
   }, []);
   const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
   const partnerData = useSiteData(partner && partner !== siteId ? partner : null);
+  // Normal mode shows only Best days and Side by side in the detail panel
+  const dv: Deep = expert ? deep : deep === 'compare' ? 'compare' : 'calendar';
   const openCompare = () => { setDeep('compare'); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
   const onMoonSelect = useCallback((id: string) => {
@@ -308,12 +367,13 @@ export default function App() {
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
+    if (m !== 'explore' && !expert) setUi('expert'); // calculators, launch planning and the scenario editor are Expert tools
     setMode(m);
     window.scrollTo({ top: 0 });
-  }, [mode, siteId, t]);
+  }, [mode, siteId, t, expert, setUi]);
   const commands = useMemo<Command[]>(() => {
     const showDeep = (d: Deep) => () => { setMode('explore'); setDeep(d); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
-    return [
+    const list: Command[] = [
       ...allSites.map((s) => ({
         id: `site-${s.id}`, group: 'Sites', title: s.name, keywords: `${s.short} ${s.mission} ${s.region}`,
         icon: <Globe size={16} />, accessory: <span className="num">{Math.abs(s.lat).toFixed(2)}°{s.lat < 0 ? 'S' : 'N'}</span>,
@@ -337,6 +397,9 @@ export default function App() {
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
+    // Normal mode leaves out the Expert-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
+    const EXPERT_ONLY = new Set(['mode-compare', 'mode-calc', 'mode-launch', 'deep-mission', 'deep-libration']);
+    return expert ? list : list.filter((c) => !EXPERT_ONLY.has(c.id) && !(c.id.startsWith('preset-') && PRESETS.find((p) => `preset-${p.id}` === c.id)?.mode === 'compare'));
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi]);
 
   // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
@@ -362,24 +425,36 @@ export default function App() {
   const comparePoint = useCallback((lat: number, lon: number, mastM = 2, slot?: 'A' | 'B') => {
     if (!doc) return;
     const n = ++pointSeq.current;
+    // a fresh click shows its lettered point on the Moon at once, while the terrain and Sun / Earth series are computed;
+    // every click is kept (computations queue), so a second click never hides or cancels the first
+    let pendingId: string | null = null, letter: string | null = null;
+    if (!slot) {
+      letter = nextLetter(); pendingId = `pending_${n}`;
+      const l = ((lon % 360) + 360) % 360;
+      const pending = { id: pendingId, name: `Point ${letter} (computing)`, short: `Point ${letter}`, lat, lon: l, region: lat < -80.5 ? 'south-pole' : 'global',
+        approximate: true, siteHeightM: 0, dem: '', source: 'User input', mission: 'Computing…' } as unknown as SiteInfo;
+      setCustoms((c) => [...c, pending]);
+    }
     setPointBusy('Computing the point…');
     computeSite(doc, lat, lon, (m) => { if (n === pointSeq.current) setPointBusy(m); }, mastM)
       .then((d) => {
-        if (n !== pointSeq.current) return;
-        // recalculating a point in the comparison replaces it in place; a fresh click pairs with the current site
         if (slot) {
-          // a recalculated point keeps its letter
+          // recalculating a point in the comparison replaces it in place and keeps its letter
           const old = customs.find((c) => c.id === (slot === 'A' ? partner : siteId));
           const L = old?.short.match(/^Point ([A-Z]+)$/)?.[1];
-          if (L) letterPoint(d, L); else letterPoint(d, nextLetter());
-          setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info].slice(-8));
+          letterPoint(d, L ?? nextLetter());
+          setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info]);
           if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id);
+          return;
         }
-        else { addCustom(d); setMode('explore'); }
+        letterPoint(d, letter!);
+        setCustoms((c) => [...c.filter((x) => x.id !== d.info.id).map((x) => (x.id === pendingId ? d.info : x))]);
+        setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
+        setMode('explore');
       })
-      .catch((e) => { if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
+      .catch((e) => { setCustoms((c) => c.filter((x) => x.id !== pendingId)); if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
       .finally(() => { if (n === pointSeq.current) setTimeout(() => setPointBusy(null), 1200); });
-  }, [doc, addCustom, customs, partner, siteId]);
+  }, [doc, customs, partner, siteId]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -403,9 +478,11 @@ export default function App() {
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
+        {expert && <>
         <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
         <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
         <button className={mode === 'launch' ? 'on' : ''} aria-label="Launch" title="Launch" onClick={() => setMode('launch')}><CalendarSync size={18} /></button>
+        </>}
         <button className={missionsOpen ? 'on' : ''} aria-label="Mission comparison" aria-pressed={missionsOpen} title="Mission comparison (M)" onClick={toggleMissions}><Satellite size={18} /></button>
         <span className="ct-rail-gap" />
         <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
@@ -424,33 +501,57 @@ export default function App() {
         </div>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> {L.tabs.explore}</button>
+          {expert && <>
           <button role="tab" aria-selected={mode === 'compare'}
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}><Columns2 size={15} /> {L.tabs.compare}</button>
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}><CalcIcon size={15} /> {L.tabs.calc}</button>
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
+          </>}
         </nav>
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> {L.tabs.missions}</button>
       </header>
-      <div className="ct-kpis" aria-label="Summary at the selected time">
-        <div className="ct-kpi"><span className="ct-kpi-ico"><Globe size={18} /></span><b className="num">{kpi.n}</b><span>{L.kpi.n}</span></div>
-        <div className="ct-kpi"><span className="ct-kpi-ico sun"><Sun size={18} /></span><b className="num">{kpi.sun}</b><span>{L.kpi.sun}</span></div>
-        <div className="ct-kpi"><span className="ct-kpi-ico earth"><Earth size={18} /></span><b className="num">{kpi.earth}</b><span>{L.kpi.earth}</span></div>
-        <div className="ct-kpi"><span className="ct-kpi-ico good"><CircleCheck size={18} /></span><b className="num">{goodPower}</b><span>{L.kpi.good}</span></div>
-        <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
-      </div>
+      <section className="kp" aria-label="All landing sites at the selected time">
+        <div className="kp-now">
+          <p className="kp-h"><span>{L.kpi.title}</span><span className="num">{when(tl)} UTC</span></p>
+          <div className="kp-marks" role="list" aria-label={L.kpi.cap(kpi.n)}>
+            {kpi.marks.map((m) => (
+              <button key={m.id} role="listitem" className={`kp-m ${m.state}${m.id === siteId ? ' on' : ''}`} onClick={() => pickSite(m.id)}
+                title={`${m.name}: ${L.kpi.state[m.state]}`} aria-label={`${m.name}: ${L.kpi.state[m.state]}`} />
+            ))}
+          </div>
+          <p className="kp-legend">
+            {(['both', 'sun', 'earth', 'dark'] as const).map((k) => (
+              <span key={k} className={`kp-k ${k}`}><i aria-hidden /><b className="num">{kpi.count[k]}</b> {L.kpi.state[k]}</span>
+            ))}
+            <span className="kp-of">{L.kpi.cap(kpi.n)}</span>
+          </p>
+        </div>
+        <div className="kp-good">
+          <p className="kp-h"><span>{L.kpi.good}</span></p>
+          {goodSites.length === 0 ? <p className="kp-none">{L.kpi.none}</p> : (
+            <ol className="kp-list">
+              {goodSites.slice(0, 4).map((x) => (
+                <li key={x.d.info.id}><button className="kp-site" onClick={() => pickSite(x.d.info.id)}>{x.d.info.short || x.d.info.name}</button><span className="num">{x.r.metrics.sunPct.toFixed(0)}%</span></li>
+              ))}
+              {goodSites.length > 4 && <li className="kp-more">+{goodSites.length - 4} more</li>}
+            </ol>
+          )}
+        </div>
+      </section>
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={comparePoint} closeUp={closeUp} onPointClick={mode === 'explore' ? comparePoint : undefined} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
           </Suspense>
         </div>
         {mode === 'explore' && (
           <aside className="ct-side">
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span>
-                {customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
-              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} />
-              <CustomSite doc={doc} onReady={addCustom} />
+                {expert && customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
+              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} onRemove={removePoint} />
+              {/* your own points (clicked or typed) are an expert tool; Normal mode works with the listed sites only */}
+              {expert && <CustomSite doc={doc} onReady={addCustom} />}
             </section>
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.review}</h2></header>
@@ -461,8 +562,8 @@ export default function App() {
                     title={partnerData ? 'Open the side-by-side comparison' : 'Click a second site on the 3D Moon or in the list'}>
                     <Columns2 size={15} /> {partnerData ? <>Compare <b>{partnerData.info.short || partnerData.info.name}</b> and <b>{info.short || info.name}</b></> : L.pick2}
                   </button>
-                  <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> {L.plan}</button>
-                  <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> {L.logic}</button>
+                  {expert && <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> {L.plan}</button>}
+                  {expert && <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> {L.logic}</button>}
                   <button onClick={() => setAbout(true)}><Info size={14} /> {L.explain}</button>
                 </div>
               )}
@@ -472,7 +573,7 @@ export default function App() {
                   <div className="ct-fields">
                     <div><b className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</b><small>{L.fPos}</small></div>
                     <div><b className="num">{info.siteHeightM.toFixed(0)} m</b><small>{L.fElev}</small></div>
-                    <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>{L.fDem}</small></div>
+                    {expert && <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>{L.fDem}</small></div>}
                     <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '-'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '-'}</b><small>{L.fNow}</small></div>
                   </div>
                   <p className="ct-src"><small>{L.fSrc}</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
@@ -490,10 +591,9 @@ export default function App() {
             {data && res ? (
               <>
                 {!expert ? (
-                  <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
+                  <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} />
                 ) : (<>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>{data.info.name}</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
                 </div>
@@ -554,21 +654,21 @@ export default function App() {
 
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>{L.deep}</h3><p>{L.deepText[deep === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
+                    <div><h3>{L.deep}</h3><p>{L.deepText[dv === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
-                      <button role="tab" className="seg-key" aria-selected={deep === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>
-                      {partnerData && <button role="tab" aria-selected={deep === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
-                      <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>
-                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>
+                      {expert && <button role="tab" className="seg-key" aria-selected={dv === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>}
+                      {partnerData && <button role="tab" aria-selected={dv === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
+                      <button role="tab" aria-selected={dv === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>
+                      {expert && <button role="tab" aria-selected={dv === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>}
                     </div>
                   </div>
-                  {deep === 'compare' && partnerData ? (
+                  {dv === 'compare' && partnerData ? (
                     <PairCompare a={partnerData} b={data} t={tl} expert={expert} range={doc.range} onRecompute={(lat, lon, mastM, slot) => comparePoint(lat, lon, mastM, slot)} busy={pointBusy}
                       onCloseUp={(id) => { setCloseUp((c) => ({ id, n: (c?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                       onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
-                  ) : deep === 'calendar' ? (
+                  ) : dv === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
-                  ) : deep === 'mission' ? (
+                  ) : dv === 'mission' ? (
                     mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
                       onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
                       onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
@@ -595,7 +695,6 @@ export default function App() {
             ) : (
               <>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>-</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span>Click a site point on the 3D Moon or pick one from the list</span></p>
                 </div>
@@ -651,7 +750,7 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      {choosing && <ModeChooser last={lastUi} onChoose={(u) => { setUi(u); setChoosing(false); }} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
       <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
