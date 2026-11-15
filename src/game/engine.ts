@@ -6,7 +6,7 @@
  * curve), and the Sun and Earth sit at the azimuth and elevation the app's ephemeris gives for the rover's own
  * position and the game clock. Whether each is in view is a ray against that terrain, the same test the rest of
  * the app makes; shadows on the ground come from that test run for every patch of ground in a worker.
- * What is invented: bumps finer than the DEM, the rocks, and the game's power and heat figures (sim.ts).
+ * What is invented: bumps finer than the DEM, and the game's power and heat figures (sim.ts).
  *
  * Frame: x east, y up, z south, metres from the site. Two passes share one camera pose: the far pass draws the
  * sky and terrain beyond 7.6 km, then depth is cleared and the near pass draws the rest.
@@ -299,20 +299,6 @@ export class Game {
     this.lit = [{ tex: a.tex, half: NEAR }, { tex: b.tex, half: MID }, { tex: c.tex, half: FAR }];
     this.near.add(this.ring(NEAR, 400, 0, true, 0, a.mat), this.ring(MID, 380, NEAR, false, 2.5, b.mat));
     this.far.add(this.ring(FAR, 400, MID, false, 90, c.mat));
-    // rocks: looks only, scattered where a rover could drive
-    const rockSurface = this.terrainMat(NEAR, 0, 0.17), rockMat = rockSurface.mat;
-    rockSurface.tex.dispose(); rockMat.uniforms.uLit.value = a.tex;
-    const geo = new THREE.IcosahedronGeometry(1, 1), p = geo.getAttribute('position'), v = new THREE.Vector3();
-    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const s = 0.78 + 0.4 * Math.sin(v.x * 7.1 + v.y * 3.3) * Math.cos(v.z * 5.7); p.setXYZ(i, v.x * s, v.y * s * 0.7, v.z * s); }
-    geo.computeVertexNormals();
-    const rocks = new THREE.InstancedMesh(geo, rockMat, 520), M = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
-    let s = 12345; const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
-    for (let i = 0; i < rocks.count; i++) {
-      const r = 20 + rnd() * rnd() * 640, th = rnd() * 6.283, e = this.plan.start.e + r * Math.cos(th), n = this.plan.start.n + r * Math.sin(th), size = 0.12 + rnd() * rnd() * 0.95;
-      q.setFromEuler(new THREE.Euler(rnd() * 3, rnd() * 6, rnd() * 3)); sc.set(size, size, size);
-      M.compose(new THREE.Vector3(e, groundY(this.w, e, n, true) + size * 0.2, -n), q, sc); rocks.setMatrixAt(i, M);
-    }
-    rocks.frustumCulled = false; this.near.add(rocks);
   }
 
   private buildSky() {

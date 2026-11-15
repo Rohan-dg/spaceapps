@@ -4,11 +4,11 @@
   --rg-sun: #ffd23f; --rg-earth: #72e5a2; --rg-ice: #8cbcff; --rg-danger: #ff8d86;
   position: fixed; inset: 0; z-index: 1100; isolation: isolate; overflow: hidden;
   background: #050608; color: var(--rg-ink); color-scheme: dark;
-  font: 600 13px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font: 500 13px/1.4 var(--font-body); /* Saans, like the rest of the site */
   font-variant-numeric: tabular-nums; outline: none;
 }
 .rg *, .rg button, .rg select, .rg h1, .rg h2, .rg kbd { font-family: inherit; }
-.rg button, .rg select { color: #fff; background: var(--rg-button); border: 0; border-radius: 0; font-size: 12px; font-weight: 650; min-height: 36px; padding: 8px 12px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; cursor: pointer; box-shadow: none; transition: background-color 120ms; }
+.rg button, .rg select { color: #fff; background: var(--rg-button); border: 0; border-radius: 0; font-size: 12px; font-weight: 600; min-height: 36px; padding: 8px 12px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; cursor: pointer; box-shadow: none; transition: background-color 120ms; }
 .rg button:hover:not(:disabled) { background: #515862; color: #fff; }
 .rg button:active:not(:disabled), .rg button[aria-pressed='true'] { background: #59677b; }
 .rg button:disabled { opacity: 0.44; cursor: default; }
@@ -18,8 +18,8 @@
 .rg button.rg-primary { background: #fff; color: #11151a; }
 .rg button.rg-primary:hover { background: #d9e8ff; color: #11151a; }
 .rg h1, .rg h2, .rg p { margin: 0; color: #fff; }
-.rg h1 { font-size: 15px; font-weight: 750; letter-spacing: 0; }
-.rg h2 { font-size: 17px; font-weight: 750; line-height: 1.2; letter-spacing: -0.01em; }
+.rg h1 { font-size: 15px; font-weight: 700; letter-spacing: 0; }
+.rg h2 { font-size: 17px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
 .rg small { color: inherit; font-size: 11px; }
 .rg kbd { border: 0; border-radius: 0; font-size: 11px; background: #fff2; color: inherit; padding: 1px 4px; box-shadow: none; white-space: nowrap; }
 .rg svg { flex-shrink: 0; }
@@ -38,7 +38,7 @@
 .rg-telemetry { position: absolute; inset: 0 0 auto; height: 87px; display: grid; grid-template-columns: 1fr 1fr 1.2fr 1.2fr; gap: 1px; background: var(--rg-line); border-bottom: 1px solid var(--rg-line); }
 .rg-meter { padding: 9px 16px; background: var(--rg-panel); display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-content: center; }
 .rg-meter > span { font-size: 12px; align-self: center; }
-.rg-meter strong { font-size: 22px; font-weight: 750; line-height: 1.1; }
+.rg-meter strong { font-size: 22px; font-weight: 700; line-height: 1.1; }
 .rg-meter small { grid-column: 1 / -1; margin-top: 4px; }
 .rg-meter-track { height: 3px; margin-top: 7px; background: #fff3; grid-column: 1 / -1; overflow: hidden; }
 .rg-meter-track i { display: block; height: 100%; background: currentColor; transition: width 120ms linear; }
@@ -84,7 +84,7 @@
 .rg-radio small { font-size: 10px; color: #fff; }
 .rg-radio p { margin-top: 5px; font-size: 12px; line-height: 1.5; }
 .rg-drive-data { position: absolute; bottom: 128px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; padding: 5px 12px; background: #101318ce; }
-.rg-drive-data strong { font-size: 27px; line-height: 1.2; font-weight: 750; }
+.rg-drive-data strong { font-size: 27px; line-height: 1.2; font-weight: 700; }
 .rg-drive-data > span, .rg-drive-data small { font-size: 10px; }
 .rg-controls { position: absolute; bottom: 0; left: 0; right: 0; min-height: 108px; padding: 8px 16px max(8px, env(safe-area-inset-bottom)); background: var(--rg-panel); display: flex; gap: 24px; align-items: center; }
 .rg-dpad { display: grid; grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 29px); gap: 2px; flex: none; touch-action: none; }
