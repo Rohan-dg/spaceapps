@@ -102,12 +102,18 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
   /** Home: the app clears the selection (and bumps homeSignal), so the view returns to the whole Moon. */
   onHome?: () => void;
+  /** "Compare this point": compute the probed point as a site and pair it with the current one. */
+  onComparePoint?: (lat: number, lon: number) => void;
+  /** Any click on the ground (not a site marker): the app makes the point a comparable site. */
+  onPointClick?: (lat: number, lon: number) => void;
+  /** Fly to a close-up of this site (bumping n repeats the flight). */
+  closeUp?: { id: string; n: number } | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -122,6 +128,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
+  const pointRef = useRef(onPointClick);
+  pointRef.current = onPointClick;
   /** Home: drop the probed point and any pivot, deselect everything, and fly out to the whole Moon. */
   const homeRef = useRef<() => void>(() => {});
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
@@ -689,7 +697,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) { pickRef.current(hit); topRef.current(hit); }
+      if (hit) {
+        pickRef.current(hit); topRef.current(hit);
+        const r = hit.length();
+        pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
+      }
     };
     // a double-click flies down to that point for a near-horizontal close-up
     const onDbl = (e: MouseEvent) => {
@@ -810,7 +822,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     st.markers = siteList.map((s) => {
       const b = document.createElement('button');
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
-      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id === secondId ? ' pair' : ''}`;
+      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') ? ' mine' : ''}${s.id === secondId ? ' pair' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
@@ -1152,7 +1164,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     if (Math.abs(lat) > 89.99) N = new THREE.Vector3(0, 1, 0).projectOnPlane(U).normalize(); // north is undefined at the pole
     const cam = st.camera.position;
     const now = cam.distanceTo(P);
-    const D = Math.min(Math.max(now * 0.55, 1.5), 3500);
+    // clicking a point never zooms in step after step: the first click brings the camera to CLICK_KM above the
+    // point; later clicks keep that distance (or a closer one the user zoomed to by hand) and only move across
+    const CLICK_KM = 120;
+    const D = Math.max(1.5, Math.min(now, CLICK_KM));
     const tilt = Math.PI / 180;
     const off = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt));
     const to = P.clone().addScaledVector(off, D);
@@ -1162,6 +1177,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   }, [fly]);
   const topRef = useRef(topDown);
   topRef.current = topDown;
+  // expert "View close-up": fly to the requested site's close-up
+  useEffect(() => {
+    if (!closeUp) return;
+    const s = siteList.find((x) => x.id === closeUp.id);
+    if (s) closeSite(s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeUp?.n]);
   /** Close-up of a listed site, on the finest ground loaded under it. */
   function closeSite(s: { lat: number; lon: number; siteHeightM?: number }) {
     const st = S.current; if (!st) return;
@@ -1339,6 +1361,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             </dl>
             {sunLineOn && now && <p className="hud-probe-note"><span className={`los-swatch sun${now.sunPct >= 99.5 ? '' : now.sunPct > 0.5 ? ' partial' : ' blocked'}`} aria-hidden />Dotted line to the Sun: {now.sunPct >= 99.5 ? 'whole disc in view' : now.sunPct > 0.5 ? 'partly behind the skyline' : 'blocked by terrain or the Moon itself'}</p>}
             {earthLineOn && now && <p className="hud-probe-note"><span className={`los-swatch${now.earthUp ? '' : ' blocked'}`} aria-hidden />Dotted line to Earth: {now.earthUp ? 'clear line of sight' : 'blocked by terrain or the Moon itself'}</p>}
+            {onComparePoint && <button className="hud-probe-launch alt" onClick={() => onComparePoint(probe.lat, probe.lon)}>Compare this point</button>}
             {onPlanLaunch && <button className="hud-probe-launch" onClick={() => onPlanLaunch(probe.lat, probe.lon)}>Plan a launch to here</button>}
             <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
             </div></div>

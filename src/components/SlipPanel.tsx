@@ -10,9 +10,10 @@ const STEP_H = 12;
 const FROM_D = -15, TO_D = 30;
 const ROWS = [-7, -3, -1, 1, 3, 7, 14];
 const WORD: Record<Level, string> = { green: 'Good', amber: 'Marginal', red: 'Poor' };
+const PLAIN_WORD: Record<Level, string> = { green: 'Good', amber: 'OK', red: 'Poor' };
 const RANK: Record<Level, number> = { green: 2, amber: 1, red: 0 };
 
-interface Props { data: SiteData; t: number; t0: number; t1: number; onSeek: (t: number) => void; playing?: boolean }
+interface Props { data: SiteData; t: number; t0: number; t1: number; onSeek: (t: number) => void; playing?: boolean; plain?: boolean }
 
 const sd = (d: number) => (d === 0 ? 'planned' : `${d > 0 ? '+' : '−'}${Math.abs(d) % 1 ? Math.abs(d).toFixed(1) : Math.abs(d)} d`);
 const date = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
@@ -32,7 +33,8 @@ function tolerance(cells: { d: number; r: ScenarioResult | null }[], ok: (r: Sce
  * power and radio rating for every 12 h from −15 to +30 days, with the tolerance window around the planned
  * date; a table compares typical slips against the plan. Answers the brief's schedule-change question.
  */
-export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = false }: Props) {
+export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = false, plain = false }: Props) {
+  const W = plain ? PLAIN_WORD : WORD, P = plain ? 'Sunlight' : 'Power', R = plain ? 'Earth contact' : 'Radio';
   // ~100 scenarios cost ~150 ms, so the panel holds its last date while time plays and catches up on pause
   const [held, setHeld] = useState(tLive);
   if (!playing && held !== tLive) setHeld(tLive);
@@ -62,21 +64,21 @@ export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = fa
     <div className={`slip${playing ? ' held' : ''}`}>
       {playing && <p className="slip-held">Showing {date(t)} UTC. Updates when you pause.</p>}
       <p className="slip-lead">
-        {pw ? <>Power stays <b>{WORD[base.power.level]}</b> if the landing moves anywhere from <b className="num">{win(pw)}</b>{pw[0] === FROM_D || pw[1] === TO_D ? ' (or further)' : ''}.</> : null}{' '}
-        {both ? <>Power and radio are both Good from <b className="num">{win(both)}</b>.</>
-          : nextBoth ? <>Power and radio are not both Good on the planned date; the first such slot is <button className="link num" onClick={() => onSeek(nextBoth.t)}>{sd(nextBoth.d)}</button> ({date(nextBoth.t)} UTC).</>
-          : <>No date in the next {TO_D} days gives Good power and radio together at this site.</>}
+        {pw ? <>{plain ? 'Sunlight stays' : 'Power stays'} <b>{W[base.power.level]}</b> if the landing moves anywhere from <b className="num">{win(pw)}</b>{pw[0] === FROM_D || pw[1] === TO_D ? ' (or further)' : ''}.</> : null}{' '}
+        {both ? <>{plain ? 'Sunlight and Earth contact are both good' : 'Power and radio are both Good'} from <b className="num">{win(both)}</b>.</>
+          : nextBoth ? <>{plain ? 'On the planned day, sunlight and Earth contact are not both good. The first day when they are is' : 'Power and radio are not both Good on the planned date; the first such slot is'} <button className="link num" onClick={() => onSeek(nextBoth.t)}>{sd(nextBoth.d)}</button> ({date(nextBoth.t)} UTC).</>
+          : <>{plain ? `No day in the next ${TO_D} days has good sunlight and good Earth contact together here.` : `No date in the next ${TO_D} days gives Good power and radio together at this site.`}</>}
       </p>
 
       <div className="slip-strip" role="group" aria-label="Rating for each landing date, 12-hour steps">
         {(['power', 'comms'] as const).map((k) => (
           <div className="slip-row" key={k}>
-            <span className="slip-lab">{k === 'power' ? 'Power' : 'Radio'}</span>
+            <span className="slip-lab">{k === 'power' ? P : R}</span>
             <div className="slip-cells">
               {cells.map((c) => (
                 <button key={c.d} className={`slip-cell ${c.r ? `lv-${c.r[k].level}` : 'na'}${c.d === 0 ? ' zero' : ''}`} disabled={!c.r}
-                  onClick={() => onSeek(c.t)} title={`${sd(c.d)} (${date(c.t)} UTC): ${c.r ? WORD[c.r[k].level] : 'outside data range'}`}
-                  aria-label={`${sd(c.d)}: ${c.r ? WORD[c.r[k].level] : 'no data'}`} />
+                  onClick={() => onSeek(c.t)} title={`${sd(c.d)} (${date(c.t)} UTC): ${c.r ? W[c.r[k].level] : 'outside data range'}`}
+                  aria-label={`${sd(c.d)}: ${c.r ? W[c.r[k].level] : 'no data'}`} />
               ))}
             </div>
           </div>
@@ -89,20 +91,22 @@ export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = fa
         </div>
         <ul className="chart-legend slip-legend">
           <li><span className="slip-cell lv-green" aria-hidden /> Good</li>
-          <li><span className="slip-cell lv-amber" aria-hidden /> Marginal</li>
+          <li><span className="slip-cell lv-amber" aria-hidden /> {W.amber}</li>
           <li><span className="slip-cell lv-red" aria-hidden /> Poor</li>
-          <li>Days from the planned landing. Click a slot to move there.</li>
+          <li>{plain ? 'Days earlier (−) or later (+) than planned. Click a square to go to that day.' : 'Days from the planned landing. Click a slot to move there.'}</li>
         </ul>
       </div>
 
       <div className="table-scroll">
         <table className="slip-table">
           <thead>
-            <tr><th scope="col">Landing</th><th scope="col">Date (UTC)</th><th scope="col">Sun elevation</th><th scope="col">Power</th><th scope="col">Radio</th><th scope="col">Sunlit, next lunar day</th><th scope="col">Longest dark</th><th scope="col">Next sunset</th></tr>
+            {plain
+              ? <tr><th scope="col">Landing</th><th scope="col">Date (UTC)</th><th scope="col">Sun height</th><th scope="col">Sunlight</th><th scope="col">Earth contact</th><th scope="col">Sunny, next month</th><th scope="col">Longest darkness</th><th scope="col">Next sunset</th></tr>
+              : <tr><th scope="col">Landing</th><th scope="col">Date (UTC)</th><th scope="col">Sun elevation</th><th scope="col">Power</th><th scope="col">Radio</th><th scope="col">Sunlit, next lunar day</th><th scope="col">Longest dark</th><th scope="col">Next sunset</th></tr>}
           </thead>
           <tbody>
-            <Row label="Planned" t={t} r={base} base={m} onSeek={onSeek} />
-            {rows.map((x) => x.r ? <Row key={x.d} label={sd(x.d)} t={x.t} r={x.r} base={m} baseR={base} onSeek={onSeek} />
+            <Row label="Planned" t={t} r={base} base={m} onSeek={onSeek} W={W} />
+            {rows.map((x) => x.r ? <Row key={x.d} label={sd(x.d)} t={x.t} r={x.r} base={m} baseR={base} onSeek={onSeek} W={W} />
               : <tr key={x.d}><th scope="row">{sd(x.d)}</th><td colSpan={7} className="muted">Outside the data range</td></tr>)}
           </tbody>
         </table>
@@ -111,7 +115,7 @@ export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = fa
   );
 }
 
-function Row({ label, t, r, base, baseR, onSeek }: { label: string; t: number; r: ScenarioResult; base: ScenarioResult['metrics']; baseR?: ScenarioResult; onSeek: (t: number) => void }) {
+function Row({ label, t, r, base, baseR, onSeek, W }: { label: string; t: number; r: ScenarioResult; base: ScenarioResult['metrics']; baseR?: ScenarioResult; onSeek: (t: number) => void; W: Record<Level, string> }) {
   const m = r.metrics;
   const delta = (k: 'power' | 'comms') => !baseR ? '' : RANK[r[k].level] > RANK[baseR[k].level] ? ' better' : RANK[r[k].level] < RANK[baseR[k].level] ? ' worse' : '';
   const dp = m.sunPct - base.sunPct;
@@ -121,8 +125,8 @@ function Row({ label, t, r, base, baseR, onSeek }: { label: string; t: number; r
       <th scope="row">{baseR ? <button className="link" onClick={() => onSeek(t)}>{label}</button> : label}</th>
       <td className="num">{date(t)}</td>
       <td className="num">{m.sky.sun.el.toFixed(2)}°<small>{m.sunUp ? ' lit' : ' shadow'}</small></td>
-      <td className={delta('power')}><LevelIcon level={r.power.level} size={15} /> {WORD[r.power.level]}</td>
-      <td className={delta('comms')}><LevelIcon level={r.comms.level} size={15} /> {WORD[r.comms.level]}</td>
+      <td className={delta('power')}><LevelIcon level={r.power.level} size={15} /> {W[r.power.level]}</td>
+      <td className={delta('comms')}><LevelIcon level={r.comms.level} size={15} /> {W[r.comms.level]}</td>
       <td className="num">{m.sunPct.toFixed(0)}%{baseR && Math.abs(dp) >= 1 && <small> {dp > 0 ? '+' : '−'}{Math.abs(dp).toFixed(0)}</small>}</td>
       <td className="num">{m.longestDarkH > 0 ? formatDuration(m.longestDarkH * 3600_000) : 'none'}</td>
       <td className="num">{m.sunUp ? tMinus(sunset, t) : <span className="muted">rises {tMinus(sunset, t)}</span>}</td>
