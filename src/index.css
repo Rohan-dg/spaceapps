@@ -1929,3 +1929,7 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .site-search input { border: 1px solid var(--line); }
 .hud-seg button, .hud-toggle { border-color: rgba(255, 255, 255, 0.06); }
 .ct-bar { border-color: var(--line); }
+/* mission compare A/B slots: content starts at the left edge and sits centred vertically */
+.mc-slot { justify-content: flex-start; align-items: center; gap: 12px; padding: 12px 16px; }
+.mc-slot .mc-tag { width: 24px; height: 24px; }
+.mc-slot.on { border-color: var(--mode, var(--accent)); box-shadow: 0 0 0 1px var(--mode, var(--accent)) inset; }
