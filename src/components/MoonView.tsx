@@ -13,7 +13,7 @@
  * Lighting uses the true Sun and Earth directions at the selected time; shadows are ray-marched on the heights.
  */
 import gsap from 'gsap';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -30,6 +30,7 @@ import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSur
 import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
 import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
 import { Icon } from './Icons';
+const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
 const base = import.meta.env.BASE_URL;
 /** Spacing of the ldem_64 tile samples: 5 degrees / 320 on a 1737.4 km sphere. */
@@ -137,6 +138,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   // everything three.js lives here so React re-renders never rebuild the scene
   const S = useRef<{
@@ -1271,6 +1273,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         </div>
         <div className="hud-br hud-anim">
           <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
+          {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (
@@ -1295,6 +1298,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         </div>
         {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>
+      {viewer && sel && sel.id === viewer && (
+        <Suspense fallback={null}>
+          <TerrainViewport siteId={sel.id} siteName={sel.name} lat={sel.lat} lon={sel.lon} sunEl={sunInfo?.el ?? null} sunAz={sunInfo?.az ?? null} onClose={() => setViewer(null)} />
+        </Suspense>
+      )}
     </section>
   );
 }
