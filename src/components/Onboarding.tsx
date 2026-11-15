@@ -138,7 +138,7 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
   return (
     <div ref={root} className={`tour tour-${ui}${closing ? ' closing' : ''}`}>
       <div ref={spot} className="tour-spot" aria-hidden />
-      <div ref={card} className="tour-card" role="dialog" aria-modal="false" aria-label={`${ui === 'expert' ? 'Expert' : 'Normal'} mode tour`}>
+      <div ref={card} className="tour-card" role="dialog" aria-modal="false" aria-label={`${ui === 'expert' ? 'Scientific' : 'Normal'} mode tour`}>
         <div className="tour-card-in" key={i}>
           <div className="tour-head">
             <span className="tour-kicker">{s.kicker}</span>

@@ -45,7 +45,7 @@ import { simSnapshot, useMission } from './lib/useMission';
 import { scenarioFor, useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
-/** Normal: plain-language screen for a general audience. Expert: the full mission-planning workspace. */
+/** Normal: plain-language screen for a general audience. Scientific: the full mission-planning workspace. */
 const UI_KEY = 'lsc-ui';
 /** The mode from a shared link, else the last one chosen on this device, else none (the chooser decides). */
 function savedUi(fromHash: string | null): Ui | null {
@@ -173,7 +173,7 @@ export default function App() {
     const apply = () => {
       setUiState(u);
       try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
-      if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+      if (u === 'normal') setMode('explore'); // the other modes are Scientific tools
       alsoInside?.();
     };
     const changed = u !== uiRef.current;
@@ -237,7 +237,7 @@ export default function App() {
   // only a real change of the list reaches the 3D Moon (switching modes with no points of your own keeps the same array)
   const shownCustoms = expert && customs.length ? customs : NO_SITES;
   const allSites = useMemo(() => [...(doc?.sites ?? []), ...shownCustoms], [doc, shownCustoms]);
-  // switching to Normal drops any custom point from the selection (it stays saved for Expert)
+  // switching to Normal drops any custom point from the selection (it stays saved for Scientific)
   useEffect(() => {
     if (expert) return;
     setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
@@ -370,7 +370,7 @@ export default function App() {
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
-    if (m !== 'explore' && !expert) setUi('expert'); // calculators, launch planning and the scenario editor are Expert tools
+    if (m !== 'explore' && !expert) setUi('expert'); // calculators, launch planning and the scenario editor are Scientific tools
     setMode(m);
     window.scrollTo({ top: 0 });
   }, [mode, siteId, t, expert, setUi]);
@@ -393,7 +393,7 @@ export default function App() {
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
-      { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Normal mode (simpler view)' : 'Switch to Expert mode (all tools)', keywords: 'simple normal expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
+      { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Normal mode (simpler view)' : 'Switch to Scientific mode (all tools)', keywords: 'simple normal scientific expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
       { id: 'deep-libration', group: 'Views', title: 'Libration and orbital variation', keywords: 'wobble libration orbit perigee apogee earth distance season export csv json', icon: <Earth size={16} />, run: showDeep('libration') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
@@ -401,7 +401,7 @@ export default function App() {
       { id: 'act-tour', group: 'Actions', title: 'Take the tour', keywords: 'tour onboarding tutorial walkthrough intro how to use learn', icon: <Sparkles size={16} />, run: () => setTour(expert ? 'expert' : 'normal') },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
-    // Normal mode leaves out the Expert-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
+    // Normal mode leaves out the Scientific-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
     const EXPERT_ONLY = new Set(['mode-compare', 'mode-calc', 'mode-launch', 'deep-mission', 'deep-libration']);
     return expert ? list : list.filter((c) => !EXPERT_ONLY.has(c.id) && !(c.id.startsWith('preset-') && PRESETS.find((p) => `preset-${p.id}` === c.id)?.mode === 'compare'));
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi]);
@@ -506,7 +506,7 @@ export default function App() {
         </h1>
         <div className="ui-toggle seg" role="radiogroup" aria-label="Interface">
           <button role="radio" aria-checked={!expert} onClick={() => setUi('normal')} title="Plain-language view for everyone">Normal</button>
-          <button role="radio" aria-checked={expert} onClick={() => setUi('expert')} title="Full mission-planning tools">Expert</button>
+          <button role="radio" aria-checked={expert} onClick={() => setUi('expert')} title="Full mission-planning tools">Scientific</button>
         </div>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> {L.tabs.explore}</button>
@@ -536,7 +536,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            {/* keyed on the mode: switching Normal <-> Expert reloads the 3D rendering from scratch */}
+            {/* keyed on the mode: switching Normal <-> Scientific reloads the 3D rendering from scratch */}
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
           </Suspense>
         </div>

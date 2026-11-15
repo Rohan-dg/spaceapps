@@ -4,7 +4,7 @@
  * the step needs, through the small API App hands the tour. The first and last steps have no target (a centred card).
  *
  * Audiences: Normal is written for students in grades 5 to 12 learning the topic, so each stop teaches the science
- * behind what is on screen (`learn`) and often leaves a question (`think`). Expert is written for interns, engineers
+ * behind what is on screen (`learn`) and often leaves a question (`think`). Scientific is written for interns, engineers
  * and scientists who know the field: it names the datasets, models, thresholds and limits behind each tool.
  */
 import type { Ui } from '../components/ModeChooser';
@@ -25,7 +25,7 @@ export interface TourStep {
   keys?: [string, string][];
   /** An invitation to use the highlighted control right now. */
   tryIt?: string;
-  /** Normal: the science behind this part ("Why it matters"). Expert: the data and model behind it ("Method"). */
+  /** Normal: the science behind this part ("Why it matters"). Scientific: the data and model behind it ("Method"). */
   learn?: string;
   /** Normal only: a question to think about before moving on. */
   think?: string;
@@ -36,7 +36,7 @@ const q = (sel: string) => () => vis([...document.querySelectorAll(sel)].find((e
 const nth = (sel: string, i: number) => () => vis(document.querySelectorAll(sel)[i]);
 const btn = (text: string, within = '') => () =>
   vis([...document.querySelectorAll(`${within} button`)].find((b) => vis(b) && b.textContent?.trim().startsWith(text)));
-/** A page section (Normal's cards, Expert's instruments) found by its heading. */
+/** A page section (Normal's cards, Scientific's instruments) found by its heading. */
 const sec = (title: string) => () => {
   const h = [...document.querySelectorAll('h2, h3, h4, .sv-k, .sv-sec > *:first-child')].find((e) => vis(e) && e.textContent?.trim().startsWith(title));
   return vis(h?.closest('.instrument, .sv-sec, .deep, section'));
@@ -63,8 +63,8 @@ const NORMAL: TourStep[] = [
     body: 'NASA\'s candidate landing regions for the Artemis III astronaut mission are at the top. The small icons say if the Sun and Earth are up right now; the two on the right rate power and radio contact.',
     think: 'Most of the list is near the south pole. Why might astronauts want to go there instead of where Apollo landed?',
     tryIt: 'Type "Apollo" in the search box, or click a row to fly there.' },
-  { target: q('.ui-toggle'), kicker: 'Mode', title: 'Normal or Expert',
-    body: 'You are in Normal: plain words and the main ideas. Expert is the version mission planners use, with exact numbers, equations and planning tools. You can switch at any time.' },
+  { target: q('.ui-toggle'), kicker: 'Mode', title: 'Normal or Scientific',
+    body: 'You are in Normal: plain words and the main ideas. Scientific is the version mission planners use, with exact numbers, equations and planning tools. You can switch at any time.' },
   { target: q('section.moon'), prep: site, kicker: 'A place', title: 'The camera flies down to it',
     body: 'Picking a place lands the view over it. The green line points to Earth and the yellow line to the Sun, so you can see if a hill is in the way.',
     learn: 'Radio signals travel in straight lines, like light. If a mountain stands between the lander and Earth, the signal is blocked.' },
@@ -125,7 +125,7 @@ const NORMAL: TourStep[] = [
 ];
 
 const EXPERT: TourStep[] = [
-  { kicker: 'Expert mode', title: 'Site analysis toolkit',
+  { kicker: 'Scientific mode', title: 'Site analysis toolkit',
     body: 'Illumination, direct-to-Earth (DTE) visibility, terrain and mission feasibility for lunar landing sites, computed from LOLA topography and a lunar-fixed ephemeris. Each stop names the data and model behind the tool, and its limits.',
     how: ['Next and Back move between stops.', 'Esc or the close button ends the tour at any time.'] },
   { target: q('.ct-tabs'), kicker: 'Workspaces', title: 'Explore, Compare, Calculator, Launch',
@@ -144,7 +144,7 @@ const EXPERT: TourStep[] = [
     body: 'Now: Sun and Earth above the local skyline at the selected epoch. Rating: power and DTE comms verdicts for the next lunar day (tick green, triangle amber, cross red).',
     learn: 'Rim and summit sites whose published point came from older topography snap to the highest DEM cell within a stated radius (Shackleton rim 600 m, de Gerlache ~1 km). Cited and analysed coordinates are both shown.',
     tryIt: 'Search by name, mission or program.' },
-  { target: q('.ui-toggle'), kicker: 'Mode', title: 'Normal or Expert',
+  { target: q('.ui-toggle'), kicker: 'Mode', title: 'Normal or Scientific',
     body: 'Normal presents the same results in plain language for a general audience. Selection and epoch carry over; the 3D view is rebuilt on a switch.' },
   { target: q('.hud-tr'), prep: site, kicker: 'Readout', title: 'Camera and Sun at a glance',
     body: 'Ground sample distance per screen pixel, camera altitude, topocentric Sun elevation and azimuth at the site, and the dataset being drawn.' },

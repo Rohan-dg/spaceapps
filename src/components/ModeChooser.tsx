@@ -4,7 +4,7 @@ import { LogoMark } from './Logo';
 export type Ui = 'normal' | 'expert';
 
 /**
- * Shown on every load: choose Normal (plain language, the essentials) or Expert (every tool, exact figures).
+ * Shown on every load: choose Normal (plain language, the essentials) or Scientific (every tool, exact figures).
  * Both use the same data. The last choice is highlighted and focused, so Enter confirms it.
  */
 export default function ModeChooser({ last, onChoose }: { last: Ui | null; onChoose: (u: Ui) => void }) {
@@ -16,7 +16,7 @@ export default function ModeChooser({ last, onChoose }: { last: Ui | null; onCho
       <div className="chooser">
         <div className="chooser-brand"><LogoMark size={26} /><span>Sol Teris</span></div>
         <h2 id="chooser-h">How would you like to explore the Moon?</h2>
-        <p className="chooser-lead">Both use the same NASA data. Normal keeps the essentials in plain words; Expert adds the calculators and planning tools. You can switch at any time from the top bar.</p>
+        <p className="chooser-lead">Both use the same NASA data. Normal keeps the essentials in plain words; Scientific adds the calculators and planning tools. You can switch at any time from the top bar.</p>
         <div className="chooser-cards">
           <button ref={first} className={`chooser-card${last === 'normal' ? ' last' : ''}`} onClick={() => onChoose('normal')}>
             <span className="chooser-k">Normal</span>
@@ -26,7 +26,7 @@ export default function ModeChooser({ last, onChoose }: { last: Ui | null; onCho
             {last === 'normal' && <em>Last used</em>}
           </button>
           <button ref={second} className={`chooser-card${last === 'expert' ? ' last' : ''}`} onClick={() => onChoose('expert')}>
-            <span className="chooser-k">Expert</span>
+            <span className="chooser-k">Scientific</span>
             <b>Exact figures and mission terms</b>
             <span>Everything in Normal, plus exact angles and countdowns, scenario comparison, the calculator, launch planning, mission inputs, your own points and data export.</span>
             <small>For mission planners, engineers and scientists</small>
