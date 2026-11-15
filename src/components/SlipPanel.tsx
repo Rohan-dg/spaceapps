@@ -97,7 +97,7 @@ export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = fa
         </ul>
       </div>
 
-      <div className="table-scroll">
+      {!plain && <div className="table-scroll">
         <table className="slip-table">
           <thead>
             {plain
@@ -110,7 +110,7 @@ export default function SlipPanel({ data, t: tLive, t0, t1, onSeek, playing = fa
               : <tr key={x.d}><th scope="row">{sd(x.d)}</th><td colSpan={7} className="muted">Outside the data range</td></tr>)}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

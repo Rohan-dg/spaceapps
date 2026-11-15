@@ -1936,3 +1936,5 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 
 /* Expand: the 3D Moon fills the whole window, above the page */
 .moon.expanded, .ct-split .moon.expanded { position: fixed; inset: 0; z-index: 900; width: 100vw; height: 100dvh; min-height: 0; max-height: none; border-radius: 0; margin: 0; }
+/* Normal mode: no launch planning from the 3D view's probed point */
+.ui-normal .hud-probe-launch { display: none; }
