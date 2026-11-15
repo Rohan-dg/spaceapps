@@ -18,6 +18,7 @@ import { bodyFixedGeometry, eqjToMoonFixed } from '../lib/ephemeris';
 import { type EqGrid, type PolarGrid, R_KM, type V3, dirOf, enu, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from '../lib/moon/frames';
 import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V } from '../lib/moon/shaders';
 import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moon/probe';
+import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSurfaceSampler } from '../lib/moon/surface';
 import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
 import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
 import { Icon } from './Icons';
@@ -84,9 +85,6 @@ const fmtLatLon = (lat: number, lon: number) => {
 };
 const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFixed(1)}%`;
 const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
-/** Deepest point on the Moon is ~9.1 km below the 1737.4 km sphere; the core sits just under it. */
-const CORE_DEPTH_KM = 9.6;
-
 /** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
 const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
 interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null }
@@ -128,6 +126,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[]; meta: TexMeta | null;
     exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
+    surfaceRadius: (p: THREE.Vector3) => number;
   } | null>(null);
 
   const siteList = useMemo(() => sites.filter((s) => isFinite(s.lat)), [sites]);
@@ -172,7 +171,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     const mat = (vertexShader: string, fragmentShader: string) => new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: u });
 
     // globe
-    const gGeo = new THREE.SphereGeometry(1, 720, 360);
+    const gGeo = new THREE.SphereGeometry(1, GLOBE_SEGMENTS, GLOBE_SEGMENTS / 2);
     gGeo.rotateX(Math.PI / 2);
     const globe = new THREE.Mesh(gGeo, mat(GLOBE_V, GLOBE_F));
     globe.frustumCulled = false;
@@ -187,7 +186,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     const rangeGroup = new THREE.Group();
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
-    const cGeo = new THREE.PlaneGeometry(608, 608, 767, 767);
+    const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
     const cap = new THREE.Mesh(cGeo, mat(CAP_V, CAP_F));
     cap.frustumCulled = false;
     cap.visible = false;
@@ -233,6 +232,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     loader.load(`${base}moon/earth_2k.jpg`, (tx) => { tx.colorSpace = THREE.SRGBColorSpace; earthMat.uniforms.uMap.value = tx; request(); });
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.minDistance = R_KM + 60; controls.maxDistance = 40000; controls.enablePan = false;
 
     let raf = 0;
     const request = () => { if (!raf) raf = requestAnimationFrame(frame); };
@@ -241,7 +241,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
       flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[], meta: null as TexMeta | null,
       exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null,
+      surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
     };
+    const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000 }));
     S.current = st;
     if (import.meta.env.DEV) Object.assign(window as object, { __moon: st, __gsap: gsap });
 
@@ -290,9 +292,8 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     function frame() {
       raf = 0;
       const moving = st.flying ? false : st.controls.update();
-      // keep the camera above the ground
-      const g = groundKm(camera.position), r = camera.position.length(), minAlt = 0.0006;
-      if (r < g + minAlt) camera.position.multiplyScalar((g + minAlt) / r);
+      constrainCamera(camera.position, st.controls.target, surfaceRadius, st.mode === 'site' && !st.flying);
+      camera.lookAt(st.controls.target);
       u.uCam.value.copy(camera.position);
       {
         // anchor = ground point under the camera, snapped to whole 2048 m cells; everything here is float64,
@@ -338,7 +339,8 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         pin.style.opacity = show ? '1' : '0';
       }
       // readouts: ground resolution at the screen centre and altitude
-      const alt = camera.position.length() - groundKm(camera.position);
+      const alt = camera.position.length() - surfaceRadius(camera.position);
+      if (import.meta.env.DEV) el.dataset.cameraClearanceM = String(alt * 1000);
       const dist = camera.position.distanceTo(st.controls.target);
       const mpp = (2 * dist * 1000 * Math.tan((camera.fov * Math.PI) / 360)) / h;
       const ro = readout.current;
@@ -470,6 +472,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     controls.enabled = false;
     const p0 = camera.position.clone(), t0 = controls.target.clone(), up0 = camera.up.clone();
     const r0 = p0.length(), r1 = toPos.length();
+    const a0 = Math.max(r0 - st.surfaceRadius(p0), 0.001), a1 = Math.max(r1 - st.surfaceRadius(toPos), 0.001);
     const d0 = p0.clone().normalize(), d1 = toPos.clone().normalize();
     const ang = d0.angleTo(d1);
     const hop = Math.min(2600, Math.max(0, ang * R_KM * 0.5));
@@ -481,13 +484,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         const k = o.k;
         const dir = new THREE.Vector3().copy(d0).lerp(d1, k).normalize();
         if (ang > 1e-4) { const q = new THREE.Quaternion().setFromUnitVectors(d0, d1); dir.copy(d0).applyQuaternion(new THREE.Quaternion().slerp(q, k)); }
-        // log-interpolate the radius above the surface so long dives feel even, plus a hop over the limb
-        const a0 = Math.max(r0 - R_KM, 1e-4), a1 = Math.max(r1 - R_KM, 1e-4);
+        // Interpolate clearance above the actual terrain, including destinations below the reference sphere.
         const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + hop * Math.sin(Math.PI * k);
-        camera.position.copy(dir.multiplyScalar(R_KM + alt));
-        if (k > 0.97) camera.position.lerp(toPos, (k - 0.97) / 0.03);
+        camera.position.copy(dir.multiplyScalar(st.surfaceRadius(dir) + alt));
         controls.target.copy(t0).lerp(toTarget, gsap.parseEase('power2.inOut')(k));
-        camera.up.copy(up0).lerp(up, k).normalize();
+        camera.up.copy(up0).applyQuaternion(new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(up0, up), k));
         camera.lookAt(controls.target);
         st.request();
       },
@@ -503,7 +504,10 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         c.zoomSpeed = 2.2; c.rotateSpeed = 0.6;
         c.screenSpacePanning = false;
         if (mode === 'globe') { c.minDistance = R_KM + 60; c.maxDistance = 40000; c.enablePan = false; }
-        else { c.minDistance = 0.0012; c.maxDistance = 9000; c.enablePan = true; c.panSpeed = 0.6; }
+        else {
+          c.minDistance = 0.0012; c.maxDistance = 9000; c.enablePan = true; c.panSpeed = 0.6;
+          c.maxPolarAngle = Math.PI / 2 - 0.02;
+        }
         c.addEventListener('change', st.request);
         st.controls = c;
         st.request();
@@ -529,6 +533,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     const E = v3(e), N = v3(n), U = v3(u);
     const hSite = (st.hi ? sampleGrid(st.hi, ...stereoXY(sel.lat, sel.lon)) : NaN);
     const target = v3(posOf(sel.lat, sel.lon, isNaN(hSite) ? sel.siteHeightM ?? 0 : hSite));
+    target.setLength(st.surfaceRadius(target));
     // stand on the sunward side looking away from the Sun, so faces are lit and shadows run away from you
     const sh = new THREE.Vector3(sunMF.dot(E), sunMF.dot(N), 0);
     if (sh.lengthSq() < 1e-8) sh.set(0, 1, 0);
