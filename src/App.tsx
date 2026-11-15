@@ -7,6 +7,8 @@ import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import MissionCompare, { type MissionPair } from './components/MissionCompare';
+import AssistantChat from './components/AssistantChat';
+import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -227,6 +229,20 @@ export default function App() {
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
 
+  // the help assistant's buttons drive the app like the user would
+  const onHelpAction = (a: HelpAction) => {
+    if (a.type === 'mode') goMode(a.mode);
+    else if (a.type === 'missions') { if (!missionsOpen) toggleMissions(); }
+    else if (a.type === 'guide') setGuide(true);
+    else if (a.type === 'about') setAbout(true);
+    else if (a.type === 'palette') setPalette(true);
+    else if (a.type === 'theme') theme.toggle();
+    else if (a.type === 'home') goHome();
+    else if (a.type === 'view') { setMode('explore'); setView(a.view); }
+    else if (a.type === 'deep') { setMode('explore'); setDeep(a.deep); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
+    else if (a.type === 'site') pickSite(a.id);
+  };
+
   return (
     <div className="app">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
@@ -429,6 +445,7 @@ export default function App() {
       </footer>
       </div>
       {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} onPlanLaunch={(id) => { setMissionsOpen(false); setSiteId(id); setMode('launch'); window.scrollTo({ top: 0 }); }} />}
+      <AssistantChat sites={allSites} onAction={onHelpAction} />
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
