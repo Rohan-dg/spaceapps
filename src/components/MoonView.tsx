@@ -268,7 +268,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       scene.add(l);
       return l;
     };
-    const earthLine = sightLine(0x4c90f0);
+    const earthLine = sightLine(0x0071bc);
     // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
     const sunLine = sightLine(0xffffff);
     scene.add(rangeGroup);
@@ -1188,7 +1188,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         l.computeLineDistances();
         (l.material as THREE.LineDashedMaterial).color.set(color);
       };
-      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x4c90f0 : 0x6b6b72);
+      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x0071bc : 0x6b6b72);
       set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct > 0.5 ? 0xffffff : 0x6b6b72);
     }
     st.request();
