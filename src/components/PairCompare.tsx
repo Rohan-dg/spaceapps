@@ -3,7 +3,8 @@
  * every criterion the challenge asks about (Sun and Earth now, time to sunset / Earthset, power and radio over the
  * next lunar day) plus the long-run criteria and the weighted long-run score, with the better value marked.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { DEFAULT_LANDER, simulateLander, validateLander, type Lander } from '../lib/lander';
 import type { SiteData } from '../lib/data';
 import { criteriaOf, longRunScore, ROWS, verdict, separationKm, type Better } from '../lib/missionCompare';
 import { useScenario } from '../lib/useScenario';
@@ -27,7 +28,11 @@ function win(l: Line): Better {
   return (l.a.v > l.b.v) === l.higher ? 'a' : 'b';
 }
 
-export default function PairCompare({ a, b, t, onSwap, onClear }: { a: SiteData; b: SiteData; t: number; onSwap: () => void; onClear: () => void }) {
+export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, onCloseUp }: { a: SiteData; b: SiteData; t: number; onSwap: () => void; onClear: () => void; expert?: boolean; onCloseUp?: (id: string) => void }) {
+  const [lander, setLander] = useState<Lander>(DEFAULT_LANDER);
+  const landerErr = validateLander(lander);
+  const la = useMemo(() => (landerErr ? null : simulateLander(a.series, t, lander)), [a, t, lander, landerErr]);
+  const lb = useMemo(() => (landerErr ? null : simulateLander(b.series, t, lander)), [b, t, lander, landerErr]);
   const ra = useScenario(a, t), rb = useScenario(b, t);
   const ca = useMemo(() => criteriaOf(a), [a]), cb = useMemo(() => criteriaOf(b), [b]);
   const sa = useMemo(() => longRunScore(ca), [ca]), sb = useMemo(() => longRunScore(cb), [cb]);
@@ -75,19 +80,32 @@ export default function PairCompare({ a, b, t, onSwap, onClear }: { a: SiteData;
         a: { text: `${ca[r.key].toFixed(r.digits)} ${r.unit}`, v: ca[r.key] }, b: { text: `${cb[r.key].toFixed(r.digits)} ${r.unit}`, v: cb[r.key] },
       })),
     },
+    ...(expert && la && lb ? [{
+      title: `Your lander (${lander.arrayW} W array, ${lander.batteryKWh} kWh battery, ${lander.dayLoadW} W day / ${lander.nightLoadW} W night)`,
+      lines: [
+        { label: 'Survives the next lunar day', a: { text: la.survives ? 'Yes' : 'No', v: +la.survives }, b: { text: lb.survives ? 'Yes' : 'No', v: +lb.survives }, higher: true },
+        { label: 'Lowest battery charge', a: { text: `${la.minChargePct.toFixed(0)} %`, v: la.minChargePct }, b: { text: `${lb.minChargePct.toFixed(0)} %`, v: lb.minChargePct }, higher: true },
+        { label: 'Hours without power', a: { text: `${la.hoursWithoutPower.toFixed(0)} h`, v: la.hoursWithoutPower }, b: { text: `${lb.hoursWithoutPower.toFixed(0)} h`, v: lb.hoursWithoutPower }, higher: false },
+        { label: 'Operating hours on the array', a: { text: `${la.operatingHours.toFixed(0)} h`, v: la.operatingHours }, b: { text: `${lb.operatingHours.toFixed(0)} h`, v: lb.operatingHours }, higher: true },
+        { label: 'Powered hours in contact with Earth', a: { text: `${la.linkHours.toFixed(0)} h`, v: la.linkHours }, b: { text: `${lb.linkHours.toFixed(0)} h`, v: lb.linkHours }, higher: true },
+        { label: 'Net energy over the period', a: { text: `${la.netKWh >= 0 ? '+' : ''}${la.netKWh.toFixed(0)} kWh`, v: la.netKWh }, b: { text: `${lb.netKWh >= 0 ? '+' : ''}${lb.netKWh.toFixed(0)} kWh`, v: lb.netKWh }, higher: true },
+      ] as Line[],
+    }] : []),
   ];
 
   const winner = v.winner === 'a' ? nameA : v.winner === 'b' ? nameB : null;
   return (
     <section className="pair" aria-label={`Comparison of ${nameA} and ${nameB}`}>
       <div className="pair-head">
-        <div className="pair-site a"><span className="pair-tag">A</span><b>{a.info.name}</b><small>{a.info.mission ?? ''}</small></div>
+        <div className="pair-site a"><span className="pair-tag">A</span><b>{a.info.name}</b><small>{a.info.mission ?? ''}</small>
+          {expert && onCloseUp && <button className="pair-closeup" onClick={() => onCloseUp(a.info.id)}>View close-up on the Moon</button>}</div>
         <div className="pair-vs">
           <span className="num">{separationKm(a.info, b.info).toFixed(0)} km apart</span>
           <button onClick={onSwap} title="Swap A and B">⇄</button>
           <button onClick={onClear} title="Clear the comparison">Clear</button>
         </div>
-        <div className="pair-site b"><span className="pair-tag">B</span><b>{b.info.name}</b><small>{b.info.mission ?? ''}</small></div>
+        <div className="pair-site b"><span className="pair-tag">B</span><b>{b.info.name}</b><small>{b.info.mission ?? ''}</small>
+          {expert && onCloseUp && <button className="pair-closeup" onClick={() => onCloseUp(b.info.id)}>View close-up on the Moon</button>}</div>
       </div>
 
       <div className="pair-score">
@@ -108,6 +126,21 @@ export default function PairCompare({ a, b, t, onSwap, onClear }: { a: SiteData;
         {v.reasons.length > 0 && <> {v.reasons.join('. ')}.</>}
         <small> Success rate weights: sunlight 35 %, Earth contact 25 %, surviving the night 20 %, radio blackouts 10 %, landing opportunities 10 %.</small>
       </p>
+
+      {expert && (
+        <form className="pair-lander" onSubmit={(e) => e.preventDefault()} aria-label="Your lander">
+          <div className="pair-lander-h"><b>Your lander</b><small>Enter your own numbers: the table below recalculates both sites for the next lunar day.</small></div>
+          {([['arrayW', 'Solar array output', 'W'], ['batteryKWh', 'Battery capacity', 'kWh'], ['dayLoadW', 'Daytime load', 'W'], ['nightLoadW', 'Night survival load', 'W']] as const).map(([k, label, unit]) => (
+            <label key={k}><span>{label}</span>
+              <span className="pair-in"><input type="number" min={0} step="any" value={Number.isFinite(lander[k]) ? lander[k] : ''}
+                onChange={(e) => setLander({ ...lander, [k]: e.target.value === '' ? NaN : Number(e.target.value) })} /><em>{unit}</em></span>
+            </label>
+          ))}
+          <button type="button" className="pair-reset" onClick={() => setLander(DEFAULT_LANDER)}>Reset</button>
+          {landerErr && <p className="pair-err" role="alert">{landerErr}</p>}
+          <p className="pair-note">Every sunlit hour counts as full array output; real arrays also depend on Sun elevation, panel tilt and temperature.</p>
+        </form>
+      )}
 
       <table className="pair-table">
         <thead><tr><th scope="col">Criterion</th><th scope="col">A · {nameA}</th><th scope="col">B · {nameB}</th></tr></thead>

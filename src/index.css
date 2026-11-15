@@ -1625,3 +1625,18 @@ h3, .pnl-h h3, .ct-panel-h h2 { font-weight: 600; letter-spacing: -0.005em; }
 .simple-speed { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
 .simple-speed select { height: 34px; }
 .ui-normal .simple { padding-bottom: 8px; }
+/* expert lander model in the comparison */
+.pair-lander { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 12px; align-items: end; padding: 12px 14px;
+  border: 1px solid var(--accent); border-radius: 6px; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.pair-lander-h { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; }
+.pair-lander-h small, .pair-note { color: var(--ink-2); font-size: 11.5px; }
+.pair-lander label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pair-in { display: flex; align-items: center; gap: 6px; }
+.pair-in input { width: 100%; min-width: 0; height: 32px; font-variant-numeric: tabular-nums; }
+.pair-in em { font-style: normal; font-size: 11.5px; color: var(--ink-2); }
+.pair-reset { height: 32px; justify-self: start; padding: 0 12px; border-radius: 6px; font-size: 12px; }
+.pair-err { grid-column: 1 / -1; margin: 0; color: var(--poor); font-size: 12px; }
+.pair-note { grid-column: 1 / -1; margin: 0; }
+.pair-closeup { justify-self: start; margin-top: 6px; height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.hud-probe-launch.alt { background: transparent; border-color: rgba(255, 255, 255, 0.35); color: #fff; margin-bottom: 6px; }
+.ct-busy { display: flex; align-items: center; gap: 8px; margin: 8px 12px 0; font-size: 12.5px; color: var(--ink-2); }
