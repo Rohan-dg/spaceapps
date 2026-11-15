@@ -57,7 +57,7 @@ type Mode = 'now' | 'pct';
  * plus a "sunlit share of the next lunar day" layer that shows where the best-lit ground is and how much a
  * short move changes it.
  */
-export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: number; mastPct?: number }) {
+export default function ShadowMap({ data, t, mastPct, plain = false }: { data: SiteData; t: number; mastPct?: number; plain?: boolean }) {
   const id = data.info.id;
   const [tile, setTile] = useState<{ id: string; tile: Tile } | null>(null);
   const [hz, setHz] = useState<{ id: string; hz: Int16Array } | null>(null);
@@ -165,7 +165,7 @@ export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: num
     const cell = w / n, toPx = (i: number) => [((i % n) + 0.5) * cell, (Math.floor(i / n) + 0.5) * cell];
     // site
     const c = w / 2;
-    ctx.strokeStyle = '#4c90f0'; ctx.lineWidth = 2;
+    ctx.strokeStyle = '#63a1ff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(c, c, 7, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(c - 12, c); ctx.lineTo(c - 4, c); ctx.moveTo(c + 4, c); ctx.lineTo(c + 12, c); ctx.moveTo(c, c - 12); ctx.lineTo(c, c - 4); ctx.moveTo(c, c + 4); ctx.lineTo(c, c + 12); ctx.stroke();
     // best-lit point and the search radius
@@ -174,7 +174,7 @@ export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: num
       ctx.beginPath(); ctx.arc(c, c, (best.rKm / (2 * T.halfKm)) * w, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
       const [bx, by] = toPx(best.i);
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by, 6, 0, 2 * Math.PI); ctx.stroke();
-      ctx.fillStyle = '#4c90f0'; ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = '#63a1ff'; ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, 2 * Math.PI); ctx.fill();
     }
     // Sun direction on the edge
     if (mode === 'now' && sun.el > -1) {
@@ -222,8 +222,8 @@ export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: num
     <div className="sm">
       <div className="sm-top">
         <div className="seg" role="radiogroup" aria-label="Shadow map layer">
-          <button role="radio" aria-checked={mode === 'now'} onClick={() => setMode('now')}>Light and shadow now</button>
-          <button role="radio" aria-checked={mode === 'pct'} onClick={() => setMode('pct')}>Sunlit share, next lunar day</button>
+          <button role="radio" aria-checked={mode === 'now'} onClick={() => setMode('now')}>{plain ? 'Sunny or shaded now' : 'Light and shadow now'}</button>
+          <button role="radio" aria-checked={mode === 'pct'} onClick={() => setMode('pct')}>{plain ? 'How sunny over the month' : 'Sunlit share, next lunar day'}</button>
         </div>
         <span className="sm-meta num">{T.halfKm * 2} × {T.halfKm * 2} km · {T.spacingM} m grid · {T.dem}</span>
       </div>
@@ -241,7 +241,7 @@ export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: num
               <ul className="chart-legend sm-legend">
                 <li><span className="swatch" style={{ background: '#ece8de' }} aria-hidden /> Sunlit</li>
                 <li><span className="swatch" style={{ background: '#1a1e2c', outline: '1px solid var(--line)' }} aria-hidden /> Shadow</li>
-                <li><span className="swatch" style={{ background: '#4c90f0' }} aria-hidden /> Site</li>
+                <li><span className="swatch" style={{ background: '#63a1ff' }} aria-hidden /> Site</li>
               </ul>
             </>
           ) : (
@@ -263,7 +263,7 @@ export default function ShadowMap({ data, t, mastPct }: { data: SiteData; t: num
               {mode === 'pct' && F ? ` · sunlit ${((F[hover] / 250) * 100).toFixed(0)}%` : ''}
             </> : 'Point at the map for details.'}
           </p>
-          <p className="sm-note">Ground level, Sun treated as a point. Terrain within the tile is traced per point; the skyline beyond it comes from the site's 150 km horizon. The site's own figures elsewhere use a 2 m mast on finer terrain, so they can differ. Ground near the map edge facing the Sun has less terrain to trace and can look too bright.</p>
+          {plain ? <p className="sm-note">A map of the ground around this spot, seen from above with north at the top. Worked out from NASA's height maps of the Moon.</p> : <p className="sm-note">Ground level, Sun treated as a point. Terrain within the tile is traced per point; the skyline beyond it comes from the site's 150 km horizon. The site's own figures elsewhere use a 2 m mast on finer terrain, so they can differ. Ground near the map edge facing the Sun has less terrain to trace and can look too bright.</p>}
         </div>
       </div>
     </div>
