@@ -1,7 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
@@ -102,7 +102,12 @@ export default function App() {
   const allSites = useMemo(() => [...(doc?.sites ?? []), ...customs], [doc, customs]);
   const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
   const all = useAllSites(ids);
-  const data = useSiteData(siteId);
+  const live = useSiteData(siteId);
+  // while a newly picked site loads, keep showing the last one (marked as updating) instead of blanking the panels
+  const lastData = useRef<SiteData | null>(null);
+  if (live) lastData.current = live;
+  const data = live ?? (siteId ? lastData.current : null);
+  const updating = !!data && data.info.id !== siteId;
   const tl = useDeferredValue(t);
   const res = useScenario(data, tl);
   const info = allSites.find((s) => s.id === siteId);
@@ -300,7 +305,7 @@ export default function App() {
       {mode === 'explore' ? (
         <main key="explore" className="explore wrap view-in">
 
-          <section className="work" aria-label="Selected site">
+          <section className={`work${updating ? ' updating' : ''}`} aria-label="Selected site" aria-busy={updating}>
             {data && res ? (
               <>
                 <div className="work-head">

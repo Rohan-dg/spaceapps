@@ -95,7 +95,7 @@ export default function LaunchPlanner({ doc, sites, siteId, onSite, onCustom, da
             <form className="launch-point" onSubmit={(e) => { e.preventDefault(); planPoint(pt.lat.trim() === '' ? NaN : Number(pt.lat), pt.lon.trim() === '' ? NaN : Number(pt.lon)); }}>
               <label className="launch-field">Latitude °<input id="launch-lat" inputMode="decimal" placeholder="e.g. 26.13" value={pt.lat} onChange={(e) => setPt({ ...pt, lat: e.target.value })} /></label>
               <label className="launch-field">Longitude ° E<input id="launch-lon" inputMode="decimal" placeholder="e.g. 3.63" value={pt.lon} onChange={(e) => setPt({ ...pt, lon: e.target.value })} /></label>
-              <button type="submit" className="btn-primary" disabled={!!busy}>{busy ? 'Computing…' : 'Plan launches'}</button>
+              <button type="submit" className="btn-primary" disabled={!!busy} aria-busy={!!busy}>{busy ? 'Computing…' : 'Plan launches'}</button>
             </form>
           )}
           <p className="muted small launch-card-foot" aria-live="polite">
