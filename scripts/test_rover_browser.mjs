@@ -21,7 +21,7 @@ await context.route('**/*', async (route) => {
   const u = new URL(route.request().url());
   if (u.origin !== origin) { notes.push(`External request: ${u.href}`); return route.fulfill({ status: 204, body: '' }); }
   const path = decodeURIComponent(u.pathname);
-  if (failModel && path.endsWith('/rassor.glb')) return route.fulfill({ status: 503, body: 'Intentional QA outage.' });
+  if (failModel && path.endsWith('/rassor.gltf.json')) return route.fulfill({ status: 503, body: 'Intentional QA outage.' });
   if (path.includes('..')) return route.fulfill({ status: 400, body: '' });
   if (path === '/' && harness) return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/qa.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/qa.js"></script></body></html>' });
   const file = path === '/' ? 'index.html' : path.slice(1);

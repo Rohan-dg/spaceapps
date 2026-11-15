@@ -1,4 +1,4 @@
-// Builds public/models/rassor.glb for the rover game from NASA's RASSOR model.
+// Builds the rover game's model (public/models/rassor.gltf.json) from NASA's RASSOR model.
 //
 // Source: "Regolith Advanced Surface Systems Operations Robot (RASSOR).glb" from NASA 3D Resources
 // (https://github.com/nasa/NASA-3D-Resources, 3D Models; free and without copyright per that repository).
@@ -9,7 +9,8 @@
 //
 // The tools are not project dependencies; install them next to this script's working directory first:
 //   npm i --no-save @gltf-transform/core@4 @gltf-transform/extensions@4 @gltf-transform/functions@4 draco3dgltf meshoptimizer
-//   node scripts/build_rover_model.mjs <path to NASA's RASSOR .glb> public/models/rassor.glb
+//   node scripts/build_rover_model.mjs <path to NASA's RASSOR .glb> /tmp/rassor.glb
+//   node scripts/glb_to_gltf_json.mjs /tmp/rassor.glb public/models/rassor.gltf.json   (the app ships JSON, DECISIONS.md #22)
 import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { meshopt, quantize } from '@gltf-transform/functions';
