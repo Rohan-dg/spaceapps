@@ -659,7 +659,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           el.style.setProperty('--lx', `${(-dx / n) * 36}px`);
           el.style.setProperty('--ly', `${(dy / n) * 24}px`);
           el.classList.toggle('blocked', blocked);
-          el.style.opacity = '1';
+          // no arrow while the body itself is visible in the window
+          const inView = d.z < 0 && !blocked && Math.abs(tmp.x) <= 1 && Math.abs(tmp.y) <= 1;
+          el.style.opacity = inView ? '0' : '1';
         }
       }
       // line to Earth: dot length follows the camera's distance to the probed point, so it reads as dotted at any zoom
