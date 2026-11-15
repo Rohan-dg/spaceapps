@@ -7,7 +7,8 @@ import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import MissionCompare, { type MissionPair } from './components/MissionCompare';
-import AssistantChat from './components/AssistantChat';
+import AssistantChat, { type HelpContext } from './components/AssistantChat';
+import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
@@ -237,6 +238,22 @@ export default function App() {
     ];
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions]);
 
+  // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
+  const helpContext = useMemo<HelpContext>(() => {
+    const m = res?.metrics;
+    const pInfo = partner ? allSites.find((s) => s.id === partner) : null;
+    return {
+      mode, when: `${when(tl)} UTC`,
+      site: info ? { name: info.name, short: info.short, lat: info.lat, lon: info.lon, heightM: info.siteHeightM } : null,
+      now: m ? {
+        sunUp: m.sunUp, sunEl: m.sky.sun.el, earthUp: m.earthUp, earthEl: m.sky.earth.el,
+        sunNext: `the Sun ${m.sunUp ? 'sets' : 'rises'} ${eventText(m.sunUp ? m.nextSunset : m.nextSunrise, m.t)}`,
+        earthNext: `Earth ${m.earthUp ? 'sets' : 'rises'} ${eventText(m.earthUp ? m.nextEarthset : m.nextEarthrise, m.t)}`,
+      } : null,
+      ratings: res && m ? { power: { green: 'good', amber: 'marginal', red: 'poor' }[res.power.level], comms: { green: 'good', amber: 'marginal', red: 'poor' }[res.comms.level], sunPct: m.sunPct, earthPct: m.earthPct, longestDarkH: m.longestDarkH } : null,
+      partner: pInfo && pInfo.id !== siteId ? pInfo.short || pInfo.name : null,
+    };
+  }, [res, info, partner, allSites, siteId, mode, tl]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -275,13 +292,6 @@ export default function App() {
         <h1 className="ct-title">
           <button className="ct-home" onClick={goHome} title="Home: Explore, no site selected, whole Moon"><LogoMark size={22} /><span>Sol Teris</span></button>
         </h1>
-        <label className="preset-pick">
-          <span>Preset</span>
-          <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
-            <option value="">Select</option>
-            {PRESETS.map((p) => <option key={p.id} value={p.id} title={p.blurb}>{p.title}</option>)}
-          </select>
-        </label>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
@@ -465,7 +475,7 @@ export default function App() {
       </footer>
       </div>
       {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} onPlanLaunch={(id) => { setMissionsOpen(false); setSiteId(id); setMode('launch'); window.scrollTo({ top: 0 }); }} />}
-      <AssistantChat sites={allSites} onAction={onHelpAction} />
+      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} />
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
