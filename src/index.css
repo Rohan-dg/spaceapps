@@ -1101,6 +1101,11 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .site-group + .site-group { margin-top: 6px; }
 .site-group-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 8px 4px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); letter-spacing: 0; text-transform: none; }
 .site-group-h .num { font-weight: 500; }
+.site-group-h:has(> .site-group-toggle) { padding: 0; }
+.site-group-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin: 0; padding: 8px 8px 4px; box-sizing: border-box; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.site-group-toggle:hover { color: var(--ink); }
+.site-group-caret { display: inline-block; width: 12px; font-size: 10px; }
+.site-meta .site-year { color: var(--ink-2); }
 .site-status { margin-left: 6px; padding: 0 5px; border-radius: var(--r-xs, 4px); border: 1px solid var(--line); font-size: 10.5px; font-weight: 500; color: var(--ink-2); vertical-align: 1px; }
 
 /* ---------- Mission comparison sidebar (toggle: Missions button, rail satellite, M key) ---------- */
@@ -1216,7 +1221,7 @@ button[aria-busy='true']::after { content: ''; position: absolute; inset: 0;
 .fp-heading { font-size: 12px; color: var(--ink); margin-right: 4px; }
 .fp-note { margin-left: auto; font-size: 12px; color: var(--ink-2); }
 
-/* NASA's Artemis III candidate regions: their own colour so the challenge sites stand out from the blue mission sites */
+/* NASA's Artemis III candidate regions: their own colour so the current candidates stand out from the blue mission sites */
 .moon-marker.nasa i { background: #fc3d21; }
 .moon-marker.nasa span { color: #ffd9d2; }
 .moon-marker.nasa.on i { background: #fc3d21; }
@@ -1282,7 +1287,7 @@ button[aria-busy='true']::after { content: ''; position: absolute; inset: 0;
 @media (max-width: 600px) { .as { right: 8px; left: 8px; width: auto; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); height: min(70dvh, 560px); } .as-launch span { display: inline; } }
 @media (prefers-reduced-motion: reduce) { .as-launch, .as { animation: none; } }
 
-/* NASA's challenge sites lead the landing-site list */
+/* NASA's current Artemis III candidates lead the landing-site list */
 .site-group.featured { margin: 4px 6px 8px; border: 1px solid color-mix(in srgb, #fc3d21 45%, var(--line)); border-left: 3px solid #fc3d21; border-radius: 4px;
   background: color-mix(in srgb, #fc3d21 7%, transparent); }
 .site-group.featured .site-group-h { padding: 9px 10px 6px; color: var(--ink); font-size: 13px; font-weight: 700; align-items: flex-start; }
