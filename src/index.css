@@ -1,6 +1,18 @@
 /* Saans (Displaay Type Foundry), used with the foundry's permission for the NASA Space Apps entry. The files in
    public/fonts/ are shipped exactly as supplied (no conversion or renaming): Light 300, Regular 400, Medium 500,
    SemiBold 600, Bold 700 and Heavy 900, with Bold and Heavy italics. */
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Light'), url('/fonts/Saans-TRIAL-Light.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL'), local('Saans-TRIAL Regular'), url('/fonts/Saans-TRIAL-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Medium'), url('/fonts/Saans-TRIAL-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL SemiBold'), url('/fonts/Saans-TRIAL-SemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Bold'), url('/fonts/Saans-TRIAL-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Bold Italic'), url('/fonts/Saans-TRIAL-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Heavy'), url('/fonts/Saans-TRIAL-Heavy.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Heavy Italic'), url('/fonts/Saans-TRIAL-HeavyItalic.ttf') format('truetype'); font-weight: 900; font-style: italic; font-display: swap; }
+
+/* Saans (Displaay Type Foundry), used with the foundry's permission for the NASA Space Apps entry. The files in
+   public/fonts/ are shipped exactly as supplied (no conversion or renaming): Light 300, Regular 400, Medium 500,
+   SemiBold 600, Bold 700 and Heavy 900, with Bold and Heavy italics. */
 
 /*
  * Launcher-style styling: dark first, near-black window with hairline borders, rounded panels,
@@ -26,9 +38,9 @@
   --panel-shadow: none;
   --glass: rgba(4, 5, 6, 0.72);
   color-scheme: dark;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-mono: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-display: 'Saans', 'Saans-TRIAL', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-body: 'Saans', 'Saans-TRIAL', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'Saans', 'Saans-TRIAL', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --r: 0; --r-lg: 0;
 }
 @media (prefers-color-scheme: light) {
