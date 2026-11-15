@@ -319,9 +319,13 @@
 .rg-total strong { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
 .rg-total em { font-style: normal; font-size: 12px; font-weight: 700; color: #fff; background: #ff6363; padding: 3px 10px; border-radius: 999px; }
 .rg-total small { font-size: 11px; color: #fffa; }
-.rg-scorecard ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 190px; overflow-y: auto; }
-.rg-scorecard li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #ffffff12; opacity: 0; animation: rg-card-in 300ms ease forwards; }
-.rg-scorecard li b { color: #ff9b9b; }
+.rg-scorecard ol { list-style: none; margin: 0; padding: 0 6px 0 0; display: grid; gap: 0; max-height: 230px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 99, 99, 0.5) transparent; }
+.rg-scorecard ol:empty { display: none; }
+.rg-scorecard li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; padding: 7px 2px; border-bottom: 1px solid #ffffff14; opacity: 0; animation: rg-line-in 320ms ease forwards; }
+.rg-scorecard li:last-child { border-bottom: 0; }
+/* ends visible: the line itself starts at opacity 0, so the animation must say where it finishes */
+@keyframes rg-line-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.rg-scorecard li b { color: #ff9b9b; font-size: 14px; }
 
 @media (max-width: 640px) {
   .rg[data-stage='brief'] .rg-scrim { background: #050608cc; }
