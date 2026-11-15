@@ -358,7 +358,13 @@ export class Game {
     this.dust.frustumCulled = false; this.near.add(this.dust);
     // the rover's own long shadow, laid along the ground away from the Sun
     const sg = new THREE.PlaneGeometry(1, 1, 1, 14);
-    this.shadow = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide }));
+    const mask = document.createElement('canvas'); mask.width = 128; mask.height = 256;
+    const mg = mask.getContext('2d')!;
+    mg.fillStyle = '#fff'; mg.shadowColor = '#fff'; mg.shadowBlur = 5;
+    // A soft silhouette breaks up the elongated projection into chassis, wheels and excavation drums.
+    mg.fillRect(40, 32, 48, 184); mg.fillRect(24, 45, 80, 35); mg.fillRect(24, 174, 80, 35);
+    mg.fillRect(53, 8, 22, 232); mg.fillRect(10, 15, 108, 30); mg.fillRect(10, 211, 108, 30);
+    this.shadow = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(mask), color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, side: THREE.DoubleSide }));
     this.shadow.frustumCulled = false; this.near.add(this.shadow);
     // objective marker: a ring on the ground and a thin column of light
     const col = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 90, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
