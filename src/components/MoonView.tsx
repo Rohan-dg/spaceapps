@@ -116,6 +116,8 @@ const fmtKm = (km: number) => (km < 1 ? `${(km * 1000).toFixed(0)} m` : `${km < 
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const compass = (az: number) => `${COMPASS[Math.round(az / 45) % 8]} (${az.toFixed(0)}°)`;
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
+/** How long a single click waits for a second one before acting. */
+const DBL_MS = 260;
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
 export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true }: {
@@ -146,6 +148,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
+  /** A single click waiting to see whether it becomes a double-click. */
+  const clickWait = useRef(0);
+  useEffect(() => () => clearTimeout(clickWait.current), []);
   const pointRef = useRef(onPointClick);
   pointRef.current = onPointClick;
   /** Home: drop the probed point and any pivot, deselect everything, and fly out to the whole Moon. */
@@ -178,7 +183,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const S = useRef<{
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
-    eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
+    eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null; flyDest?: THREE.Vector3 | null;
     request: () => void; markers: Marker[]; meta: TexMeta | null;
     exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
@@ -732,19 +737,27 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     }
     controls.addEventListener('change', request);
 
-    // a click (not a drag) on the ground probes that point
+    // Single click (not a drag) on the ground: top-down view over that point, and the point is probed.
+    // Double click: the near-horizontal terrain view of that point and nothing else. The single-click action waits
+    // DBL_MS so the two clicks of a double-click never also run it.
     let down: [number, number] | null = null;
     const onDown = (e: PointerEvent) => { down = e.isPrimary ? [e.clientX, e.clientY] : null; };
     const onUp = (e: PointerEvent) => {
       const d0 = down; down = null;
-      // a click during a flight retargets it (fly() starts from wherever the camera is now)
       if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
+      // second click of a double-click: drop the waiting single click; the dblclick handler does the zoom
+      if (clickWait.current) { clearTimeout(clickWait.current); clickWait.current = 0; return; }
       const rect = renderer.domElement.getBoundingClientRect();
-      const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1, ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      clickWait.current = window.setTimeout(() => { clickWait.current = 0; singleGround(nx, ny); }, DBL_MS);
+    };
+    // a click during a flight retargets it (fly() starts from wherever the camera is now)
+    const singleGround = (nx: number, ny: number) => {
+      const hit = pickGround(nx, ny);
       if (hit) {
         // start the flight first; the 360° skyline trace for the probe runs when the browser is idle, so the
         // click never stalls the first frames of the camera move
-        topRef.current(hit, pointRef.current && selRef.current ? v3(posOf(selRef.current.lat, selRef.current.lon, 0)) : null);
+        topRef.current(hit);
         const h = hit.clone();
         const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
         if (idle) idle(() => pickRef.current(h), { timeout: 400 }); else setTimeout(() => pickRef.current(h), 60);
@@ -752,9 +765,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
     };
-    // a double-click flies down to that point for a near-horizontal close-up
+    // a double-click flies down to that point for a near-horizontal close-up, and does nothing else
     const onDbl = (e: MouseEvent) => {
-      if (st.flying) return;
+      e.preventDefault();
+      if (clickWait.current) { clearTimeout(clickWait.current); clickWait.current = 0; }
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) zoomRef.current(hit);
@@ -845,7 +859,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
       for (const t of [...tiles.values()]) dropTile(t);
       composer.dispose(); tileMask.dispose();
-      renderer.dispose(); renderer.domElement.remove(); S.current = null;
+      renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove(); S.current = null;
     };
   }, []);
 
@@ -886,12 +900,19 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
       // a site marker behaves like any other point: select it and glide to a top-down view over it
-      b.onclick = () => {
-        if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); }
-        topRef.current(v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief)));
+      // single click waits DBL_MS so a double-click runs only the terrain close-up
+      b.onclick = (e) => {
+        if (e.detail > 1) return; // second click of a double-click
+        if (clickWait.current) clearTimeout(clickWait.current);
+        clickWait.current = window.setTimeout(() => {
+          clickWait.current = 0;
+          if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); }
+          topRef.current(v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief)));
+        }, DBL_MS);
       };
       b.ondblclick = (e) => {
         e.preventDefault();
+        if (clickWait.current) { clearTimeout(clickWait.current); clickWait.current = 0; }
         const st2 = S.current;
         const polarWindow = s.lat < -80.5 && !s.id.startsWith('custom');
         if (s.id === selectedId && (!polarWindow || st2?.hi)) closeSite(s);
@@ -922,6 +943,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(toPos, toTarget, up));
     const o = { k: 0 };
     st.mode = mode;
+    st.flyDest = toTarget.clone();
     st.flying = gsap.to(o, {
       k: 1, duration: dur, ease: 'power2.inOut',
       onUpdate: () => {
@@ -944,7 +966,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         st.request();
       },
       onComplete: () => {
-        st.flying = null;
+        st.flying = null; st.flyDest = null;
         camera.up.copy(up);
         // OrbitControls caches the up vector, so rebuild it for the new frame
         const target = controls.target.clone();
@@ -1024,6 +1046,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       // already overhead (a clicked point): stay put; otherwise glide to the broad overhead view
       const c = S.current?.camera.position;
       if (c && c.clone().normalize().angleTo(p.clone().normalize()) < 0.05) return;
+      // a click already sent the camera there: let that flight finish rather than restart it
+      const dest = S.current?.flyDest;
+      if (S.current?.flying && dest && dest.clone().normalize().angleTo(p.clone().normalize()) < 0.01) return;
       topRef.current(p, null);
     };
     // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
