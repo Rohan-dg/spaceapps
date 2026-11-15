@@ -28,8 +28,23 @@ export interface BodyFixedGeometry {
   earthKm: Vec3; // Earth centre, Moon-centred Moon-fixed, km
 }
 
+/** Geometry is the same for every site at one instant and the app asks for the same instants many times (every
+ *  site in the summary strip, the date-slip panel, the shadow map, verdicts...), so recent instants are kept. */
+const GEOM_CACHE = new Map<number, BodyFixedGeometry>();
+const GEOM_MAX = 4096;
+
 /** Site-independent geometry for one instant (compute once, reuse for all sites). */
 export function bodyFixedGeometry(time: Date): BodyFixedGeometry {
+  const key = time.getTime();
+  const hit = GEOM_CACHE.get(key);
+  if (hit) return hit;
+  const g = computeGeometry(time);
+  if (GEOM_CACHE.size >= GEOM_MAX) GEOM_CACHE.delete(GEOM_CACHE.keys().next().value as number);
+  GEOM_CACHE.set(key, g);
+  return g;
+}
+
+function computeGeometry(time: Date): BodyFixedGeometry {
   const t = Astro.MakeTime(time);
   const axis = Astro.RotationAxis(Astro.Body.Moon, t);
 
