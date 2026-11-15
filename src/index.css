@@ -713,6 +713,13 @@ kbd {
 .hud-range .range-err { margin: 0 0 6px; color: #63a1ff; }
 .hud-range .swatch { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-left: 4px; border-top: 2px solid #ffffff; }
 .hud-range .swatch.dashed { border-top-style: dashed; }
+.hud-range .range-set { margin: 8px 0 0; padding: 6px 0 0; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); min-width: 0; }
+.hud-range .range-set legend { padding: 0 6px 0 0; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #a9a9a9; }
+.hud-range .range-params { margin-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; }
+.hud-range .range-params > summary { cursor: pointer; font-size: 11px; color: #e6e6e6; list-style-position: inside; }
+.hud-range .range-params > summary .dim { margin-left: 4px; font-size: 10.5px; }
+.hud-range .range-params + .range-grid { margin-top: 8px; }
+.hud-range .range-reset { height: 28px; padding: 0 10px; border-radius: 0; border: 1px solid rgba(255, 255, 255, 0.24); background: transparent; color: inherit; font-size: 12px; }
 @media (max-width: 760px) {
   .hud-range { top: 56px; left: 14px; right: 14px; width: auto; max-height: 44%; z-index: 3; padding: 8px 10px; }
   .hud-range .range-grid { gap: 6px; }
