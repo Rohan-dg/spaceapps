@@ -1964,17 +1964,13 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 /* ---------- Normal <-> Expert transition ----------
    The page cross-fades through a soft blur (View Transitions API, set up in App.tsx setUi) while the top bar morphs
    in place, and the mode accent blends between coral and blue. Instant when the OS asks for reduced motion. */
-@property --mode { syntax: '<color>'; inherits: true; initial-value: #63a1ff; }
-@property --mode-tint { syntax: '<color>'; inherits: true; initial-value: #142a4a; }
-.app { transition: --mode 450ms var(--ease-out, ease), --mode-tint 450ms var(--ease-out, ease); }
-html[data-ui-switch] .ct-bar { view-transition-name: ct-bar; }
-html[data-ui-switch] .ct-rail { view-transition-name: ct-rail; }
-html[data-ui-switch]::view-transition-old(root) { animation: ui-out 260ms cubic-bezier(0.4, 0, 1, 1) both; }
-html[data-ui-switch]::view-transition-new(root) { animation: ui-in 460ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both; }
-html[data-ui-switch]::view-transition-group(ct-bar), html[data-ui-switch]::view-transition-group(ct-rail) { animation-duration: 420ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
-@keyframes ui-out { to { opacity: 0; filter: blur(8px); transform: scale(0.992); } }
-@keyframes ui-in { from { opacity: 0; filter: blur(8px); transform: translateY(10px) scale(1.004); } }
-@media (prefers-reduced-motion: reduce) { .app { transition: none; } }
+/* Panels that change fade and rise in; the top bar, rail and the 3D Moon stay put (no snapshot, no blur, no remount). */
+html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] main { animation: ui-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes ui-in { from { opacity: 0; transform: translateY(8px); } }
+/* the accent blends on the few elements that use it, not by restyling the whole page every frame */
+.logo-sun { transition: fill 420ms var(--ease-out, ease); }
+.ct-tabs button::after, .ct-rail button, .site-row, .kp-m { transition-property: background-color, color, outline-color, box-shadow, transform; transition-duration: 300ms; }
+@media (prefers-reduced-motion: reduce) { html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] main { animation: none; } }
 /* the logo's sun follows the mode accent (coral in Normal, blue in Expert) and blends with it on a switch */
 .app .logo-sun, .app .ct-home .logo-sun { fill: var(--mode); }
 
