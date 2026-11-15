@@ -919,3 +919,5 @@ kbd {
 .explore .mv-tags { text-align: left !important; padding-right: 12px !important; }
 .explore .mchart, .explore .readout-box { border-radius: 4px; }
 .explore .seg { border-radius: 4px; } .explore .seg button { border-radius: 3px; }
+.los-swatch { display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2px dotted #6cb6ff; }
+.los-swatch.blocked { border-top-color: #ef6a5f; }
