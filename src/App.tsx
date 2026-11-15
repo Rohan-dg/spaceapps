@@ -1,7 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
@@ -130,6 +130,7 @@ const ANALYSIS_TABS: [Deep, string][] = [
 ];
 const MoonView = lazy(() => import('./components/MoonView'));
 const Onboarding = lazy(() => import('./components/Onboarding'));
+const RoverGame = lazy(() => import('./game/RoverGame'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
@@ -170,6 +171,7 @@ export default function App() {
   const [choosing, setChoosing] = useState(true);
   // the guided tour for a mode opens right after that mode is first chosen, and on request (rail, command menu)
   const [tour, setTour] = useState<Ui | null>(null);
+  const [roverOpen, setRoverOpen] = useState(false);
   const expert = ui === 'expert';
   const L = COPY[ui];
   const [mode, setMode] = useState<Mode>(init.mode);
@@ -204,6 +206,9 @@ export default function App() {
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
   const [palette, setPalette] = useState(false);
+  const openRover = useCallback(() => {
+    setPlaying(false); setTour(null); setPalette(false); setGuide(false); setRoverOpen(true);
+  }, []);
   // mission comparison sidebar: open state and the two missions being compared
   const [missionsOpen, setMissionsOpen] = useState(false);
   const [pair, setPair] = useState<MissionPair>({ a: null, b: null, active: 'a' });
@@ -218,6 +223,40 @@ export default function App() {
   // Compare, Calculator and Launch put their tool in a widened right-hand glass panel
   const dash = expert;
   const dashExplore = dash && mode === 'explore';
+  // The Compare / Launch / Calculator panel takes the exact top and height of Explore's site card, so switching tool
+  // only widens the box (leftward) and never changes its length. The card's box is tracked while Explore is shown.
+  const dashRef = useRef<HTMLDivElement>(null);
+  const rightW = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const host = dashRef.current;
+    if (!dash || !host) return;
+    const el = host.querySelector<HTMLElement>(':scope > .dash-wide, :scope > .dash-side, .dash-wide, .dash-side');
+    if (!el) return;
+    const to = el.getBoundingClientRect().width, from = rightW.current;
+    rightW.current = to;
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (from === null || Math.abs(from - to) < 1 || reduce || innerWidth <= 900) return;
+    // the panel is pinned on the right, so animating its width moves only its left edge: it grows or shrinks
+    // leftward from exactly where the previous section's panel was
+    el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: 520, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+  }, [mode, dash]);
+  useEffect(() => {
+    const host = dashRef.current;
+    if (!dashExplore || !host) return;
+    let ro: ResizeObserver | null = null, raf = 0;
+    const measure = () => {
+      const card = host.querySelector<HTMLElement>('.dash-site');
+      if (!card) { raf = requestAnimationFrame(measure); return; }
+      const h = host.getBoundingClientRect(), c = card.getBoundingClientRect();
+      host.style.setProperty('--card-top', `${Math.round(c.top - h.top)}px`);
+      host.style.setProperty('--card-h', `${Math.round(c.height)}px`);
+      if (!ro) { ro = new ResizeObserver(measure); ro.observe(card); ro.observe(host); }
+    };
+    measure();
+    // the card can be re-created (site loads, intro closes): re-measure cheaply while Explore is on screen
+    const iv = setInterval(() => { ro?.disconnect(); ro = null; measure(); }, 500);
+    return () => { cancelAnimationFrame(raf); clearInterval(iv); ro?.disconnect(); };
+  }, [dashExplore]);
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -367,6 +406,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (roverOpen) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (document.querySelector('.chooser-backdrop')) return; // the mode chooser owns the keyboard
@@ -385,15 +425,16 @@ export default function App() {
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [range, closeGuide, toggleMissions]);
+  }, [range, closeGuide, toggleMissions, roverOpen]);
   // ⌘K / Ctrl+K toggles the command menu from anywhere, including inside inputs
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (roverOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((x) => !x); }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, []);
+  }, [roverOpen]);
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
@@ -426,12 +467,13 @@ export default function App() {
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-tour', group: 'Actions', title: 'Take the tour', keywords: 'tour onboarding tutorial walkthrough intro how to use learn', icon: <Sparkles size={16} />, run: () => setTour(expert ? 'expert' : 'normal') },
+      ...(!expert ? [{ id: 'rover-game', group: 'Views', title: 'Drive a rover', keywords: 'game education RASSOR ice power signal mission', icon: <Play size={16} />, run: openRover }] : []),
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
     // Normal mode leaves out the Scientific-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
     const EXPERT_ONLY = new Set(['mode-compare', 'mode-calc', 'mode-launch', 'deep-mission', 'deep-libration']);
     return expert ? list : list.filter((c) => !EXPERT_ONLY.has(c.id) && !(c.id.startsWith('preset-') && PRESETS.find((p) => `preset-${p.id}` === c.id)?.mode === 'compare'));
-  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi, openDeep]);
+  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi, openDeep, openRover]);
 
   // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
   const helpContext = useMemo<HelpContext>(() => {
@@ -589,6 +631,9 @@ export default function App() {
     return deepBody(sheet as Deep);
   };
 
+  // Release the globe renderer while driving, while keeping the map and dashboard state.
+  if (roverOpen) return <Suspense fallback={<div className="fatal wrap"><Loading label="Loading rover mission" /><button onClick={() => setRoverOpen(false)}>Return to map</button></div>}><RoverGame sites={allSites} selectedId={siteId} t={t} tMax={range[1]} onClose={() => { setRoverOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.ct-rover')?.focus()); }} /></Suspense>;
+
   return (
     <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}${dash ? ' is-dash' : ''}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
@@ -625,6 +670,7 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
           </>}
         </nav>
+        {!expert && <button className="ct-tutorial ct-rover" onClick={openRover} aria-label="Drive a rover" title="Drive RASSOR, collect ice samples and keep power and Earth contact"><Play size={15} /><span>Drive a rover</span></button>}
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} aria-label={L.tabs.missions} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /><span>{L.tabs.missions}</span></button>
         <button className="ct-tutorial" aria-label="Tutorial" onClick={() => setTour(ui)} title="Step-by-step tour of every part of the screen"><Sparkles size={15} /><span>Tutorial</span></button>
         {dash && <div className="ct-utils">
@@ -647,35 +693,34 @@ export default function App() {
           )}
         </div>
       </section>}
-      <div className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
+      <div ref={dashRef} className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} />
           </Suspense>
         </div>
-        {dashExplore && (
+        {dash && (
+          // the same dashboard in every Scientific section: the left side (dock, hero, sites, time bar) never changes;
+          // only the right-hand panel swaps between the site card (Explore) and the tool (Compare, Calculator, Launch)
           <Dashboard data={data} res={res} info={info} updating={updating} t={t} tl={tl} t0={range[0]} t1={range[1]} onT={onT}
             playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed}
             goodSites={goodSites} activeCount={active.length} onPickSite={chooseSite}
             partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null} onCompare={openCompare}
             onPlanLaunch={planLaunchHere} onLogic={() => setMode('calc')} busy={pointBusy}
-            sheet={sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
-            utils={[]} />
+            sheet={dashExplore && sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
+            utils={[]}
+            right={dashExplore ? undefined : (
+              <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
+                <header className="dw-head"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b><span>{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</span></header>
+                <div className="dw-body" key={mode}>
+                  {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} onTargetUsed={clearLaunchTarget} />
+                    : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
+                    : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
+                </div>
+              </section>
+            )} />
         )}
-        {dash && !dashExplore && (<>
-          <header className="dash-hero dash-mode-hero">
-            <p className="dh-k"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b></p>
-            <p className="dmh-d">{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</p>
-          </header>
-          <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
-            <div className="dw-body" key={mode}>
-              {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} onTargetUsed={clearLaunchTarget} />
-                : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
-                : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
-            </div>
-          </section>
-        </>)}
         {mode === 'explore' && !dash && (
           <aside className="ct-side">
             <section className="ct-panel">
