@@ -101,7 +101,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const [status, setStatus] = useState('Loading the LROC mosaic');
   const [scale, setScale] = useState<Scale>('moon');
   const [shadows, setShadows] = useState(true);
-  const [detail, setDetail] = useState(false);
+  const [detail, setDetail] = useState(true);
   const [relief, setRelief] = useState(1);
   const [hiInfo, setHiInfo] = useState<HiMeta | null>(null);
   const [fail, setFail] = useState<string | null>(null);
@@ -119,9 +119,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
-  const [viewer, setViewer] = useState<{ id: string | null; name: string; lat: number; lon: number } | null>(null);
-  const dblRef = useRef<(p: THREE.Vector3) => void>(() => {});
-  const zoomRef = useRef<(p: THREE.Vector3) => void>(() => {});
+  const [viewer, setViewer] = useState<string | null>(null);
 
   // everything three.js lives here so React re-renders never rebuild the scene
   const S = useRef<{
@@ -271,7 +269,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     }
     /** First hit of a screen ray with the rendered ground (sphere-traced on the height grids), or null. */
     function pickGround(ndcX: number, ndcY: number) {
-      camera.updateMatrixWorld(); const rc = new THREE.Raycaster();
+      const rc = new THREE.Raycaster();
       rc.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
       const o = rc.ray.origin, d = rc.ray.direction;
       const Rmax = R_KM + 11 * st.exag + 0.05;
@@ -401,17 +399,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       if (!d0 || st.flying || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) zoomRef.current(hit);
-    };
-    // a double click opens the 3D terrain viewport centred on that point
-    const onDbl = (e: MouseEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) dblRef.current(hit);
+      if (hit) pickRef.current(hit);
     };
     renderer.domElement.addEventListener('pointerdown', onDown);
     renderer.domElement.addEventListener('pointerup', onUp);
-    renderer.domElement.addEventListener('dblclick', onDbl);
     if (import.meta.env.DEV) (window as unknown as { __moonFrame: () => void }).__moonFrame = frame;
 
     const ro = new ResizeObserver(() => {
@@ -462,7 +453,6 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf);
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);
-      renderer.domElement.removeEventListener('dblclick', onDbl);
       st.flying?.kill(); st.controls.dispose();
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
       renderer.dispose(); renderer.domElement.remove(); S.current = null;
@@ -502,7 +492,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       b.className = `moon-marker${s.id === selectedId ? ' on' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Fly to ${s.name}`);
-      b.onclick = () => { onSelect(s.id); if (s.lat < -80.5 && !s.id.startsWith('custom')) setViewer({ id: s.id, name: s.name, lat: s.lat, lon: s.lon }); };
+      b.onclick = () => { onSelect(s.id); if (s.lat < -80.5 && !s.id.startsWith('custom')) setViewer(s.id); };
       layer.appendChild(b);
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) + 30)) };
     });
@@ -707,19 +697,6 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     st.request();
   }, [shadows, detail, relief, fill]);
 
-  // single click: only move the camera toward the point (no terrain or probe work)
-  zoomRef.current = (p: THREE.Vector3) => {
-    const r = p.length();
-    recenter(Math.asin(p.z / r) * 180 / Math.PI, Math.atan2(p.y, p.x) * 180 / Math.PI);
-  };
-  // double click: probe the point, zoom in, then build the 3D terrain for just that area
-  dblRef.current = (p: THREE.Vector3) => {
-    const r = p.length(), lat = Math.asin(p.z / r) * 180 / Math.PI, lon = (((Math.atan2(p.y, p.x) * 180) / Math.PI) % 360 + 360) % 360;
-    pickRef.current(p);
-    let waits = 0;
-    const open = () => { if (S.current?.flying && waits++ < 30) { setTimeout(open, 100); return; } setViewer({ id: null, name: fmtLatLon(lat, lon), lat, lon }); };
-    setTimeout(open, 150);
-  };
   /* ---------- point probe ---------- */
   const pickRef = useRef<(p: THREE.Vector3) => void>(() => {});
   useEffect(() => {
@@ -754,8 +731,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const U = P.clone().normalize();
     const cam = st.camera.position.clone();
     // keep the viewing distance: from the old pivot when zoomed in, from the surface point on the globe view
-    // and move in: each click zooms 2.5x closer, down to 3 km
-    const dist = Math.max(3, 0.4 * Math.min(8500, st.mode === 'globe' ? cam.distanceTo(P) : cam.distanceTo(st.controls.target)));
+    const dist = Math.min(8500, st.mode === 'globe' ? cam.distanceTo(P) : cam.distanceTo(st.controls.target));
     // keep the viewing direction, but never from below ~15° elevation or from exactly overhead
     const dir = cam.sub(P).normalize();
     const elev = dir.dot(U);
@@ -876,7 +852,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
     <section className="moon" aria-label="3D Moon">
-      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to zoom to a point, double-click for its 3D terrain." />
+      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point." />
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div className="moon-markers sky-ptrs" hidden={!pointers} aria-hidden>
@@ -887,7 +863,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Click to zoom, double-click for light, Earth contact and 3D terrain</p>}
+          {!probe && <p className="hud-hint">Click anywhere on the surface for light and Earth contact</p>}
         </div>
         {probe && (
           <div className="hud-probe" aria-live="polite">
@@ -974,13 +950,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
           <button className={`hud-toggle${shadows ? ' on' : ''}`} aria-pressed={shadows} onClick={() => setShadows((x) => !x)} title="Cast shadows, ray-traced on the LOLA heights"><Icon name="shadow" /> Shadows</button>
           <button className={`hud-toggle${relief > 1 ? ' on' : ''}`} aria-pressed={relief > 1} onClick={() => setRelief((x) => (x > 1 ? 1 : 3))} title="Exaggerate the relief 3×"><Icon name="mountain" /> Relief ×3</button>
           <button className={`hud-toggle${detail ? ' on' : ''}`} aria-pressed={detail} onClick={() => setDetail((x) => !x)} title="Procedural craters and rocks below the resolution of the real data. Illustrative only."><Icon name="sparkle" /> Fine detail</button>
-          {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer({ id: sel.id, name: sel.name, lat: sel.lat, lon: sel.lon })} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
+          {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
         </div>
         {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>
-      {viewer && (
+      {viewer && sel && sel.id === viewer && (
         <Suspense fallback={null}>
-          <TerrainViewport siteId={viewer.id} siteName={viewer.name} lat={viewer.lat} lon={viewer.lon} sunEl={viewer.id && sel?.id === viewer.id ? sunInfo?.el ?? null : null} sunAz={viewer.id && sel?.id === viewer.id ? sunInfo?.az ?? null : null} onClose={() => setViewer(null)} />
+          <TerrainViewport siteId={sel.id} siteName={sel.name} lat={sel.lat} lon={sel.lon} sunEl={sunInfo?.el ?? null} sunAz={sunInfo?.az ?? null} onClose={() => setViewer(null)} />
         </Suspense>
       )}
     </section>
