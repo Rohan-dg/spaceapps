@@ -2518,3 +2518,143 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .ct-tabs.has-ind.ind-on::before { height: 2px; width: calc(var(--iw) - 20px); transform: translate(calc(var(--ix) + 10px), calc(var(--iy) + var(--ih) - 2px)); background: currentColor; border-radius: 2px; color: var(--accent, var(--ct-blue)); }
 .ct-tabs.has-ind.ind-on > button::after { display: none; }
 .ct-tabs.has-ind.ind-on > button[aria-selected='true'] { color: var(--accent, var(--ct-blue)); }
+
+/* ---------- Education: full-screen Moon, mission-point pop-ups, rover path (components/EduView.tsx) ----------
+   Everything here floats over the black sky of the 3D Moon, so it uses dark glass and white text in both themes. */
+.app.is-edu { min-height: 0; }
+.edu { --eg: rgba(14, 15, 18, 0.8); --eline: rgba(255, 255, 255, 0.12); --edim: rgba(255, 255, 255, 0.66); --eok: #4ade80; --erisk: #fbbf24; --eno: #ff6b6b;
+  position: fixed; inset: 0; overflow: hidden; background: #000; color: #fff; font-family: var(--font-body); }
+.edu-moon, .edu-moon .moon { position: absolute; inset: 0; }
+.edu-moon .moon { height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+.edu .moon-hud.minimal .hud-bl { bottom: 16px; left: 16px; }
+.edu .moon-hud.minimal .hud-br { bottom: 16px; right: 16px; }
+.edu.has-path .moon-hud.minimal .hud-br { right: calc(min(380px, 100vw - 32px) + 32px); }
+.edu-glass, .edu-top, .edu-hint, .edu-card, .edu-path, .edu-dock button {
+  background: var(--eg); border: 1px solid var(--eline); -webkit-backdrop-filter: saturate(160%) blur(18px); backdrop-filter: saturate(160%) blur(18px); }
+.edu button { font-family: inherit; }
+
+/* top bar */
+.edu-top { position: absolute; z-index: 5; top: 16px; left: 16px; right: 16px; display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-radius: 14px; }
+.edu-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; }
+.edu-top .ui-toggle { margin-left: 4px; }
+.edu-actions { margin-left: auto; display: flex; gap: 6px; }
+.edu-actions button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.06); color: #fff; font-size: 13px; font-weight: 600; }
+.edu-actions button:hover { background: rgba(255, 255, 255, 0.14); }
+.edu-hint { position: absolute; z-index: 4; top: 78px; left: 50%; transform: translateX(-50%); margin: 0; max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 999px; font-size: 13.5px; text-align: center; pointer-events: none; }
+
+/* bottom: plan a path */
+.edu-dock { position: absolute; z-index: 5; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.edu.has-path .edu-dock { left: calc((100vw - min(380px, 100vw - 32px) - 16px) / 2); }
+.edu-dock button { height: 44px; padding: 0 20px; border-radius: 999px; color: #fff; font-size: 15px; font-weight: 700; }
+.edu-dock button:hover { background: rgba(40, 42, 48, 0.9); }
+.edu-build { background: #2f6fe0 !important; border-color: #4b86ee !important; }
+.edu-build:hover { background: #3a7cf0 !important; }
+.edu-build.on { background: #fff !important; color: #0b0c0e !important; }
+
+/* mission point markers: a path stop is numbered */
+.moon-marker.in-path i { background: #fff; box-shadow: 0 0 0 2px #2f6fe0, 0 0 0 4px rgba(0, 0, 0, 0.6); }
+.moon-marker .path-n, .edu-stop .path-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #2f6fe0; color: #fff; font: 700 11px/1 var(--font-body); }
+.moon-marker .path-n { margin-left: -2px; }
+.edu .moon-marker { font-size: 12px; }
+.edu .moon-marker i { width: 9px; height: 9px; margin-left: -4.5px; }
+
+/* the pop-up card, kept next to its point by MoonView */
+.moon-pop-layer { z-index: 3; }
+.moon-pop-pin { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; transition: opacity 150ms; }
+.edu-card { position: absolute; width: 320px; max-height: min(460px, calc(var(--vh, 100vh) - 180px)); overflow: auto; pointer-events: auto; padding: 14px 16px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); animation: edu-pop 160ms var(--ease-out, ease-out); }
+.moon-pop-pin[data-h='right'] .edu-card { left: 18px; }
+.moon-pop-pin[data-h='left'] .edu-card { right: 18px; }
+.moon-pop-pin[data-v='down'] .edu-card { top: -24px; }
+.moon-pop-pin[data-v='up'] .edu-card { bottom: -24px; }
+.moon-pop-pin[data-h='full'] .edu-card { left: calc(16px - var(--px)); width: calc(var(--vw) - 32px); }
+.moon-pop-pin[data-h='full'][data-v='down'] .edu-card { top: 20px; }
+.moon-pop-pin[data-h='full'][data-v='up'] .edu-card { top: auto; bottom: 20px; }
+@keyframes edu-pop { from { opacity: 0; transform: scale(0.97); } }
+.edu-card header { display: flex; align-items: flex-start; gap: 8px; }
+.edu-card h2 { margin: 0; font-size: 18px; line-height: 1.2; font-weight: 700; }
+.edu-card-mission { margin: 2px 0 0; color: var(--edim); font-size: 13px; }
+.edu-x { margin-left: auto; flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border-radius: 8px; border: 0; background: rgba(255, 255, 255, 0.08); color: #fff; }
+.edu-x:hover { background: rgba(255, 255, 255, 0.18); }
+.edu-card-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.edu-card-facts span { padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); font-size: 12px; font-weight: 600; }
+.edu-card-desc { margin: 10px 0 0; color: rgba(255, 255, 255, 0.86); }
+.edu-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 0; }
+.edu-card-stats div { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.edu-card-stats dt { display: flex; align-items: center; gap: 5px; color: var(--edim); font-size: 12px; }
+.edu-card-stats dd { margin: 3px 0 0; font-size: 12.5px; }
+.edu-card-stats dd b { font-size: 18px; }
+.edu-card-now { margin: 10px 0 0; }
+.edu .dim { color: var(--edim); }
+.edu-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; }
+.edu-card-actions button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 13px; font-weight: 600; }
+.edu-card-actions button.primary { background: #2f6fe0; border-color: #4b86ee; }
+.edu-card-actions button:hover { filter: brightness(1.15); }
+.edu-card-actions span { font-size: 12px; }
+
+/* path panel */
+.edu-path { position: absolute; z-index: 5; top: 80px; right: 16px; bottom: 16px; width: min(380px, calc(100vw - 32px)); display: flex; flex-direction: column; border-radius: 14px; font-size: 13.5px; line-height: 1.45; }
+.edu-path.min { bottom: auto; }
+.edu-path > header { display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--eline); }
+.edu-path.min > header { border-bottom: 0; }
+.edu-path h2 { margin: 0; font-size: 16px; font-weight: 700; }
+.edu-path-body { overflow: auto; padding: 12px 16px 16px; display: grid; gap: 12px; align-content: start; scrollbar-width: thin; }
+.edu-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 6px; border-radius: 999px; font-size: 12.5px; font-weight: 700; }
+.edu-badge.ok { background: rgba(74, 222, 128, 0.16); color: var(--eok); }
+.edu-badge.risky { background: rgba(251, 191, 36, 0.16); color: var(--erisk); }
+.edu-badge.no { background: rgba(255, 107, 107, 0.16); color: var(--eno); }
+.edu-stops { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.edu-stop { display: flex; align-items: center; gap: 8px; }
+.edu-stop-name { flex: 1; min-width: 0; text-align: left; padding: 6px 4px; border: 0; background: none; color: #fff; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edu-stop-name:hover { text-decoration: underline; }
+.edu-stop .edu-x { width: 24px; height: 24px; }
+.edu-leg { display: block; margin: 0 0 0 9px; padding: 2px 0 2px 19px; border-left: 2px dashed #2f6fe0; color: var(--edim); font-size: 12px; }
+.edu-start { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--edim); font-size: 13px; }
+.edu-start input { height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.06); color: #fff; color-scheme: dark; font: inherit; }
+.edu-overall { margin: 0; font-size: 14px; }
+.edu-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
+.edu-totals div { padding: 8px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); min-width: 0; }
+.edu-totals dt { color: var(--edim); font-size: 11.5px; }
+.edu-totals dd { margin: 2px 0 0; font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.edu-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.edu-check { display: grid; grid-template-columns: 24px 1fr 20px; gap: 8px; align-items: start; padding: 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid; }
+.edu-check.ok { border-left-color: var(--eok); } .edu-check.ok > svg { color: var(--eok); }
+.edu-check.risky { border-left-color: var(--erisk); } .edu-check.risky > svg { color: var(--erisk); }
+.edu-check.no { border-left-color: var(--eno); } .edu-check.no > svg { color: var(--eno); }
+.edu-check b { font-size: 13.5px; }
+.edu-check p { margin: 2px 0 0; color: rgba(255, 255, 255, 0.8); font-size: 12.5px; }
+.edu-check-i { display: grid; place-items: center; height: 20px; }
+.edu-batt { width: 16px; height: 9px; border: 1.6px solid currentColor; border-radius: 2px; position: relative; }
+.edu-batt::after { content: ''; position: absolute; right: -4px; top: 1.5px; width: 2px; height: 3px; background: currentColor; border-radius: 0 1px 1px 0; }
+.edu-chart { margin: 0; }
+.edu-chart figcaption { font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+.edu-chart svg { display: block; width: 100%; height: 76px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); }
+.edu-chart .dark { fill: rgba(120, 140, 200, 0.18); }
+.edu-chart .batt { fill: none; stroke: var(--eok); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.edu-chart .reserve { stroke: var(--erisk); stroke-dasharray: 4 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.edu-chart .stop { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.edu-chart-axis { display: flex; justify-content: space-between; gap: 6px; margin-top: 3px; color: var(--edim); font-size: 11px; }
+.edu-note { margin: 0; font-size: 12px; }
+
+@media (max-width: 760px) {
+  .edu-top { top: 10px; left: 10px; right: 10px; flex-wrap: wrap; gap: 8px; }
+  .edu-actions button span { display: none; }
+  .edu-hint { top: auto; bottom: 112px; font-size: 12.5px; }
+  .edu-dock { bottom: 58px; }
+  .edu.has-path .edu-dock { left: 50%; bottom: calc(46vh + 12px); }
+  .edu.has-path .edu-hint { display: none; }
+  .edu-path { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 46vh; }
+  .edu.has-path .moon-hud.minimal .hud-bl, .edu.has-path .moon-hud.minimal .hud-br { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .edu-card { animation: none; } }
+.edu-stop-name { display: block; justify-content: flex-start; height: auto; }
+.edu-best button { height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid #4b86ee; background: #2f6fe0; color: #fff; font-size: 13px; font-weight: 700; }
+.edu-best button:hover { background: #3a7cf0; }
+.edu-best span { font-size: 12.5px; }
+.edu-path > header .edu-show { margin-left: auto; }
+.edu-show { height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.edu-show:hover { background: rgba(255, 255, 255, 0.16); }
+.edu-path > header .edu-x { margin-left: 0; }
+/* keep the pop-up between the top bar and the buttons at the bottom */
+.moon-pop-pin[data-v='down'] .edu-card { top: max(-24px, calc(140px - var(--py, 0px))); }
+.moon-pop-pin[data-v='up'] .edu-card { bottom: max(-24px, calc(var(--py, 0px) - var(--vh, 100vh) + 120px)); }
+@media (max-width: 760px) { .edu.has-path .edu-card { max-height: calc(54vh - 150px); } }
