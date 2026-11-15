@@ -2658,3 +2658,24 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .moon-pop-pin[data-v='down'] .edu-card { top: max(-24px, calc(140px - var(--py, 0px))); }
 .moon-pop-pin[data-v='up'] .edu-card { bottom: max(-24px, calc(var(--py, 0px) - var(--vh, 100vh) + 120px)); }
 @media (max-width: 760px) { .edu.has-path .edu-card { max-height: calc(54vh - 150px); } }
+/* ---- the tool panel never covers another window ---- */
+/* it stops short of the left column (sites card, probed point) and above the time bar */
+.dash { --leftCol: 300px; }
+@media (max-width: 1280px) { .dash { --leftCol: 260px; } }
+.dash.dash-compare, .dash.dash-launch, .dash.dash-calc { --toolAvail: calc(100% - var(--L) - var(--leftCol) - var(--gap) * 3); }
+.dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: min(var(--toolW), var(--toolAvail)); }
+.dash:not(.dash-explore) .dash-wide { height: min(var(--card-h, 9999px), calc(100% - var(--card-top, var(--T)) - var(--B))); }
+/* the Moon's readouts and corner controls sit where the panel opens: they step aside while a tool is open */
+.dash .hud-tr, .dash .hud-bl, .dash .hud-br { transition: opacity 320ms ease; }
+.dash:not(.dash-explore) .hud-tr, .dash:not(.dash-explore) .hud-bl { opacity: 0; pointer-events: none; }
+.dash:not(.dash-explore) .hud-tr *, .dash:not(.dash-explore) .hud-bl * { pointer-events: none !important; }
+/* the Moon controls (Rover range, Terrain 3D, Remove shadows, Display) stay available in the bottom-right corner,
+   below the tool panel; the Display menu opens upward over it */
+.dash:not(.dash-explore) .hud-br { top: auto; bottom: var(--gap); right: var(--gap); left: auto; max-width: calc(var(--R) - var(--gap) * 2); flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 900px) { .dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: auto; } .dash:not(.dash-explore) .dash-wide { height: auto; } }
+/* the panel header already names the tool: no second title inside it */
+.dash-wide .launch-head { display: none; }
+/* Scientific: the ? in the top bar opens help, so the floating launcher is not repeated */
+.app.is-dash .as-launch { display: none; }
+.dash:not(.dash-explore) .ct-map:has(.hud-menu) { z-index: 6; }

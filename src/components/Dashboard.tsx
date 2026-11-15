@@ -24,6 +24,10 @@ export const DASH_TABS: { id: DashTab; label: string; icon: ReactNode; desc: str
   { id: 'compare', label: 'Compare', icon: <Columns2 size={18} />, desc: 'The two picked sites side by side: conditions now, the next lunar day, the long run and an overall score.' },
 ];
 
+/** One width animation for every glass box that changes size: unhurried, easing in and settling softly. */
+export const WIDTH_MS = 700;
+export const WIDTH_EASE = 'cubic-bezier(0.45, 0, 0.15, 1)';
+
 const DAY = 86400_000;
 const pad = (n: number) => String(n).padStart(2, '0');
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
@@ -241,7 +245,7 @@ export default function Dashboard(p: DashProps) {
     if (!el) { prev.current = null; return; }
     const reduce = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || innerWidth <= 900;
     const cardW = el.parentElement?.querySelector<HTMLElement>('.dash-sites')?.getBoundingClientRect().width;
-    const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    const ease = WIDTH_EASE;
     if (!p.sheet) {
       if (prev.current && cardW && !reduce) el.animate([{ width: `${prev.current.w}px` }, { width: `${cardW}px` }], { duration: 260, easing: ease, fill: 'forwards' });
       prev.current = null;
@@ -254,7 +258,7 @@ export default function Dashboard(p: DashProps) {
     el.style.setProperty('--dy', String(prev.current && i < prev.current.i ? -1 : 1));
     prev.current = { w: to, i };
     if (Math.abs(from - to) < 1 || reduce) return;
-    el.animate([{ width: `${from}px` }, { width: `${to}px` }], { duration: 520, easing: ease });
+    el.animate([{ width: `${from}px` }, { width: `${to}px` }], { duration: WIDTH_MS, easing: ease });
   }, [p.sheet]);
 
   return (
@@ -311,7 +315,7 @@ export default function Dashboard(p: DashProps) {
             </dl>
             <p className="dg-pos num">{fmtLat(info.lat)} · {fmtLon(info.lon)} · {info.siteHeightM.toFixed(0)} m</p>
             <div className="dg-actions">
-              <button onClick={p.onCompare} disabled={!p.partnerName} title={p.partnerName ? 'Open the side-by-side comparison' : 'Click a second site on the Moon or in Sites'}>
+              <button onClick={p.onCompare} title={p.partnerName ? 'Open the side-by-side comparison' : 'Compare this site with others'}>
                 <Columns2 size={14} /> <span className="ell">{p.partnerName ? `vs ${p.partnerName}` : 'Compare'}</span>
               </button>
               <button onClick={p.onPlanLaunch}><CalendarSync size={14} /> Launch</button>
