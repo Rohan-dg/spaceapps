@@ -337,3 +337,18 @@
 }
 @media (prefers-reduced-motion: reduce) { .rg-gain, .rg-rc-body, .rg-stars span, .rg-scorecard li, .rg-score em { animation: none; opacity: 1; transform: none; } .rg-gain { display: none; } }
 .rg[data-stage='brief'] .rg-dialog { grid-auto-rows: max-content; align-content: start; }
+/* camera positions: a segmented picker (C cycles) */
+.rg-views { display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 8px; margin-right: 4px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(0, 0, 0, 0.25); }
+.rg-views svg { margin-right: 4px; opacity: 0.8; }
+.rg-camera-actions .rg-views button { min-width: 0; padding: 6px 9px; background: transparent; border-color: transparent; }
+.rg-camera-actions .rg-views button[aria-checked='true'] { background: #fff; color: #0b0c0e; }
+@media (max-width: 980px) {
+  .rg-camera-actions { grid-template-columns: 1fr; }
+  .rg-camera-actions .rg-views { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .rg-views { flex-wrap: wrap; padding: 2px; margin: 0; flex: 1 1 100%; }
+  .rg-views svg { display: none; }
+  .rg-camera-actions { flex-wrap: wrap; }
+  .rg-camera-actions .rg-views button { flex: 1; padding: 4px 2px; font-size: 10px; }
+}
