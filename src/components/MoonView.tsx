@@ -143,7 +143,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
-    request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number }[]; meta: TexMeta | null;
+    request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3}[]; meta: TexMeta | null;
     exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
@@ -324,7 +324,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const st = {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
-      flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number }[], meta: null as TexMeta | null,
+      flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3}[], meta: null as TexMeta | null,
       exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine, sunLine,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
       focus: null as { P: THREE.Vector3; lat: number; lon: number; D: number } | null,
@@ -546,35 +546,22 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       }
       // markers
       const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
-      // every site stays labelled: when a label would overlap another, it steps up or down beside its point
-      // (with a thin leader line) instead of disappearing. The selected site is placed first.
-      const boxes: [number, number, number, number][] = [];
-      const hit = (x0: number, y0: number, x1: number, y1: number) => boxes.some(([a0, b0, a1, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0);
+      // declutter: the selected site first, then any marker whose label would overlap one already shown
+      const placed: [number, number][] = [];
       const order = [...st.markers].sort((a, b) => Number(b.el.classList.contains('on')) - Number(a.el.classList.contains('on')));
-      const STEPS = [0, ...Array.from({ length: 24 }, (_, i) => (i % 2 ? -1 : 1) * 14 * (1 + (i >> 1)))];
-      // pass 1: place every visible point, so no label is put on top of another site's point
-      const vis: { m: (typeof order)[number]; sx: number; sy: number }[] = [];
       for (const m of order) {
         tmp.copy(m.pos).project(camera);
         const toCam = camera.position.clone().sub(m.pos);
         const facing = toCam.dot(m.pos) / (toCam.length() * m.pos.length());
         const sx = ((tmp.x + 1) / 2) * w, sy = ((1 - tmp.y) / 2) * h;
         const show = tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
+        // crowded labels fade out, but every point stays visible and clickable so any site can be picked
+        const crowded = show && placed.some(([x, y]) => Math.abs(x - sx) < 90 && Math.abs(y - sy) < 18);
+        if (show && !crowded) placed.push([sx, sy]);
+        m.el.classList.toggle('crowded', crowded);
         m.el.style.opacity = show ? '1' : '0';
         m.el.style.pointerEvents = show ? 'auto' : 'none';
         m.el.style.transform = `translate(${sx}px, ${sy}px)`;
-        if (show) { vis.push({ m, sx, sy }); boxes.push([sx - 5, sy - 5, sx + 5, sy + 5]); }
-      }
-      // pass 2: labels, nearest free slot above or below
-      for (const { m, sx, sy } of vis) {
-        const lw = (m.lw ??= (m.el.querySelector('span') as HTMLElement | null)?.offsetWidth || 70);
-        let dy = STEPS[STEPS.length - 1];
-        for (const d of STEPS) if (!hit(sx + 8, sy + d - 7, sx + 12 + lw, sy + d + 7)) { dy = d; break; }
-        boxes.push([sx + 8, sy + dy - 7, sx + 12 + lw, sy + dy + 7]);
-        m.el.style.setProperty('--dy', `${dy}px`);
-        m.el.style.setProperty('--lt', `${dy > 0 ? 6 - dy : 6}px`);
-        m.el.style.setProperty('--lh', `${Math.abs(dy)}px`);
-        m.el.classList.toggle('lead', dy !== 0);
       }
       // Sun and Earth pointers: a ring on the body when it is on screen, otherwise an arrow at the edge
       // pointing the shortest way to turn toward it
