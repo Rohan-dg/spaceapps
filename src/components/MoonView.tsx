@@ -803,13 +803,21 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
     };
-    // a double-click flies down to that point for a near-horizontal close-up, and does nothing else
+    // a double-click flies down to that point for a near-horizontal close-up, and (where clicks make points, as in
+    // Scientific) creates and probes the point exactly as a single click does
     const onDbl = (e: MouseEvent) => {
       e.preventDefault();
       if (clickWait.current) { clearTimeout(clickWait.current); clickWait.current = 0; }
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) zoomRef.current(hit);
+      if (!hit) return;
+      zoomRef.current(hit);
+      if (minimalRef.current || !pointRef.current) return;
+      const h = hit.clone();
+      const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+      if (idle) idle(() => pickRef.current(h), { timeout: 400 }); else setTimeout(() => pickRef.current(h), 60);
+      const r = hit.length();
+      pointRef.current(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
     };
     // The 3D panel fills most of the first screen, so a bare scroll over it scrolls the page. Clicking or dragging
     // the Moon engages it: from then until the pointer leaves the panel the wheel zooms. Pinch (a wheel event with
