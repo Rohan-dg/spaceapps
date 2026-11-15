@@ -40,11 +40,11 @@ export function Summary({ r }: { r: ScenarioResult }) {
         <span className="answer-kind">At this time</span>
         <p className={`now-line${m.sunUp ? ' on-sun' : ''}`}>
           {m.sunUp ? <Sun size={20} className="ico-sun on" aria-hidden /> : <SunDim size={20} className="ico-off" aria-hidden />}
-          <span><b>{m.sunUp ? 'In sunlight' : 'In shadow'}</b><small>{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</small></span>
+          <span><b>{m.sunUp ? 'In sunlight' : 'In shadow'}</b><small>Solar elevation <span className="num">{m.sky.sun.el.toFixed(2)}°</span>, skyline <span className="num">{m.sunHorizon.toFixed(2)}°</span></small><small>{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</small></span>
         </p>
         <p className={`now-line${m.earthUp ? ' on-earth' : ''}`}>
           <Earth size={20} className={m.earthUp ? 'ico-earth on' : 'ico-off'} aria-hidden />
-          <span><b>{m.earthUp ? 'Earth in view' : 'Earth hidden'}</b><small>{m.earthUp ? 'Sets' : 'Rises'} {eventText(eNext, m.t)}</small></span>
+          <span><b>{m.earthUp ? 'Earth in view' : 'Earth hidden'}</b><small>Earth elevation <span className="num">{m.sky.earth.el.toFixed(2)}°</span>, skyline <span className="num">{m.earthHorizon.toFixed(2)}°</span></small><small>{m.earthUp ? 'Sets' : 'Rises'} {eventText(eNext, m.t)}</small></span>
         </p>
       </div>
       <AnswerCard title="Power" v={r.power} />
