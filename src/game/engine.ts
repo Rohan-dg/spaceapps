@@ -12,9 +12,6 @@
  * sky and terrain beyond 7.6 km, then depth is cleared and the near pass draws the rest.
  */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { bodyFixedGeometry, skyFromGeometry } from '../lib/ephemeris';
 import { siteVector } from '../lib/geometry';
 import { diskVisibleFraction } from '../lib/horizon';
@@ -24,7 +21,7 @@ import {
   type Maps, type MissionPlan, type Objective, type Phase, type Pt, type Quest, type Vitals,
   RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, type Spec,
 } from './sim';
-import { BUILDERS, roverById, type RoverDef } from './rovers';
+import { buildRover, disposeBuilt, roverById, type Built, type RoverDef } from './rovers';
 import type { Req, Res } from './worker';
 
 const NEAR = 800, MID = 7600, FAR = 152000, BOUND = 700;
@@ -127,9 +124,8 @@ export class Game {
   private nearLit: Uint8Array = new Uint8Array(LIT_N * LIT_N);
   // rover
   private rover = new THREE.Group(); private tilt = new THREE.Group();
-  private wheels: THREE.Group[] = []; private armF = new THREE.Group(); private armR = new THREE.Group(); private drumF = new THREE.Group(); private drumR = new THREE.Group();
-  private droop0 = { f: 20, r: 56 }; private armNow = -28;
-  private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec; private pose: ((d: number) => void) | null = null; private digNow = 0;
+  private wheels: THREE.Group[] = [];
+  private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec; private built: Built | null = null; private digNow = 0;
   private roverParts: THREE.Object3D[] = []; private roverGen = 0;
   // score
   private score = 0; private combo = 1; private comboAt = -1e9; private taken: boolean[] = []; private gain: Hud['gain'] = null; private gainN = 0; private parts: [string, number][] = [];
@@ -385,74 +381,26 @@ export class Game {
     this.saveCheck();
   }
   private clearRover() {
-    for (const o of this.roverParts) {
-      o.parent?.remove(o);
-      o.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshStandardMaterial).map?.dispose(); mt.dispose(); } });
-    }
-    this.roverParts = []; this.wheels = []; this.pose = null;
-    for (const g of [this.armF, this.armR, this.drumF, this.drumR]) { g.parent?.remove(g); g.clear(); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); }
+    for (const o of this.roverParts) { o.parent?.remove(o); disposeBuilt(o); }
+    this.roverParts = []; this.wheels = []; this.built = null;
   }
   private async buildRover() {
     const gen = ++this.roverGen;
-    const make = BUILDERS[this.def.id];
-    if (make) {
-      this.clearRover();
-      const b = make();
-      this.tilt.add(b.body); this.roverParts.push(b.body);
-      for (const w of b.wheels) { this.tilt.add(w); this.wheels.push(w); this.roverParts.push(w); }
-      this.drumF = b.spinner; this.pose = b.pose; this.droop0 = { f: 0, r: 0 };
-      this.fill.position.set(0, this.def.geom.mastH * 0.6, 0.2); if (!this.fill.parent) this.tilt.add(this.fill);
-      if (!this.rover.children.includes(this.tilt)) { this.rover.add(this.tilt); this.near.add(this.rover); }
-      return;
-    }
-    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${this.o.base}models/rassor.gltf.json`);
-    const releaseSource = () => gltf.scene.traverse((x) => {
-      const m = x as THREE.Mesh; m.geometry?.dispose();
-      for (const mat of ([] as THREE.Material[]).concat(m.material ?? [])) mat.dispose();
-    });
-    if (!this.live || gen !== this.roverGen) { releaseSource(); return; }
+    const b = await buildRover(this.def.id, this.o.base);
+    if (!this.live || gen !== this.roverGen) { disposeBuilt(b.body); b.wheels.forEach(disposeBuilt); return; }
     this.clearRover();
-    this.drumF = new THREE.Group(); this.drumR = new THREE.Group(); this.armF = new THREE.Group(); this.armR = new THREE.Group();
-    gltf.scene.updateMatrixWorld(true);
-    let ex: { pivots: Record<string, number[]>; armDroopFront: number; armDroopRear: number } | null = null;
-    gltf.scene.traverse((x) => { if (x.userData?.pivots) ex = x.userData as typeof ex; });
-    if (!ex) throw new Error('rover model has no pivot data');
-    const meta = ex as { pivots: Record<string, number[]>; armDroopFront: number; armDroopRear: number };
-    this.droop0 = { f: meta.armDroopFront, r: meta.armDroopRear };
-    const mats = {
-      body: new THREE.MeshStandardMaterial({ color: 0xd7d3ca, metalness: 0.35, roughness: 0.55 }),
-      wheel: new THREE.MeshStandardMaterial({ color: 0x8f949b, metalness: 0.5, roughness: 0.5 }),
-      arm: new THREE.MeshStandardMaterial({ color: 0xbdb7aa, metalness: 0.4, roughness: 0.5 }),
-      drum: new THREE.MeshStandardMaterial({ color: 0xa3a7ad, metalness: 0.55, roughness: 0.42 }),
-    };
-    const part: Record<string, THREE.Mesh> = {};
-    const v = new THREE.Vector3();
-    gltf.scene.traverse((x) => {
-      const m = x as THREE.Mesh; if (!m.isMesh) return;
-      let nm = ''; for (let a: THREE.Object3D | null = m; a && !nm; a = a.parent) if (meta.pivots[a.name]) nm = a.name;
-      if (!nm) return;
-      // back to plain metres in the robot's frame, measured from this part's own pivot
-      const src = m.geometry, p = src.getAttribute('position'), ix = src.index, cnt = ix ? ix.count : p.count, out = new Float32Array(cnt * 3), pv = meta.pivots[nm];
-      for (let i = 0; i < cnt; i++) { v.fromBufferAttribute(p, ix ? ix.getX(i) : i).applyMatrix4(m.matrixWorld); out[i * 3] = v.x - pv[0]; out[i * 3 + 1] = v.y - pv[1]; out[i * 3 + 2] = v.z - pv[2]; }
-      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(out, 3));
-      part[nm] = new THREE.Mesh(toCreasedNormals(g, Math.PI / 5), mats[nm.split('_')[0] as keyof typeof mats]);
-    });
-    const P = meta.pivots, at = (g: THREE.Group, nm: string, rel?: number[]) => { g.position.set(P[nm][0] - (rel?.[0] ?? 0), P[nm][1] - (rel?.[1] ?? 0), P[nm][2] - (rel?.[2] ?? 0)); g.add(part[nm]); return g; };
-    this.tilt.add(part.body); this.roverParts.push(part.body);
-    for (const nm of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']) { const g = at(new THREE.Group(), nm); this.wheels.push(g); this.tilt.add(g); this.roverParts.push(g); }
-    this.tilt.add(at(this.armF, 'arm_f'), at(this.armR, 'arm_r')); this.roverParts.push(this.armF, this.armR);
-    this.armF.add(at(this.drumF, 'drum_f', P.arm_f)); this.armR.add(at(this.drumR, 'drum_r', P.arm_r));
-    this.fill.position.set(0, 1.3, 0.2); if (!this.fill.parent) this.tilt.add(this.fill);
+    this.built = b;
+    this.tilt.add(b.body); this.roverParts.push(b.body);
+    for (const w of b.wheels) { this.tilt.add(w); this.wheels.push(w); this.roverParts.push(w); }
+    this.fill.position.set(0, this.def.geom.mastH * 0.8 + 0.3, 0.2); if (!this.fill.parent) this.tilt.add(this.fill);
     if (!this.rover.children.includes(this.tilt)) { this.rover.add(this.tilt); this.near.add(this.rover); }
-    releaseSource();
-    this.poseArms(0);
+    this.digNow = 0; b.pose(0);
   }
-  /** Arms at `armNow` degrees below level (negative = raised). */
+  /** Sampling tool from stowed to working while digging. */
   private poseArms(dt: number) {
-    if (this.pose) { this.digNow = dt ? lerp(this.digNow, this.busy?.kind === 'dig' ? 1 : 0, k(4, dt)) : 0; this.pose(this.digNow); return; }
-    const want = this.busy?.kind === 'dig' ? 9 : -28;
-    this.armNow = dt ? lerp(this.armNow, want, k(4, dt)) : want;
-    this.armF.rotation.x = (this.armNow - this.droop0.f) * D2R; this.armR.rotation.x = -(this.armNow - this.droop0.r) * D2R;
+    if (!this.built) return;
+    this.digNow = dt ? lerp(this.digNow, this.busy?.kind === 'dig' ? 1 : 0, k(4, dt)) : 0;
+    this.built.pose(this.digNow);
   }
 
   /* ---------------- input ---------------- */
@@ -533,7 +481,7 @@ export class Game {
   begin() {
     if (this.state !== 'brief') return;
     this.state = 'play'; this.syncMarkers(); this.syncBonus(); this.say(STORY.intro);
-    this.say({ from: 'Mission control', text: `${this.plan.bonus.length} science targets are marked in blue. Drive over one to scan it; scan several in a row for a combo.` });
+    this.say({ from: 'Mission control', text: `${this.plan.bonus.length} science targets are marked in red. Drive over one to scan it; scan several in a row for a combo.` });
   }
   /* ---------------- score ---------------- */
   private static BONUS_NAMES = ['Fresh crater rim', 'Boulder trail', 'Bright ray material', 'Glassy impact melt', 'Regolith ripple', 'Ancient ejecta block', 'Dark soil swirl', 'Possible meteorite'];
@@ -547,11 +495,11 @@ export class Game {
       if (this.taken[i]) return;
       const g = new THREE.Group(), y = groundY(this.w, p.e, p.n, true);
       g.position.set(p.e, y, -p.n); g.userData.i = i;
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.95 }));
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshBasicMaterial({ color: 0xff6363, transparent: true, opacity: 0.95 }));
       gem.position.y = 1.6; g.add(gem);
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 30, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 30, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xff6363, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       beam.position.y = 15; g.add(beam);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9, 48), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+      const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9, 48), new THREE.MeshBasicMaterial({ color: 0xff6363, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.3; g.add(ring);
       this.bonusMarks.add(g);
     });
@@ -756,7 +704,7 @@ export class Game {
       // wheels turn with the ground speed of their own side (skid steering), drums only while digging
       const vl = this.v - this.yawRate * G.tw, vr = this.v + this.yawRate * G.tw;
       this.wheels.forEach((g, i) => { g.rotation.x += ((i % 2 === 0 ? vl : vr) / G.wr) * dt; });
-      if (this.busy?.kind === 'dig') { if (this.pose) this.drumF.rotation.y += 14 * dt; else { this.drumF.rotation.x += 9 * dt; this.drumR.rotation.x -= 9 * dt; } }
+      if (this.busy?.kind === 'dig') this.built?.spin(dt);
       this.poseArms(dt);
       this.fx(dt, f, l, [hrl, hrr]);
     }
@@ -829,7 +777,7 @@ export class Game {
       spawn(e + f.x * back + l.x * dl, rearH[side] + 0.05, -n + f.z * back + l.z * dl, -f.x * this.v * 0.25 + (Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 1.1, -f.z * this.v * 0.25 + (Math.random() - 0.5) * 0.8);
     }
     if (!this.o.reduce && this.busy?.kind === 'dig') for (let c = 0; c < 3; c++) {
-      const d = this.pose ? G.wb + 0.15 : Math.random() < 0.5 ? 0.78 : -0.78;
+      const d = this.def.id !== 'badger' ? G.wb + 0.15 : Math.random() < 0.5 ? 0.78 : -0.78;
       spawn(e + f.x * d + l.x * (Math.random() - 0.5) * 0.7, this.rover.position.y - 0.15, -n + f.z * d + l.z * (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 1.6, 0.8 + Math.random() * 1.8, (Math.random() - 0.5) * 1.6);
     }
     for (let i = 0; i < DN; i++) {
@@ -947,7 +895,7 @@ export class Game {
     g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.setLineDash([4, 4]); g.beginPath(); g.arc(S / 2, S / 2, BOUND * sc, 0, 6.283); g.stroke(); g.setLineDash([]);
     if (this.quest.phase === 'ice') { g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.arc(X(this.plan.zone.c.e), Y(this.plan.zone.c.n), this.plan.zone.r * sc, 0, 6.283); g.stroke(); }
     this.plan.ice.forEach((p, i) => { if (this.quest.found[i]) { g.fillStyle = '#63a1ff'; g.fillRect(X(p.e) - 3, Y(p.n) - 3, 6, 6); } });
-    this.plan.bonus.forEach((p, i) => { if (this.taken[i]) return; const x = X(p.e), y = Y(p.n); g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); g.stroke(); });
+    this.plan.bonus.forEach((p, i) => { if (this.taken[i]) return; const x = X(p.e), y = Y(p.n); g.strokeStyle = '#ff6363'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); g.stroke(); });
     const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct);
     if (ob.target && this.quest.phase !== 'ice') { const x = X(ob.target.e), y = Y(ob.target.n); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.fill(); }
     const tick = (az: number, color: string) => { const a = az * D2R, r = S / 2 - 5; g.fillStyle = color; g.beginPath(); g.arc(S / 2 + Math.sin(a) * r, S / 2 - Math.cos(a) * r, 5, 0, 6.283); g.fill(); };
