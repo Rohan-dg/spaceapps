@@ -273,7 +273,7 @@ export default function Dashboard(p: DashProps) {
             <p className="dg-pos num">{fmtLat(info.lat)} · {fmtLon(info.lon)} · {info.siteHeightM.toFixed(0)} m</p>
             <div className="dg-actions">
               <button onClick={p.onCompare} disabled={!p.partnerName} title={p.partnerName ? 'Open the side-by-side comparison' : 'Click a second site on the Moon or in Sites'}>
-                <Columns2 size={14} /> {p.partnerName ? <>vs {p.partnerName}</> : 'Compare'}
+                <Columns2 size={14} /> <span className="ell">{p.partnerName ? `vs ${p.partnerName}` : 'Compare'}</span>
               </button>
               <button onClick={p.onPlanLaunch}><CalendarSync size={14} /> Launch</button>
               <button onClick={p.onLogic}><SlidersHorizontal size={14} /> Logic</button>
