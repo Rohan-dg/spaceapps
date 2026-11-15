@@ -207,7 +207,7 @@ export default function App() {
       </div>
 
       {mode === 'explore' ? (
-        <main className="explore wrap">
+        <main key="explore" className="explore wrap view-in">
           <aside className="rail">
             <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
             {info && (
@@ -299,15 +299,15 @@ export default function App() {
           </section>
         </main>
       ) : mode === 'launch' ? (
-        <main className="compare-main wrap">
+        <main key="m1" className="compare-main wrap view-in">
           <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
         </main>
       ) : mode === 'calc' ? (
-        <main className="compare-main wrap">
+        <main key="m2" className="compare-main wrap view-in">
           <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
         </main>
       ) : (
-        <main className="compare-main wrap">
+        <main key="m3" className="compare-main wrap view-in">
           <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />
         </main>
       )}
