@@ -2689,3 +2689,103 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 /* the right column ends just above the Remove shadows button so it never covers a card */
 .dash .dash-side { bottom: 72px; }
 @media (max-width: 900px) { .dash .dash-side { bottom: auto; } }
+
+/* =====================================================================================================
+   Education in the Scientific dashboard's style: floating glass pills and cards over the Moon, the same
+   glass, radii, light-weight figures and colour system, with Education's coral where Scientific uses blue.
+   Levels follow the dashboard too: good = white, marginal = blue, poor = coral.
+   ===================================================================================================== */
+.edu {
+  --eg: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)), rgba(20, 22, 27, 0.42);
+  --eline: rgba(255, 255, 255, 0.11); --ehi: rgba(255, 255, 255, 0.14); --edim: rgba(255, 255, 255, 0.6);
+  --ecoral: #ff6363; --eok: #ffffff; --erisk: #63a1ff; --eno: #ff6363;
+  --eblur: blur(20px) saturate(150%);
+}
+.edu .edu-glass, .edu .edu-hint, .edu .edu-card, .edu .edu-path, .edu .edu-dock button, .edu .edu-top .ui-toggle, .edu .edu-actions, .edu .edu-rover {
+  background: var(--eg); border: 1px solid var(--eline); -webkit-backdrop-filter: var(--eblur); backdrop-filter: var(--eblur);
+  box-shadow: inset 0 1px 0 var(--ehi), 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+.edu .moon::before { height: 200px; background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)); }
+
+/* top: the bar itself disappears; logo on its own, then separate glass pills, as in Scientific */
+.edu .edu-top { top: 12px; left: 16px; right: 16px; padding: 0; gap: 8px; background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; pointer-events: none; }
+.edu .edu-top > * { pointer-events: auto; }
+.edu .edu-brand { height: 40px; padding: 0 12px 0 6px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.edu .edu-top .ui-toggle { height: 40px; padding: 4px; border-radius: 999px; }
+.edu .edu-top .ui-toggle button { height: 30px; padding: 0 14px; border-radius: 999px; background: transparent; color: rgba(255, 255, 255, 0.6); }
+.edu .edu-top .ui-toggle button[aria-checked='true'] { background: var(--ecoral); color: #fff; }
+.edu .edu-top .ui-toggle.has-ind.ind-on > button[aria-checked='true'] { background: transparent; color: #fff; }
+.edu .edu-top .ui-toggle.has-ind::before { border-radius: 999px; background: var(--ecoral) !important; }
+.edu .edu-rover { margin-left: auto; height: 40px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; color: #fff; font-size: 13.5px; font-weight: 600; transition: background 160ms; }
+.edu .edu-rover:hover { background: var(--ecoral); border-color: transparent; }
+.edu .edu-actions { margin-left: 0; height: 40px; padding: 4px; gap: 2px; border-radius: 999px; }
+.edu .edu-actions button { width: 30px; height: 30px; padding: 0; justify-content: center; border: 0; border-radius: 50%; background: transparent; color: rgba(255, 255, 255, 0.75); }
+.edu .edu-actions button:hover { background: #fff; color: #000; }
+.edu .edu-hint { top: 68px; padding: 9px 16px; font-size: 13px; color: rgba(255, 255, 255, 0.85); }
+
+/* bottom: the plan button in coral, the Moon's controls as round glass pills */
+.edu .edu-dock { bottom: 28px; }
+.edu .edu-dock button { height: 46px; padding: 0 22px; font-size: 14.5px; font-weight: 600; }
+.edu .edu-dock button:hover { background: rgba(255, 255, 255, 0.16); }
+.edu .edu-build { background: var(--ecoral) !important; border-color: transparent !important; box-shadow: 0 12px 30px -10px rgba(255, 99, 99, 0.7) !important; }
+.edu .edu-build:hover { background: #ff7b7b !important; }
+.edu .edu-build.on { background: #fff !important; color: #0b0c0e !important; box-shadow: none !important; }
+.edu .hud-seg { gap: 4px; }
+.edu .hud-seg button, .edu .hud-toggle { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--eline); background: var(--eg); -webkit-backdrop-filter: var(--eblur); backdrop-filter: var(--eblur); font-weight: 500; }
+.edu .hud-seg button[aria-checked='true'], .edu .hud-toggle.on { background: #fff; color: #000; border-color: #fff; }
+.edu .moon-hud.minimal .hud-bl { bottom: 28px; }
+.edu .moon-hud.minimal .hud-br { bottom: 28px; }
+
+/* path stops and legs in coral */
+.edu .moon-marker.in-path i { box-shadow: 0 0 0 2px var(--ecoral), 0 0 0 4px rgba(0, 0, 0, 0.6); }
+.moon-marker .path-n, .edu-stop .path-n { background: #ff6363; }
+.edu .edu-leg { border-left-color: var(--ecoral); }
+
+/* pop-up card: the dashboard card's glass, radius and type */
+.edu .edu-card { width: 336px; padding: 18px; border-radius: 26px; font-size: 13.5px; }
+.edu .edu-card h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.15; }
+.edu .edu-x { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.06); }
+.edu .edu-x:hover { background: #fff; color: #000; }
+.edu .edu-card-facts span { background: rgba(255, 255, 255, 0.07); border: 1px solid var(--eline); font-weight: 500; }
+.edu .edu-card-stats { gap: 10px; }
+.edu .edu-card-stats div { padding: 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.07); }
+.edu .edu-card-stats dd b { font-size: 30px; font-weight: 300; letter-spacing: -0.03em; }
+.edu .edu-card-actions button { height: 36px; padding: 0 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); font-weight: 500; }
+.edu .edu-card-actions button.primary { background: var(--ecoral); border-color: transparent; }
+.edu .edu-card-actions button:hover { filter: none; background: rgba(255, 255, 255, 0.16); }
+.edu .edu-card-actions button.primary:hover { background: #ff7b7b; }
+
+/* path panel: the dashboard's right-hand column */
+.edu .edu-path { top: 68px; border-radius: 26px; }
+.edu .edu-path > header { padding: 16px 14px 12px 20px; }
+.edu .edu-path h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+.edu .edu-path-body { padding: 14px 20px 20px; gap: 14px; }
+.edu .edu-show { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--eline); background: rgba(255, 255, 255, 0.07); color: #fff; font-weight: 500; }
+.edu .edu-show:hover { background: #fff; color: #000; }
+.edu .edu-badge { padding: 4px 10px 4px 7px; font-weight: 600; }
+.edu .edu-badge.ok { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.edu .edu-badge.risky { background: rgba(99, 161, 255, 0.18); color: #8fbcff; }
+.edu .edu-badge.no { background: rgba(255, 99, 99, 0.18); color: #ff8f8f; }
+.edu .edu-totals div { padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.07); }
+.edu .edu-totals dd { font-size: 16px; font-weight: 400; letter-spacing: -0.01em; }
+.edu .edu-check { border-radius: 16px; border-left-width: 3px; background: rgba(255, 255, 255, 0.04); }
+.edu .edu-start input { border-radius: 999px; padding: 0 12px; }
+.edu .edu-chart svg { border-radius: 14px; }
+.edu .edu-chart .batt { stroke: #fff; }
+.edu .edu-chart .reserve { stroke: var(--ecoral); }
+.edu .edu-chart .dark { fill: rgba(99, 161, 255, 0.16); }
+.edu .edu-best button { border-radius: 999px; }
+
+@media (max-width: 760px) {
+  .edu .edu-top { flex-wrap: wrap; }
+  .edu .edu-rover span { display: none; }
+  .edu .edu-rover { padding: 0 13px; }
+  .edu .edu-hint { top: 110px; }
+}
+.edu .edu-hint { max-width: min(680px, calc(100vw - 32px)); border-radius: 20px; }
+.edu .edu-card-stats dd { font-size: 12px; color: var(--edim); }
+.edu .edu-card-stats dd b { display: block; color: #fff; line-height: 1.05; margin-bottom: 2px; }
+.edu .edu-path > header { flex-wrap: wrap; row-gap: 8px; }
+.edu .edu-path h2 { white-space: nowrap; margin-right: auto; }
+.edu.has-path .edu-hint { left: calc((100vw - min(380px, 100vw - 32px) - 16px) / 2); max-width: min(560px, calc(100vw - min(380px, 100vw - 32px) - 64px)); }
+.edu .edu-path { bottom: auto; max-height: calc(100% - 68px - 16px); }

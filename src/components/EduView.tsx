@@ -104,8 +104,8 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
           <button role="radio" aria-checked onClick={() => {}} title="Learn the science: for students and classrooms">Education</button>
           <button role="radio" aria-checked={false} onClick={onScientific} title="Full mission-planning tools">Scientific</button>
         </div>
+        <button className="edu-rover" onClick={onRover} title="Pick a real Moon rover, drive it, collect ice and keep power and Earth contact"><Play size={14} /> <span>Drive a rover</span></button>
         <div className="edu-actions">
-          <button onClick={onRover} title="Drive RASSOR, collect ice samples and keep power and Earth contact"><Play size={14} /> <span>Drive a rover</span></button>
           <button onClick={onTour} aria-label="Take the tour" title="Take the tour"><CircleHelp size={16} /></button>
           <button onClick={onAbout} aria-label="About" title="About this app and its data"><Info size={16} /></button>
           <button onClick={onTheme} aria-label={`Switch to ${themeName === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={16} /></button>
