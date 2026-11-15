@@ -708,6 +708,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     renderer.domElement.addEventListener('pointerup', onUp);
     renderer.domElement.addEventListener('dblclick', onDbl);
     if (import.meta.env.DEV) (window as unknown as { __moonFrame: () => void }).__moonFrame = frame;
+    if (import.meta.env.DEV) Object.assign(window as object, { __pick: pickGround, __groundKm: groundKm });
 
     const ro = new ResizeObserver(() => { resizeTargets(); request(); });
     ro.observe(el);
