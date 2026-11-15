@@ -348,16 +348,11 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      <div className="action-bar" role="toolbar" aria-label="Quick actions">
+      <div className="action-bar">
         <span className="ab-ctx">
           <span className="brand-mark" aria-hidden />
           <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
           <span className="num muted">{when(t)} UTC</span>
-        </span>
-        <span className="ab-actions">
-          <button className="ab-btn" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'} <kbd>Space</kbd></button>
-          <span className="ab-sep" aria-hidden />
-          <button className="ab-btn" onClick={() => setPalette(true)}>Actions <ModKey /><kbd>K</kbd></button>
         </span>
       </div>
     </div>
