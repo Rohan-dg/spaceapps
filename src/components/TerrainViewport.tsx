@@ -3,14 +3,18 @@
  * in the manner of a 3D modelling viewport (solid shading, floor grid, axis gizmo, orbit/pan/zoom).
  * Nothing is photoreal: shading is either neutral studio light or the actual Sun direction at time t.
  *
- * Frame: Z up, X/Y = south polar stereographic metres relative to the site (X = +PS x, Y = +PS y).
+ * Frame: Z up. South of 80 S, X/Y = south polar stereographic metres relative to the site (LOLA polar grids);
+ * elsewhere X = east, Y = north ground metres (azimuthal equidistant) on the global LOLA LDEM_128 tiles.
+ * Z is height relative to the centre point and includes the Moon's curvature drop d^2 / 2R, so long
+ * baselines show the true horizon fall-off.
  */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { type PolarGrid, sampleGrid, stereoXY } from '../lib/moon/frames';
+import { type PolarGrid, R_M, sampleGrid, stereoXY } from '../lib/moon/frames';
 import { decodeHeights } from './MoonView';
+import { GLOBAL_RES_M, globalSampler, offsetLatLon } from '../lib/moon/globalDem';
 
 const base = import.meta.env.BASE_URL;
 const MESH_SIDE = 640;
@@ -53,7 +57,7 @@ function axisLabel(text: string, color: string) {
 }
 
 export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sunAz, onClose }: {
-  siteId: string; siteName: string; lat: number; lon: number; sunEl: number | null; sunAz: number | null; onClose: () => void;
+  siteId: string | null; siteName: string; lat: number; lon: number; sunEl: number | null; sunAz: number | null; onClose: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [shade, setShade] = useState<Shade>('solid');
@@ -146,30 +150,43 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
     api.current = { apply, frame };
 
     (async () => {
-      const [meta, cap] = await Promise.all([
-        lat < -80.5 ? fetch(`${base}hires/${siteId}.json`).then((r) => (r.ok ? r.json() as Promise<HiMeta> : null)).catch(() => null) : null,
-        southCap(),
-      ]);
-      if (!live) return;
-      const dec = meta ? await decodeHeights(`${base}hires/${siteId}.png`, meta.hMinM, meta.quantumM) : null;
-      if (!live) return;
-      const hiG: PolarGrid | null = meta && dec ? { h: dec.data, n: meta.n, resM: meta.resM, x0: (meta.col0 - meta.projOffset) * meta.resM, y0: (meta.projOffset - meta.row0) * meta.resM } : null;
-      const at = (x: number, y: number) => { const h = hiG ? sampleGrid(hiG, x, y) : NaN; return isNaN(h) ? sampleGrid(cap, x, y) : h; };
-      const [xs, ys] = stereoXY(lat, lon);
-      const hSite = at(xs, ys);
-      if (isNaN(hSite)) { setErr('Site is outside the south polar terrain grid.'); return; }
-      const R = radiusKm * 1000, m = MESH_SIDE, step = (2 * R) / (m - 1);
+      const R = radiusKm * 1000;
+      let at2: (dx: number, dy: number) => number, onHi: (dx: number, dy: number) => boolean = () => false;
+      let srcRes: number, demBase: string, hiMeta: HiMeta | null = null;
+      if (lat < -80) {
+        const [meta, cap] = await Promise.all([
+          siteId ? fetch(`${base}hires/${siteId}.json`).then((r) => (r.ok ? r.json() as Promise<HiMeta> : null)).catch(() => null) : null,
+          southCap(),
+        ]);
+        if (!live) return;
+        const dec = meta ? await decodeHeights(`${base}hires/${siteId}.png`, meta.hMinM, meta.quantumM) : null;
+        if (!live) return;
+        const hiG: PolarGrid | null = meta && dec ? { h: dec.data, n: meta.n, resM: meta.resM, x0: (meta.col0 - meta.projOffset) * meta.resM, y0: (meta.projOffset - meta.row0) * meta.resM } : null;
+        const [xs, ys] = stereoXY(lat, lon);
+        at2 = (dx, dy) => { const h = hiG ? sampleGrid(hiG, xs + dx, ys + dy) : NaN; return isNaN(h) ? sampleGrid(cap, xs + dx, ys + dy) : h; };
+        if (hiG) onHi = (dx, dy) => !isNaN(sampleGrid(hiG, xs + dx, ys + dy));
+        hiMeta = meta; srcRes = cap.resM; demBase = 'LOLA polar 148 m';
+      } else {
+        const g = await globalSampler(lat, lon, R * 1.05);
+        if (!live) return;
+        at2 = (dx, dy) => { const [la, lo] = offsetLatLon(lat, lon, dx, dy); return g(la, lo); };
+        srcRes = GLOBAL_RES_M; demBase = `LOLA LDEM_128 ${Math.round(GLOBAL_RES_M)} m`;
+      }
+      const hSite = at2(0, 0);
+      if (isNaN(hSite)) { setErr('No LOLA terrain at this point.'); return; }
+      // never finer than half the source spacing: denser meshes would only add interpolated triangles
+      const m = Math.min(MESH_SIDE, Math.max(96, Math.ceil((4 * R) / (hiMeta?.resM ?? srcRes)) + 1)), step = (2 * R) / (m - 1);
       const pos = new Float32Array(m * m * 3), inside = new Uint8Array(m * m);
-      let lo = Infinity, hi = -Infinity, nHi = 0, nIn = 0;
+      let lo = Infinity, hi = -Infinity, zLo = Infinity, nHi = 0, nIn = 0;
       for (let r = 0, k = 0; r < m; r++) for (let c = 0; c < m; c++, k++) {
         const dx = -R + c * step, dy = R - r * step;
-        let h = at(xs + dx, ys + dy);
+        let h = at2(dx, dy);
         if (isNaN(h)) h = hSite;
-        pos[k * 3] = dx; pos[k * 3 + 1] = dy; pos[k * 3 + 2] = h - hSite;
+        pos[k * 3] = dx; pos[k * 3 + 1] = dy; pos[k * 3 + 2] = h - hSite - (dx * dx + dy * dy) / (2 * (R_M + hSite));
         if (Math.hypot(dx, dy) <= R + step) {
           inside[k] = 1; nIn++;
-          if (h < lo) lo = h; if (h > hi) hi = h;
-          if (hiG && !isNaN(sampleGrid(hiG, xs + dx, ys + dy))) nHi++;
+          if (h < lo) lo = h; if (h > hi) hi = h; if (pos[k * 3 + 2] < zLo) zLo = pos[k * 3 + 2];
+          if (onHi(dx, dy)) nHi++;
         }
       }
       const tri: number[] = [];
@@ -183,8 +200,8 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
       mesh = new THREE.Mesh(geo, mat); scene.add(mesh);
       wireMesh = new THREE.Mesh(geo, wireMat); wireMesh.visible = false; scene.add(wireMesh);
       ext = R; hRange = hi - lo;
-      const srcRes = hiG && nHi ? meta!.resM : cap.resM;
-      const dem = hiG && nHi ? `${meta!.dem} ${Math.round((100 * nHi) / nIn)}% + LOLA 148 m` : 'LOLA polar 148 m';
+      if (hiMeta && nHi) srcRes = hiMeta.resM;
+      const dem = hiMeta && nHi ? `${hiMeta.dem} ${Math.round((100 * nHi) / nIn)}% + ${demBase}` : demBase;
 
       // floor grid at the lowest point: 1 km major, 200 m minor
       const raw = (ext * 2) / 12, p10 = 10 ** Math.floor(Math.log10(raw)), maj = [1, 2, 5, 10].map((f) => f * p10).find((v) => v >= raw)!;
@@ -194,7 +211,7 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
       for (const gh of [minor, major]) { gh.rotation.x = Math.PI / 2; g.add(gh); }
       const ax = (a: THREE.Vector3, c: number) => new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.clone().multiplyScalar(-size / 2), a.clone().multiplyScalar(size / 2)]), new THREE.LineBasicMaterial({ color: c }));
       g.add(ax(new THREE.Vector3(1, 0, 0), 0xb04a4d), ax(new THREE.Vector3(0, 1, 0), 0x6f9a35));
-      g.position.z = lo - hSite - 1; gridObj = g; scene.add(g);
+      g.position.z = zLo - 1; gridObj = g; scene.add(g);
 
       // site origin: a short vertical post
       const post = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, Math.max(150, hRange * 0.08))]), new THREE.LineBasicMaterial({ color: 0xf2a33a, depthTest: false }));
@@ -231,7 +248,7 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
       api.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, radiusKm]);
+  }, [siteId, lat, lon, radiusKm]);
 
   const sun = sunEl == null || sunAz == null ? null : sunVec(lat, lon, sunEl, sunAz);
   useEffect(() => { api.current?.apply({ shade, wire, grid, exag, sun }); }, [shade, wire, grid, exag, sunEl, sunAz, stats]); // eslint-disable-line react-hooks/exhaustive-deps
