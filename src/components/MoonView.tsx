@@ -1435,10 +1435,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     if (idle) idle(() => pickRef.current(at), { timeout: 400 }); else setTimeout(() => pickRef.current(at), 60);
   }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // lines of sight from the probed point to Earth and toward the Sun follow the point, the time and the relief setting
+  // lines of sight from the probed point to Earth and toward the Sun follow the point, the time and the relief setting;
+  // with no point selected there are no lines (everything else is drawn as usual)
   useEffect(() => {
     const st = S.current; if (!st) return;
-    const show = !!(probe && now);
+    const show = !!(sel && probe && now);
     st.earthLine.visible = show && earthLineOn;
     st.sunLine.visible = show && sunLineOn;
     if (show && probe && now) {
@@ -1454,7 +1455,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xffd23f : now.sunPct > 0.5 ? 0xff9f0a : 0xff453a);
     }
     st.request();
-  }, [probe, now, earthLineOn, sunLineOn, relief, hiInfo]);
+  }, [sel, probe, now, earthLineOn, sunLineOn, relief, hiInfo]);
 
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
