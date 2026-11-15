@@ -638,9 +638,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       }
       const moreOf = new Map(labelled.map((l) => [l.m, l.more]));
       for (const v of vis) { const n = moreOf.get(v.m), more = n ? `+${n}` : ''; const k = v.m.k!; if (k.more !== more && v.m.sp) { k.more = more; v.m.sp.dataset.more = more; } }
-      // Sun and Earth pointers: always an arrow pinned to the edge of the 3D window, on the line from the centre of
-      // the view toward the body (its screen position when it is in front, its direction when it is behind), so they
-      // never wander into the middle of the picture
+      // Sun and Earth pointers: a name tag above the body while it falls inside the window (marked "behind the Moon"
+      // when the Moon hides it), otherwise an arrow pinned to the edge of the window pointing toward it
       {
         // arrows ride the very edge of the window (just inside the border)
         const insX = 16, top = 16, bottom = 16;
@@ -655,7 +654,20 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           const o = camera.position, dir = world.clone().sub(o), len = dir.length(); dir.divideScalar(len);
           const bq = o.dot(dir), cq = o.lengthSq() - R_KM * R_KM, disc = bq * bq - cq;
           const blocked = disc > 0 && -bq - Math.sqrt(disc) > 0 && -bq - Math.sqrt(disc) < len;
-          // direction on screen (right, up) from the centre of the view toward the body
+          el.classList.toggle('blocked', blocked);
+          // where the body falls inside the window (visible, or hidden behind the Moon): a name tag above that spot
+          if (d.z < 0 && Math.abs(tmp.x) <= 1 && Math.abs(tmp.y) <= 1) {
+            el.style.transform = `translate(${((tmp.x + 1) / 2) * w}px, ${((1 - tmp.y) / 2) * h}px)`;
+            // lift the tag clear of the body's disc: Earth's true size on screen, the Sun sprite's fixed size
+            const pxPerRad = (h / 2) / Math.tan((camera.fov * Math.PI) / 360);
+            const rPx = el === earthPtr.current ? (6371 / Math.max(len, 1)) * pxPerRad : 0.045 * h * 0.12;
+            el.style.setProperty('--toff', `${Math.min(rPx, h / 3) + 12}px`);
+            el.classList.add('tag');
+            el.style.opacity = '1';
+            continue;
+          }
+          el.classList.remove('tag');
+          // otherwise an arrow on the edge of the window, on the line from the centre of the view toward the body
           let dx: number, dy: number;
           if (d.z < 0) { dx = ((tmp.x + 1) / 2) * w - cx; dy = cy - ((1 - tmp.y) / 2) * h; }
           else { dx = d.x; dy = d.y; }
@@ -667,10 +679,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           // the label sits just inside the arrow, toward the centre, so it never runs off the window
           el.style.setProperty('--lx', `${(-dx / n) * 36}px`);
           el.style.setProperty('--ly', `${(dy / n) * 24}px`);
-          el.classList.toggle('blocked', blocked);
-          // no arrow while the body itself is visible in the window
-          const inView = d.z < 0 && !blocked && Math.abs(tmp.x) <= 1 && Math.abs(tmp.y) <= 1;
-          el.style.opacity = inView ? '0' : '1';
+          el.style.opacity = '1';
         }
       }
       // line to Earth: dot length follows the camera's distance to the probed point, so it reads as dotted at any zoom
