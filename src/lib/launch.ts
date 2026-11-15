@@ -90,13 +90,19 @@ export function launchWindows(site: LaunchSite, arrival: number, from: number, t
 
 export interface GoodDay extends DayStat { landing: number } // landing instant: first moment of the day with Sun and Earth both up
 
-/** Landing days that meet the green thresholds on the day itself (Sun ≥ 70 %, Earth ≥ 90 % of the day). */
-export function goodDays(s: Series, from: number, limit = 12): GoodDay[] {
-  const sunMin = THRESHOLDS.power.greenPct / 100, earthMin = THRESHOLDS.comms.greenPct / 100;
+export type GoodDayRule = 'sun-earth' | 'sun';
+
+/**
+ * Landing days that meet the green thresholds on the day itself: Sun up ≥ 70 % of the day and, unless `rule` is
+ * 'sun' (for points that never see Earth, such as the far side), Earth in view ≥ 90 %.
+ */
+export function goodDays(s: Series, from: number, limit = 12, rule: GoodDayRule = 'sun-earth'): GoodDay[] {
+  const sunMin = THRESHOLDS.power.greenPct / 100, earthMin = rule === 'sun' ? 0 : THRESHOLDS.comms.greenPct / 100;
   const out: GoodDay[] = [];
   for (const d of dailyStats(s)) {
     if (d.t + DAY <= from || d.sun < sunMin || d.earth < earthMin) continue;
-    out.push({ ...d, landing: firstBoth(s, Math.max(d.t, from), d.t + DAY) ?? Math.max(d.t, from) });
+    const a = Math.max(d.t, from);
+    out.push({ ...d, landing: (rule === 'sun' ? firstUp(s, a, d.t + DAY) : firstBoth(s, a, d.t + DAY)) ?? a });
     if (out.length === limit) break;
   }
   return out;
@@ -105,6 +111,13 @@ export function goodDays(s: Series, from: number, limit = 12): GoodDay[] {
 function inRuns(runs: number[], i: number) {
   for (let k = 0; k < runs.length; k += 2) if (i >= runs[k] && i < runs[k + 1]) return true;
   return false;
+}
+function firstUp(s: Series, a: number, b: number): number | null {
+  for (let t = a; t < b; t += s.stepMs) {
+    const i = Math.round((t - s.t0) / s.stepMs);
+    if (i >= 0 && i < s.n && inRuns(s.sunUp, i)) return s.t0 + i * s.stepMs;
+  }
+  return null;
 }
 function firstBoth(s: Series, a: number, b: number): number | null {
   for (let t = a; t < b; t += s.stepMs) {

@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
-import LaunchPlanner from './components/LaunchPlanner';
+import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -17,7 +17,7 @@ import SiteList from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import TimeControls from './components/TimeControls';
 import Timeline from './components/Timeline';
-import { type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
+import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
@@ -71,6 +71,9 @@ export default function App() {
   const [deep, setDeep] = useState<Deep>('calendar');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
+  const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
+  const addCustom = useCallback((d: SiteData) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }, []);
+  const planLaunchTo = useCallback((lat: number, lon: number) => { setLaunchTarget({ lat, lon, nonce: Date.now() }); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
     { siteId: 'de-gerlache-rim', t: init.t },
@@ -199,7 +202,7 @@ export default function App() {
       </header>
       <div className="hero wrap">
         <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} />
+          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
         </Suspense>
       </div>
 
@@ -222,7 +225,7 @@ export default function App() {
                 </table>
               </section>
             )}
-            <CustomSite doc={doc} onReady={(d) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }} />
+            <CustomSite doc={doc} onReady={addCustom} />
           </aside>
 
           <section className="work" aria-label="Selected site">
@@ -287,7 +290,7 @@ export default function App() {
         </main>
       ) : mode === 'launch' ? (
         <main className="compare-main wrap">
-          <LaunchPlanner sites={allSites} siteId={siteId} onSite={setSiteId} data={data} t={t} range={range} />
+          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} range={range} target={launchTarget} />
         </main>
       ) : mode === 'calc' ? (
         <main className="compare-main wrap">
