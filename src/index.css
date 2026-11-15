@@ -2518,3 +2518,17 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .ct-tabs.has-ind.ind-on::before { height: 2px; width: calc(var(--iw) - 20px); transform: translate(calc(var(--ix) + 10px), calc(var(--iy) + var(--ih) - 2px)); background: currentColor; border-radius: 2px; color: var(--accent, var(--ct-blue)); }
 .ct-tabs.has-ind.ind-on > button::after { display: none; }
 .ct-tabs.has-ind.ind-on > button[aria-selected='true'] { color: var(--accent, var(--ct-blue)); }
+/* ---- the tool panel never covers another window ---- */
+/* it stops short of the left column (sites card, probed point) and above the time bar */
+.dash { --leftCol: 300px; }
+@media (max-width: 1280px) { .dash { --leftCol: 260px; } }
+.dash.dash-compare, .dash.dash-launch, .dash.dash-calc { --toolAvail: calc(100% - var(--L) - var(--leftCol) - var(--gap) * 3); }
+.dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: min(var(--toolW), var(--toolAvail)); }
+.dash:not(.dash-explore) .dash-wide { height: min(var(--card-h, 9999px), calc(100% - var(--card-top, var(--T)) - var(--B))); }
+/* the Moon's readouts and corner controls sit where the panel opens: they step aside while a tool is open */
+.dash .hud-tr, .dash .hud-bl, .dash .hud-br { transition: opacity 320ms ease; }
+.dash:not(.dash-explore) .hud-tr, .dash:not(.dash-explore) .hud-bl, .dash:not(.dash-explore) .hud-br { opacity: 0; pointer-events: none; }
+.dash:not(.dash-explore) .hud-tr *, .dash:not(.dash-explore) .hud-bl *, .dash:not(.dash-explore) .hud-br * { pointer-events: none !important; }
+@media (max-width: 900px) { .dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: auto; } .dash:not(.dash-explore) .dash-wide { height: auto; } }
+/* the panel header already names the tool: no second title inside it */
+.dash-wide .launch-head { display: none; }
