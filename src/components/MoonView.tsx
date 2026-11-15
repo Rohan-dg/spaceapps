@@ -35,8 +35,6 @@ const TerrainViewport = lazy(() => import('./TerrainViewport'));
 const base = import.meta.env.BASE_URL;
 /** Spacing of the ldem_64 tile samples: 5 degrees / 320 on a 1737.4 km sphere. */
 const TILE_RES_M = ((5 / 320) * Math.PI / 180) * R_KM * 1000;
-/** Field of view of the flattened (near-orthographic) close-up that a double-click flies to. */
-const FLAT_FOV = 10;
 /** Normal field of view (the scale presets and site flights use it). */
 const SCALE_FOV = 32;
 
@@ -144,6 +142,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
+    /** A double-clicked point being viewed close up: only its neighbourhood gets full-detail terrain. */
+    focus: { P: THREE.Vector3; lat: number; lon: number; D: number } | null;
   } | null>(null);
 
   const siteList = useMemo(() => sites.filter((s) => isFinite(s.lat)), [sites]);
@@ -156,8 +156,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
     } catch { setFail('WebGL is not available in this browser, so the 3D Moon cannot be shown.'); return; }
-    // supersampling (below) does the antialiasing, so the canvas itself can stay at up to 1.5x
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // start at 1x: antialiasing comes from accumulated sub-pixel samples once the view is still (below)
+    renderer.setPixelRatio(1);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -170,17 +170,47 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     camera.up.set(0, 0, 1);
     camera.position.set(0, -16000, -6000);
 
-    // Antialiasing: jittered supersampling every frame (2 samples on high-density screens, 4 otherwise), then,
-    // once nothing moves, progressive accumulation up to 32 samples per pixel. Shading detail below a pixel
-    // averages out instead of flipping between light and dark from frame to frame.
+    // Antialiasing: while the camera moves, one sample per pixel (two on fast GPUs); once it stops, jittered
+    // sub-pixel samples accumulate one per frame up to 32, so a still view is fully supersampled without any
+    // single heavy frame. Shading detail below a pixel averages out instead of flickering.
     const composer = new EffectComposer(renderer);
     composer.setPixelRatio(renderer.getPixelRatio());
     const taa = new TAARenderPass(scene, camera, 0x000000, 1);
     taa.unbiased = true;
-    taa.sampleLevel = window.devicePixelRatio > 1.25 ? 1 : 2;
     composer.addPass(taa);
     composer.addPass(new OutputPass());
     const TAA_SAMPLES = 32;
+    /**
+     * Quality levels, chosen by a frame-time governor in frame(): pixel ratio, share of the shadow-march
+     * steps, samples per moving frame, and how many terrain tiles may be on screen. Level 1 is the default;
+     * the governor drops a level when moving frames run under ~30 fps and tries the top level only when the
+     * display rate holds steadily (and never again after that has failed once).
+     */
+    const LEVELS = [
+      { pr: 0.75, march: 0.5, motion: 0, tiles: 12 },
+      { pr: 1, march: 0.75, motion: 0, tiles: 20 },
+      { pr: Math.min(window.devicePixelRatio, 1.5), march: 1, motion: 1, tiles: 28 },
+    ];
+    let level = 1;
+    const gov = { sum: 0, n: 0, last: 0, upLocked: false, since: 0 };
+    /** Resize the canvas and every render target (TAARenderPass does not resize its hold buffer itself). */
+    function resizeTargets() {
+      const w = el.clientWidth, h = el.clientHeight;
+      renderer.setSize(w, h, true);
+      composer.setPixelRatio(renderer.getPixelRatio());
+      composer.setSize(w, h);
+      const hold = (taa as unknown as { _holdRenderTarget: THREE.WebGLRenderTarget | null });
+      hold._holdRenderTarget?.dispose(); hold._holdRenderTarget = null;
+      camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+    }
+    function setLevel(l: number) {
+      level = l;
+      const L = LEVELS[l];
+      renderer.setPixelRatio(L.pr);
+      u.uMarch.value = L.march;
+      resizeTargets();
+      request();
+    }
 
     const blank = floatTex(new Float32Array([0]), 1, 1, false);
     // one texel per 5-degree tile (72 x 36): the globe skips ground that a real-terrain tile is drawing
@@ -197,7 +227,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       uCap: { value: blank }, uCapHalf: { value: 304000 }, uCapRes: { value: 148.4 }, uCapOn: { value: 0 },
       uHi: { value: blank }, uHiOn: { value: 0 }, uHiRes: { value: 5 }, uHiOff: { value: 0 }, uHiRC0: { value: new THREE.Vector2() }, uHiN: { value: 1 },
       uRelief: { value: 1 }, uShadows: { value: 1 }, uExag: { value: 1 }, uCam: { value: new THREE.Vector3() },
-      uCamLocal: { value: new THREE.Vector3() }, uDetail: { value: 0 }, uTileMask: { value: tileMask },
+      uCamLocal: { value: new THREE.Vector3() }, uDetail: { value: 0 }, uTileMask: { value: tileMask }, uMarch: { value: 0.75 },
       // precision anchor for the globe and cap shaders (see shaders.ts): a 2048 m lattice point under the camera
       uAnchorIdx: { value: new THREE.Vector3() }, uAnchorKm: { value: new THREE.Vector3() },
       uAnchorCorr: { value: new THREE.Vector3() }, uCamRel: { value: new THREE.Vector3() },
@@ -278,25 +308,41 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[], meta: null as TexMeta | null,
       exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
+      focus: null as { P: THREE.Vector3; lat: number; lon: number; D: number } | null,
     };
     // the drawn tile mesh uses every 2nd sample; taking the higher of both keeps the camera above either surface
-    const tileSurfaceH = (la: number, lo: number) => Math.max(tileH(la, lo, 1), tileH(la, lo, 2));
+    const tileSurfaceH = (la: number, lo: number) => Math.max(tileH(la, lo, false), tileH(la, lo, true));
     const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000, tileH: tileSurfaceH }));
 
     /* ---------- real-terrain tiles (CGI Moon Kit ldem_64), streamed around the view ---------- */
-    interface LiveTile { key: string; r: number; c: number; heights: TileHeights | null; mesh: THREE.Mesh | null; loading: boolean; failed: boolean; used: number }
+    // Each tile keeps its full 321 x 321 heights for shading; its mesh uses every 4th sample normally (the
+    // silhouette is all the mesh adds), every 2nd around a double-clicked point and every sample on that
+    // point's own tile. Tiles load one or two at a time, nearest first, never during a camera flight, and at
+    // most one mesh is (re)built per frame, so detail fills in progressively instead of in one burst.
+    interface LiveTile { key: string; r: number; c: number; heights: TileHeights | null; mesh: THREE.Mesh | null; stride: number; want: number; loading: boolean; failed: boolean; used: number }
     const tiles = new Map<string, LiveTile>();
     let tIdx: TileIndex | null = null, inflight = 0, tilesShown = 0;
-    const MAX_SHOWN = 36, MAX_CACHED = 90, MAX_INFLIGHT = 6;
+    const MAX_CACHED = 60, MAX_INFLIGHT = 2;
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
     fetch(`${base}tiles/index.json`).then((r) => (r.ok ? r.json() : null)).then((j: TileIndex | null) => { tIdx = j; request(); }).catch(() => {});
-    /** Height (m) from a drawn tile, at grid stride `step`, or NaN where no tile is drawn. */
-    function tileH(lat: number, lon: number, step = 1) {
+    /** Height (m) from a drawn tile (full data, or as its mesh draws it), or NaN where no tile is drawn. */
+    function tileH(lat: number, lon: number, drawn = false) {
       if (!tIdx) return NaN;
       const rc = tileAt(tIdx, lat, lon); if (!rc) return NaN;
       const t = tiles.get(tileKey(rc[0], rc[1]));
       if (!t?.heights || !t.mesh?.visible) return NaN;
-      return tileHeight(tIdx, t.heights, lat, lon, step);
+      return tileHeight(tIdx, t.heights, lat, lon, drawn ? t.stride : 1);
+    }
+    function tileGeometry(idx: TileIndex, h: TileHeights, stride: number) {
+      const md = buildTileMesh(idx, h, stride, 2);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(md.position, 3));
+      geo.setAttribute('aUp', new THREE.BufferAttribute(md.up, 3));
+      geo.setAttribute('aUV', new THREE.BufferAttribute(md.uv, 2));
+      geo.setAttribute('aH', new THREE.BufferAttribute(md.h, 1));
+      geo.setIndex(new THREE.BufferAttribute(md.index, 1));
+      geo.computeBoundingSphere();
+      return { geo, center: md.center };
     }
     function setMask(t: LiveTile, on: boolean) { maskData[t.r * 72 + t.c] = on ? 255 : 0; tileMask.needsUpdate = true; }
     function dropTile(t: LiveTile) {
@@ -318,14 +364,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         if (S.current !== st) { ctex.dispose(); return; }
         ctex.colorSpace = THREE.SRGBColorSpace; ctex.anisotropy = maxAniso; ctex.flipY = false;
         t.heights = { r: t.r, c: t.c, n: idx.n, h: dec.data };
-        const md = buildTileMesh(idx, t.heights, 2, 2);
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.BufferAttribute(md.position, 3));
-        geo.setAttribute('aUp', new THREE.BufferAttribute(md.up, 3));
-        geo.setAttribute('aUV', new THREE.BufferAttribute(md.uv, 2));
-        geo.setAttribute('aH', new THREE.BufferAttribute(md.h, 1));
-        geo.setIndex(new THREE.BufferAttribute(md.index, 1));
-        geo.computeBoundingSphere();
+        t.stride = t.want;
+        const { geo, center } = tileGeometry(idx, t.heights, t.stride);
         const [la0, lo0] = tileOrigin(idx, t.r, t.c), rad = Math.PI / 180;
         const mt = new THREE.ShaderMaterial({
           vertexShader: TILE_V, fragmentShader: TILE_F, side: THREE.DoubleSide,
@@ -333,7 +373,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
             uTileLL: { value: new THREE.Vector3(la0 * rad, lo0 * rad, idx.deg * rad) }, uTileN: { value: idx.n } },
         });
         const mesh = new THREE.Mesh(geo, mt);
-        mesh.position.set(md.center[0], md.center[1], md.center[2]);
+        mesh.position.set(center[0], center[1], center[2]);
         mesh.visible = false;
         scene.add(mesh); t.mesh = mesh;
       } catch { t.failed = true; }
@@ -350,7 +390,23 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const dist = cam.distanceTo(P), half = Math.tan((camera.fov * Math.PI) / 360);
       const mpp = (2 * dist * 1000 * half) / (renderer.domElement.clientHeight || 1);
       const want = new Set<LiveTile>();
-      if (mpp < 1500 && camR - R_KM < 3000) {
+      const need = (r: number, c: number, stride: number) => {
+        const key = tileKey(r, c);
+        let t = tiles.get(key);
+        if (!t) { t = { key, r, c, heights: null, mesh: null, stride: 0, want: stride, loading: false, failed: false, used: 0 }; tiles.set(key, t); }
+        t.used = now; t.want = stride; want.add(t);
+      };
+      // a double-clicked point: only its tile (every sample) and the eight around it (every 2nd)
+      const f = st.focus;
+      if (f && !st.flying && cam.distanceTo(f.P) > f.D * 8) st.focus = null;   // zoomed back out: leave the close-up
+      const frc = st.focus ? tileAt(idx, st.focus.lat, st.focus.lon) : null;
+      if (frc) {
+        need(frc[0], frc[1], 1);
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          const r = frc[0] + dr, c = (frc[1] + dc + idx.cols) % idx.cols;
+          if ((dr || dc) && r >= 0 && r < idx.rows) need(r, c, 2);
+        }
+      } else if (!st.focus && mpp < 1500 && camR - R_KM < 3000) {
         const a = Math.min((dist * half * Math.max(camera.aspect, 1) * 1.5) / R_KM + (idx.deg * Math.PI) / 180 * 0.75, 1.2);
         const cosA = Math.cos(a), Pn = P.clone().normalize(), horizon = R_KM / camR;
         const cand: [number, number, number][] = [];
@@ -362,12 +418,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
           cand.push([r, c, dp]);
         }
         cand.sort((x, y) => y[2] - x[2]);
-        for (const [r, c] of cand.slice(0, MAX_SHOWN)) {
-          const key = tileKey(r, c);
-          let t = tiles.get(key);
-          if (!t) { t = { key, r, c, heights: null, mesh: null, loading: false, failed: false, used: 0 }; tiles.set(key, t); }
-          t.used = now; want.add(t);
-        }
+        for (const [r, c] of cand.slice(0, LEVELS[level].tiles)) need(r, c, 4);
       }
       tilesShown = 0;
       for (const t of tiles.values()) {
@@ -375,7 +426,16 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         if (vis) tilesShown++;
         if (t.mesh && t.mesh.visible !== vis) { t.mesh.visible = vis; setMask(t, vis); }
       }
-      for (const t of want) if (!t.mesh && !t.loading && !t.failed && inflight < MAX_INFLIGHT) void loadTile(t);
+      // progressive: load nearest first, a couple at a time, and not while flying; rebuild at most one mesh a frame
+      if (!st.flying) {
+        for (const t of want) if (!t.mesh && !t.loading && !t.failed && inflight < MAX_INFLIGHT) void loadTile(t);
+        const re = [...want].find((t) => t.mesh && t.heights && t.stride !== t.want);
+        if (re && re.mesh && re.heights) {
+          const old = re.mesh.geometry;
+          re.mesh.geometry = tileGeometry(idx, re.heights, re.want).geo; old.dispose();
+          re.stride = re.want; request();
+        }
+      }
       if (tiles.size > MAX_CACHED) {
         const old = [...tiles.values()].filter((t) => !want.has(t) && !t.loading).sort((x, y) => x.used - y.used);
         for (const t of old.slice(0, tiles.size - MAX_CACHED)) dropTile(t);
@@ -451,7 +511,19 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const still = !moving && !st.flying, wasFresh = fresh;
       fresh = false;
       taa.accumulate = still && !wasFresh;
+      taa.sampleLevel = taa.accumulate ? 0 : LEVELS[level].motion;
       composer.render();
+      // governor: average the interval between back-to-back frames (moving, flying or refining)
+      {
+        const now = performance.now(), dt = now - gov.last;
+        gov.last = now;
+        if (dt < 250) { gov.sum += dt; gov.n++; }
+        if (gov.n >= 30) {
+          const avg = gov.sum / gov.n; gov.sum = 0; gov.n = 0;
+          if (avg > 32 && level > 0) { if (level === 2) gov.upLocked = true; gov.since = now; setLevel(level - 1); }
+          else if (avg < 18 && level < 2 && !gov.upLocked && now - gov.since > 4000) { gov.since = now; setLevel(level + 1); }
+        }
+      }
       // markers
       const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
       // declutter: the selected site first, then any marker whose label would overlap one already shown
@@ -542,7 +614,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) pickRef.current(hit);
     };
-    // a double-click zooms in on that point with the flattened close-up view
+    // a double-click flies down to that point for a near-horizontal close-up
     const onDbl = (e: MouseEvent) => {
       if (st.flying) return;
       const rect = renderer.domElement.getBoundingClientRect();
@@ -554,12 +626,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     renderer.domElement.addEventListener('dblclick', onDbl);
     if (import.meta.env.DEV) (window as unknown as { __moonFrame: () => void }).__moonFrame = frame;
 
-    const ro = new ResizeObserver(() => {
-      const w = el.clientWidth, h = el.clientHeight;
-      renderer.setSize(w, h, true);
-      composer.setSize(w, h);
-      camera.aspect = w / h; camera.updateProjectionMatrix(); request();
-    });
+    const ro = new ResizeObserver(() => { resizeTargets(); request(); });
     ro.observe(el);
 
     /* progressive data loading: small textures first, then the 8k mosaic and the height maps */
@@ -650,7 +717,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
       b.onclick = () => { if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } };
-      b.ondblclick = (e) => { e.preventDefault(); zoomRef.current(v3(posOf(s.lat, s.lon, s.siteHeightM ?? 0))); };
+      b.ondblclick = (e) => {
+        e.preventDefault();
+        const st2 = S.current;
+        const polarWindow = s.lat < -80.5 && !s.id.startsWith('custom');
+        if (s.id === selectedId && (!polarWindow || st2?.hi)) closeSite(s);
+        else { pendingClose.current = s.id; if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } }
+      };
       layer.appendChild(b);
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) + 30)) };
     });
@@ -711,6 +784,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
 
   const goTo = useCallback((sc: Scale, dur?: number) => {
     const st = S.current; if (!st) return;
+    st.focus = null;
     setScale(sc);
     const sunMF = st.u.uSun.value as THREE.Vector3;
     if (sc === 'moon' || !sel) {
@@ -742,6 +816,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   /* ---------- site patch: real high-resolution LOLA terrain ---------- */
   const firstSite = useRef(selectedId);
   const quietPick = useRef(false);
+  /** Site whose close-up waits for its terrain window to load (set by a marker double-click). */
+  const pendingClose = useRef<string | null>(null);
   useEffect(() => {
     const st = S.current; if (!st || !sel) return;
     let live = true;
@@ -762,7 +838,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         meta = await fetch(`${base}hires/${sel.id}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       }
       if (!live) return;
-      if (!meta) { arrive('region'); return; }
+      if (!meta) { if (pendingClose.current === sel.id) { pendingClose.current = null; closeSite(sel); } else arrive('region'); return; }
       const dec = await decodeHeights(`${base}hires/${sel.id}.png`, meta.hMinM, meta.quantumM);
       if (!live) return;
       const n = meta.n, res = meta.resM, off = meta.projOffset;
@@ -824,7 +900,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       st.patch = mesh; st.patchOrigin = origin;
       setHiInfo(meta);
       st.request();
-      arrive('site');
+      if (pendingClose.current === sel.id) { pendingClose.current = null; closeSite(sel); }
+      else arrive('site');
     })().catch(() => live && arrive('region'));
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -881,25 +958,37 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, rangeOpen, rangeIn]);
   /**
-   * Double-click: zoom in on a point and flatten the perspective. The camera looks straight down (tipped 0.6°
-   * so orbiting keeps a heading, north up) through a narrow 10° field of view from proportionally further
-   * away, so the ground reads like a map instead of a wide-angle view.
+   * Double-click: fly down to a point and look across it almost horizontally (8° above the ground), from a
+   * distance set by the finest terrain there (60 samples: 300 m on a 5 m site window, about 28 km on the
+   * 474 m global tiles). The point becomes the focus: its own tile is meshed at every sample and only its
+   * neighbourhood is loaded in detail. The camera stands on the sunward side, so the lit faces point at you.
    */
   const zoomFlat = useCallback((P: THREE.Vector3) => {
     const st = S.current; if (!st) return;
     const U = P.clone().normalize();
     const lat = Math.asin(U.z) * 180 / Math.PI, lon = Math.atan2(U.y, U.x) * 180 / Math.PI;
-    const N = v3(enu(lat, lon).n);
-    // keep 30% of the ground width now in view, seen through the narrow lens from proportionally further away
-    const half = (f: number) => Math.tan((f * Math.PI) / 360);
-    const width = st.camera.position.distanceTo(P) * half(st.camera.fov) * 0.3;
-    const d = Math.min(Math.max(width / half(FLAT_FOV), 0.05), 8500);
-    const tilt = (0.6 * Math.PI) / 180;
-    const dir = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt)).normalize();
-    fly(P.clone().addScaledVector(dir, d), P, U, 'site', 1.4, FLAT_FOV);
+    const { e, n } = enu(lat, lon);
+    const E = v3(e), N = v3(n);
+    const g = st.terrainM(lat, lon);
+    const D = Math.min(Math.max((g.resM * 60) / 1000, 0.25), 40);
+    const sunMF = st.u.uSun.value as THREE.Vector3;
+    const sh = new THREE.Vector3(sunMF.dot(E), sunMF.dot(N), 0);
+    if (sh.lengthSq() < 1e-8) sh.set(0, 1, 0);
+    sh.normalize();
+    const az = Math.atan2(sh.x, sh.y) + 0.35, el = (8 * Math.PI) / 180;
+    const off = E.clone().multiplyScalar(Math.sin(az) * Math.cos(el)).add(N.clone().multiplyScalar(Math.cos(az) * Math.cos(el))).add(U.clone().multiplyScalar(Math.sin(el)));
+    st.focus = { P: P.clone(), lat, lon, D };
+    fly(P.clone().addScaledVector(off, D), P, U, 'site', 2.2);
   }, [fly]);
   const zoomRef = useRef(zoomFlat);
   zoomRef.current = zoomFlat;
+  /** Close-up of a listed site, on the finest ground loaded under it. */
+  function closeSite(s: { lat: number; lon: number; siteHeightM?: number }) {
+    const st = S.current; if (!st) return;
+    const P = v3(posOf(s.lat, s.lon, s.siteHeightM ?? 0));
+    P.setLength(st.surfaceRadius(P));
+    zoomRef.current(P);
+  }
 
   /* ---------- rover range on battery ---------- */
   const groundAt = (lat: number, lon: number) => {
