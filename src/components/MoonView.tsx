@@ -114,7 +114,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const [scale, setScale] = useState<Scale>('moon');
   const [shadows, setShadows] = useState(true);
   const [detail, setDetail] = useState(false);
-  const [relief, setRelief] = useState(1);
+  const [relief, setRelief] = useState(3);
   const [hiInfo, setHiInfo] = useState<HiMeta | null>(null);
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
