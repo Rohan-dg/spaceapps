@@ -3,9 +3,7 @@ import type { Level } from '../config/thresholds';
 import type { SiteData } from '../lib/data';
 import { inWords, type Event } from '../lib/metrics';
 import type { ScenarioResult } from '../lib/useScenario';
-import FirstPerson from './FirstPerson';
-import MoonEarth from './MoonEarth';
-import Timeline from './Timeline';
+import { fromInput, SPEEDS, toInput } from './TimeControls';
 import TimeLeft from './TimeLeft';
 
 const sunHeight = (el: number) => el > 30 ? 'high in the sky' : el > 10 ? 'fairly low in the sky' : el > 3 ? 'low over the horizon' : 'skimming the horizon';
@@ -36,7 +34,7 @@ const days = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : `${Math.ro
 
 interface Props {
   data: SiteData; r: ScenarioResult; t: number; tLive: number; t0: number; t1: number;
-  onT: (t: number) => void; playing: boolean; onPlaying: (p: boolean) => void; onExpert: () => void;
+  onT: (t: number) => void; playing: boolean; onPlaying: (p: boolean) => void; speed: number; onSpeed: (s: number) => void;
 }
 
 /**
@@ -44,7 +42,7 @@ interface Props {
  * (is it sunny, can it talk to Earth, is it a good place to land), with a look-around view, the next month at
  * a glance and the Moon-vs-Earth comparison. Every figure comes from the same calculation as Expert mode.
  */
-export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, onPlaying, onExpert }: Props) {
+export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, onPlaying, speed, onSpeed }: Props) {
   const m = r.metrics, info = data.info;
   const sunE = m.sunUp ? m.nextSunset : m.nextSunrise;
   const earthE = m.earthUp ? m.nextEarthset : m.nextEarthrise;
@@ -66,6 +64,17 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         </button>
         <button onClick={() => step(-1)}>Day before</button>
         <button onClick={() => step(1)}>Next day</button>
+        <label className="simple-pick">
+          <span className="sr-only">Date and time (UTC)</span>
+          <input type="datetime-local" value={toInput(tLive)} min={toInput(t0)} max={toInput(t1)} step={60}
+            onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) onT(Math.max(t0, Math.min(t1, v))); }} />
+        </label>
+        <label className="simple-speed">
+          <span>Play speed</span>
+          <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
+            {SPEEDS.map((sp, i) => <option key={sp.label} value={i}>{sp.label.replace(' / s', ' per second')}</option>)}
+          </select>
+        </label>
         <span className="simple-date">{longDate(tLive)}</span>
       </section>
 
@@ -100,28 +109,6 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         </ul>
       </section>
 
-      <section className="simple-block">
-        <h3>What you would see standing here</h3>
-        <p className="muted">Drag to look around. The hills are the real terrain, measured by NASA's Lunar Reconnaissance Orbiter. There is no air, so the sky is black even in daytime.</p>
-        <FirstPerson data={data} t={t} height={300} />
-      </section>
-
-      <section className="simple-block">
-        <h3>The next 30 days</h3>
-        <p className="muted">Coloured stretches show when this spot is sunny and when Earth is in view. Click to jump to a day.</p>
-        <ul className="chart-legend">
-          <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunny</li>
-          <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
-        </ul>
-        <Timeline data={data} t={t} onSeek={onT} />
-      </section>
-
-      <section className="simple-block">
-        <h3>How is this different from Earth?</h3>
-        <MoonEarth data={data} t={t} m={m} />
-      </section>
-
-      <p className="simple-more">Planning a mission? <button className="link" onClick={onExpert}>Switch to Expert mode</button> for exact angles, date-slip analysis, shadow maps, mission planning and data export. Times are in UTC.</p>
     </div>
   );
 }
