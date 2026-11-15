@@ -312,8 +312,8 @@ export default function App() {
   }, []);
   const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
   const partnerData = useSiteData(partner && partner !== siteId ? partner : null);
-  // Normal mode shows only Best days and Side by side in the detail panel
-  const dv: Deep = expert ? deep : deep === 'compare' ? 'compare' : 'calendar';
+  // Normal mode shows the detail panel only for Side by side (when two places are picked)
+  const dv: Deep = expert ? deep : 'compare';
   const openCompare = () => { setDeep('compare'); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
   const onMoonSelect = useCallback((id: string) => {
@@ -609,6 +609,7 @@ export default function App() {
                 </div>
                 </>)}
 
+                {expert && <>
                 <div className="instrument">
                   <div className="view-head pnl-h">
                     <div><h3>{L.hz[0]}</h3><p>{L.hz[1]}</p></div>
@@ -652,13 +653,14 @@ export default function App() {
                   <MoonEarthM data={data} t={tl} m={res.metrics} />
                 </div>
 
-                <section className="deep" aria-label="Detail">
+                </>}
+                {(expert || partnerData) && <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
                     <div><h3>{L.deep}</h3><p>{L.deepText[dv === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
                       {expert && <button role="tab" className="seg-key" aria-selected={dv === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>}
                       {partnerData && <button role="tab" aria-selected={dv === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
-                      <button role="tab" aria-selected={dv === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>
+                      {expert && <button role="tab" aria-selected={dv === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>}
                       {expert && <button role="tab" aria-selected={dv === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>}
                     </div>
                   </div>
@@ -679,7 +681,7 @@ export default function App() {
                       <ExportM d={data} r={res} />
                     </div>
                   )}
-                </section>
+                </section>}
               </>
             ) : siteId ? <Loading label="Loading site" /> : !expert ? (
               <div className="simple-empty">
