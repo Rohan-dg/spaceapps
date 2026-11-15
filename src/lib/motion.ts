@@ -3,10 +3,10 @@
  * segmented control: one highlight that glides to the selected option instead of jumping.
  *
  * The highlight is the container's ::before, positioned through CSS variables, so React's DOM is never
- * touched. Controls inside the 3D views (.moon, .tv) are left alone.
+ * touched. Controls inside the 3D views (.moon) are left alone.
  */
 const SEL = '.seg, .tabs';
-const SKIP = '.moon, .tv';
+const SKIP = '.moon';
 
 function place(el: HTMLElement) {
   const on = el.querySelector<HTMLElement>(':scope > [aria-checked="true"], :scope > [aria-selected="true"]');
