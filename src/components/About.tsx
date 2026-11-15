@@ -44,7 +44,7 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           <li>Sun and Earth positions come from <a href="https://github.com/cosinekitty/astronomy">astronomy-engine</a>, rotated into the IAU Moon-fixed frame. Checked against <a href="https://ssd.jpl.nasa.gov/horizons/">JPL Horizons</a> (DE441) at 10 site and time points: worst error 0.004°.</li>
           <li>Visibility is sampled every 30 minutes over the three years, and rise and set times are refined to about a minute.</li>
           <li>Custom points use a coarser 400 m terrain grid. Tested against the full 40 m pipeline, their skylines differ by 0.1 to 0.6° on average and 2.4° at worst, and the app labels them approximate.</li>
-          <li>Each site lists the source of its coordinates. Rim and summit points are moved onto the nearby high ground, and the app says how far. A "verify" flag means a coordinate has not yet been checked against its source.</li>
+          <li>Each site lists the published source of its coordinates, and every south-pole site was checked against the paper itself. Two rim points that were found on older Kaguya terrain (Bussey et al. 2010) are moved onto the nearby high ground on LOLA, and the app says how far. A "verify" flag means a coordinate has not yet been checked against its source.</li>
         </ul>
 
         <h3>NASA data used</h3>
@@ -63,12 +63,25 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           <li>Not a mission-planning tool of record.</li>
         </ul>
 
+        <h3>Use of SI (AI)</h3>
+        <p>
+          Sol Teris was built with Claude (Anthropic) as a coding assistant. Most of the code, the build and data-processing scripts,
+          the documentation and the Sol Teris emblem were written with it, under the team's direction. Commits made with it carry a
+          "Co-Authored-By: Claude" line, and the page metadata says the same. The emblem on the opening screen carries a visible SI label.
+          Every number in the app is computed by that code from NASA terrain data and the ephemeris; none is produced by a language model.
+        </p>
+
         <h3>Credits</h3>
         <ul>
           <li>NASA Lunar Reconnaissance Orbiter, LOLA team; PDS Geosciences Node, Washington University in St. Louis.</li>
           <li>NASA/JPL Solar System Dynamics: Horizons.</li>
           <li>NASA Scientific Visualization Studio, CGI Moon Kit. LROC team, Arizona State University.</li>
-          <li>Site sources are cited per site in <code>data/sites.json</code>.</li>
+          <li>Site coordinates: Bussey et al. 2010 (Icarus 208), Mazarico et al. 2011 (Icarus 211), Gläser et al. 2014 and 2018,
+            Kring et al. 2025 and Wueller et al. 2026 (JGR Planets), Beyer et al. 2025 (PSJ), LROC; each site's source is in <code>data/sites.json</code>.</li>
+          <li>Open source: <a href="https://github.com/cosinekitty/astronomy">astronomy-engine</a> (MIT, Don Cross), <a href="https://threejs.org">three.js</a> (MIT),
+            <a href="https://react.dev">React</a> (MIT), <a href="https://d3js.org">D3</a> (ISC), <a href="https://gsap.com">GSAP</a> (free, GSAP Standard License),
+            <a href="https://vite.dev">Vite</a> (MIT), the <a href="https://rsms.me/inter/">Inter</a> typeface (SIL Open Font License), and NumPy, SciPy and Pillow for the data build.</li>
+          <li>Sol Teris itself is open source under the Apache License 2.0.</li>
         </ul>
         <p className="disclaimer">Built with publicly available NASA data. NASA does not endorse any non-U.S. Government entity and is not responsible for information on non-U.S. Government websites.</p>
       </div>

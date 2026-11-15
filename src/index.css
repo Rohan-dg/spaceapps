@@ -1066,6 +1066,7 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .emb .fill.earth { fill: #fff; }
 .emb-label { fill: rgba(255, 255, 255, 0.55); font: 600 11px var(--font-body); text-anchor: middle; opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
 .intro-word { font: 700 clamp(30px, 5.5vw, 56px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; opacity: 0; animation: intro-word 560ms var(--ease-out) 2.9s forwards; }
+.intro-si { position: absolute; left: 16px; right: 16px; bottom: 18px; text-align: center; font: 500 11px/1.4 var(--font-body); color: rgba(255, 255, 255, 0.5); }
 @keyframes emb-draw { to { stroke-dashoffset: 0; } }
 @keyframes emb-fade { to { opacity: 1; } }
 @keyframes emb-turn { from { transform: rotate(-35deg); } to { transform: none; } }

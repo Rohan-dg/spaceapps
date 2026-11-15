@@ -4,7 +4,7 @@ Sunlight and Earth visibility for Moon south-pole landing sites, computed on rea
 
 Built for the NASA Space Apps Challenge 2026: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/).
 
-![Sol Teris](https://raw.githubusercontent.com/Rohan-dg/spaceapps/claude/lunar-site-compare-kurzka/docs/screenshot.png)
+![Sol Teris](https://raw.githubusercontent.com/Rohan-dg/spaceapps/main/docs/screenshot.png)
 
 Near the lunar south pole the Sun never climbs far above the horizon, and Earth hangs low and drifts with libration. There is no atmosphere and no twilight, so a single ridge decides whether a lander has power and a direct radio link. For any site and time, the app shows where the Sun and Earth sit against the actual terrain horizon, and for how long.
 
@@ -33,24 +33,22 @@ Share of time from 2027-01-01 to 2029-12-31, for an observer 2 m above the surfa
 | Connecting ridge | 89.45°S | 80.8% | 52.1% |
 | Shackleton rim | 89.69°S | 86.3% | 50.9% |
 | Shackleton floor | 89.67°S | 0.0% | 0.0% |
-| de Gerlache rim | 88.66°S | 59.1% | 58.2% |
-| Malapert | 85.99°S | 57.6% | 100.0% |
-| Mons Mouton | 84.79°S | 45.0% | 82.0% |
-| Nobile rim | 85.42°S | 45.3% | 74.1% |
+| de Gerlache rim | 88.68°S | 73.0% | 52.4% |
+| Malapert | 85.96°S | 68.7% | 100.0% |
+| Mons Mouton | 84.79°S | 45.1% | 82.0% |
+| Nobile rim | 85.42°S | 49.9% | 64.3% |
 | Haworth | 87.45°S | 0.0% | 0.0% |
-| Faustini rim | 87.99°S | 48.1% | 48.6% |
+| Faustini rim | 87.75°S | 55.7% | 48.1% |
 | Chandrayaan-3 | 69.37°S | 48.7% | 100.0% |
 | Apollo 11 | 0.67°N | 49.9% | 100.0% |
 | Chang'e-4 | 45.45°S | 49.6% | 0.0% |
 
-Coordinates and their sources are in [`data/sites.json`](https://github.com/Rohan-dg/spaceapps/blob/claude/lunar-site-compare-kurzka/data/sites.json). Entries marked `verify` still need checking against the cited source.
+Every south-pole coordinate above is taken from a published source and was checked against the paper itself (see [References](#references)). Two rim points from Bussey et al. (2010), found on older Kaguya terrain, are moved up to 1 km onto the local high ground on LOLA; the app shows both positions. The app also lists flown and planned mission sites (Apollo, CLPS, Chang'e, Luna, SLIM and others), grouped by program. Coordinates and their sources are in [`data/sites.json`](https://github.com/Rohan-dg/spaceapps/blob/main/data/sites.json); entries marked `verify` still need checking against the cited source.
 
 ## Run locally
 
-The app source is on the `claude/lunar-site-compare-kurzka` branch.
-
 ```bash
-git clone -b claude/lunar-site-compare-kurzka https://github.com/Rohan-dg/spaceapps.git
+git clone https://github.com/Rohan-dg/spaceapps.git
 cd spaceapps
 npm install
 npm run dev      # http://localhost:5173
@@ -82,22 +80,59 @@ python scripts/build_terrain_tiles.py
 | 3D polar terrain | LOLA `LDEM_80S_80M` (148 m cap) and 5, 10, 20 m windows around each polar site |
 | Sun and Earth positions | [astronomy-engine](https://github.com/cosinekitty/astronomy) |
 | Validation | JPL Horizons (DE441) |
+| Site coordinates | Published papers and releases, see [References](#references) |
 
 ## Accuracy
 
-Sun and Earth positions match JPL Horizons to within 0.004° at 20 test points (`npm run validate`). Terrain is the larger source of error: roughly 0.1 to 0.3° near the observer on the 40 m polar grid, and much coarser on the global grid. See [MATH.md](https://github.com/Rohan-dg/spaceapps/blob/claude/lunar-site-compare-kurzka/docs/MATH.md) and [validation_results.md](https://github.com/Rohan-dg/spaceapps/blob/claude/lunar-site-compare-kurzka/docs/validation_results.md).
+Sun and Earth positions match JPL Horizons to within 0.004° at 20 test points (`npm run validate`). Terrain is the larger source of error: roughly 0.1 to 0.3° near the observer on the 40 m polar grid, and much coarser on the global grid. See [MATH.md](https://github.com/Rohan-dg/spaceapps/blob/main/docs/MATH.md) and [validation_results.md](https://github.com/Rohan-dg/spaceapps/blob/main/docs/validation_results.md).
 
 ## Limitations
 
 - The observer is 2 m above the ground. A taller mast sees more Sun.
 - "Sunlit" and "visible" mean the centre of the Sun or Earth is above the terrain.
 - Antenna patterns, link budgets and relay satellites are not modelled.
-- Some site coordinates are approximate. This is not a mission-planning tool of record.
+- Mission sites away from the pole use the 1.9 km global terrain map, so their skylines are coarse, and some of their coordinates are approximate (flagged `verify`). This is not a mission-planning tool of record.
 - In the 3D view, terrain is the LOLA data at its native resolution (474 m globally, 148 m to 5 m near the south pole). Optional procedural detail below that is off by default and labelled when on.
+
+## Use of SI (AI)
+
+Sol Teris was built with Claude (Anthropic) as a coding assistant, as the Space Apps rules allow. Most of the code, the build and data-processing scripts, the documentation and the Sol Teris emblem and logo were written with it, under the team's direction. Where it was used:
+
+- **Code and data:** commits made with it carry a `Co-Authored-By: Claude` trailer (88 of the first 94 commits). `package.json` (`aiAssistance`) and the page's `ai-disclosure` meta tag say the same, and so does the app's About panel.
+- **Images:** the emblem is drawn by SVG code written with Claude, and the opening screen labels it as SI-generated artwork.
+- **Numbers:** every value in the app is computed by that code from NASA terrain data and the ephemeris. None is produced by a language model. The site coordinates were checked against the cited papers.
+
+## References
+
+Site coordinates:
+
+- Bussey, D. B. J., et al. (2010). Illumination conditions of the south pole of the Moon derived using Kaguya topography. *Icarus* 208, 558-564. [doi:10.1016/j.icarus.2010.03.028](https://doi.org/10.1016/j.icarus.2010.03.028). Shackleton rim (Point A) and de Gerlache rim (Point C).
+- Mazarico, E., et al. (2011). Illumination conditions of the lunar polar regions using LOLA topography. *Icarus* 211, 1066-1081. [doi:10.1016/j.icarus.2010.10.030](https://doi.org/10.1016/j.icarus.2010.10.030). Connecting ridge, as tabulated in Gläser et al. (2018).
+- Gläser, P., et al. (2014). Illumination conditions at the lunar south pole using high resolution Digital Terrain Models from LOLA. *Icarus* 243, 78-90. [doi:10.1016/j.icarus.2014.08.013](https://doi.org/10.1016/j.icarus.2014.08.013). Connecting ridge (Site 1).
+- Gläser, P., Oberst, J., Neumann, G. A., et al. (2018). Illumination conditions at the lunar poles: Implications for future exploration. *Planetary and Space Science* 162, 170-178. [doi:10.1016/j.pss.2017.07.006](https://doi.org/10.1016/j.pss.2017.07.006).
+- Kring, D. A., et al. (2025). Notional Geological Traverses, Station Activities, and Sample Collection on Mons Malapert, Lunar South Polar Region. *JGR Planets* 130, e2024JE008905. [doi:10.1029/2024JE008905](https://doi.org/10.1029/2024JE008905). Malapert (NASA's notional Artemis III site).
+- Beyer, R. A., et al. (2025). VIPER Site Analysis. *Planetary Science Journal* 6, 236. [doi:10.3847/PSJ/ae061a](https://doi.org/10.3847/PSJ/ae061a). Nobile rim.
+- Wueller, L., et al. (2026). Assessing Potential Landing Sites With Favorable Illumination and Accessible, Potentially Volatile-Rich Permanently Shadowed Regions Within Artemis Candidate Landing Regions. *JGR Planets* 131, e2025JE009434. [doi:10.1029/2025JE009434](https://doi.org/10.1029/2025JE009434). Faustini rim (site FRA02).
+- LROC team (2025). [IM-2 Athena Seen Obliquely](https://lroc.im-ldi.com/images/1408). Mons Mouton.
+
+NASA data and services: [LRO LOLA gridded data](https://pds-geosciences.wustl.edu/missions/lro/lola.htm) (PDS Geosciences Node), [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (LOLA and LROC WAC), [NASA Moon Trek](https://trek.nasa.gov/moon/) and [LROC QuickMap](https://quickmap.lroc.asu.edu/).
+
+Open-source software, all free to use:
+
+| Software | Use | Licence |
+|---|---|---|
+| [astronomy-engine](https://github.com/cosinekitty/astronomy) (Don Cross) | Sun and Earth positions | MIT |
+| [three.js](https://threejs.org) | 3D Moon and terrain | MIT |
+| [React](https://react.dev) | User interface | MIT |
+| [D3](https://d3js.org) | Charts | ISC |
+| [GSAP](https://gsap.com) | Camera and panel animation | GSAP Standard "No Charge" License (free, not OSI) |
+| [Vite](https://vite.dev), [TypeScript](https://www.typescriptlang.org), [Vitest](https://vitest.dev) | Build and tests | MIT, Apache 2.0, MIT |
+| [NumPy](https://numpy.org), [SciPy](https://scipy.org), [Pillow](https://python-pillow.org) | Terrain processing scripts | BSD, BSD, MIT-CMU |
+| [Inter](https://rsms.me/inter/) (Rasmus Andersson) | Typeface | SIL Open Font License 1.1 |
 
 ## Credits
 
-NASA LRO LOLA team and the PDS Geosciences Node, NASA/JPL Solar System Dynamics (Horizons), NASA Moon Trek, LROC QuickMap, and astronomy-engine by Don Cross.
+NASA LRO LOLA team and the PDS Geosciences Node, NASA/JPL Solar System Dynamics (Horizons), the NASA Scientific Visualization Studio, the LROC team at Arizona State University, NASA Moon Trek and LROC QuickMap.
 
 This project uses publicly available NASA data. NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites.
 
