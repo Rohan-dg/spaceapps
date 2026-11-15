@@ -1086,8 +1086,16 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 
 /* Probed point opens upward: the panels sit at the bottom of the HUD column and the probe's header stays at the
    bottom, so its details unfold from the bottom to the top */
-.moon-hud > .hud-panels { justify-content: flex-end; }
-.hud-panels .hud-probe { display: flex; flex-direction: column-reverse; }
+.moon-hud > .hud-panels { justify-content: flex-start; }
+/* push the stack to the bottom with an auto margin: flex-end would clip the top of a tall panel out of reach */
+.hud-panels > :first-child { margin-top: auto; }
+/* the probe fits the space above the zoom buttons: its details scroll inside, the header bar stays put */
+.hud-panels .hud-probe { display: flex; flex-direction: column-reverse; flex: 0 1 auto; min-height: 0; max-height: 100%; overflow: hidden; }
+.hud-panels .hud-probe .hud-probe-head { flex: none; }
+.hud-panels .hud-probe .hud-probe-body { flex: 0 1 auto; min-height: 0; }
+.hud-panels .hud-probe .hud-probe-body > div { overflow-y: auto; scrollbar-width: thin; }
+/* the panel opens upward, so the arrow points up when folded and down (to fold) when open */
+.hud-probe .hud-collapse[aria-expanded='false'] .chev { transform: rotate(180deg); }
 
 /* Site list groups (Artemis III, CLPS, Apollo, other countries, reference, your points) */
 .site-group + .site-group { margin-top: 6px; }
