@@ -12,6 +12,7 @@ import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import ModeChooser, { type Ui } from './components/ModeChooser';
+import { computeSite } from './lib/customSite';
 import Countdown from './components/Countdown';
 import SlipPanel from './components/SlipPanel';
 import MoonEarth from './components/MoonEarth';
@@ -173,7 +174,13 @@ export default function App() {
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
-  const addCustom = useCallback((d: SiteData) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }, []);
+  // a computed point joins the list and becomes the current site; the previous site stays as the comparison partner
+  const addCustom = useCallback((d: SiteData) => {
+    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]);
+    setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
+  }, []);
+  const [pointBusy, setPointBusy] = useState<string | null>(null);
+  const [closeUp, setCloseUp] = useState<{ id: string; n: number } | null>(null);
   const planLaunchTo = useCallback((lat: number, lon: number) => { setLaunchTarget({ lat, lon, nonce: Date.now() }); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
@@ -334,6 +341,15 @@ export default function App() {
       partner: pInfo && pInfo.id !== siteId ? pInfo.short || pInfo.name : null,
     };
   }, [res, info, partner, allSites, siteId, mode, tl]);
+  // "Compare this point" on the 3D Moon: compute any clicked point in the browser, then pair it with the current site
+  const comparePoint = useCallback((lat: number, lon: number) => {
+    if (!doc || pointBusy) return;
+    setPointBusy('Computing the point…');
+    computeSite(doc, lat, lon, (m) => setPointBusy(m))
+      .then((d) => { addCustom(d); setMode('explore'); })
+      .catch((e) => setPointBusy(`Could not compute that point (${String(e)})`))
+      .finally(() => setTimeout(() => setPointBusy(null), 1200));
+  }, [doc, pointBusy, addCustom]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -395,7 +411,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={comparePoint} closeUp={closeUp} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -407,6 +423,7 @@ export default function App() {
             </section>
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.review}</h2></header>
+              {pointBusy && <p className="ct-busy" role="status"><span className="loader" aria-hidden /> {pointBusy}</p>}
               {info && (
                 <div className="ct-actions">
                   <button className="ct-primary" disabled={!partnerData} onClick={openCompare}
@@ -515,7 +532,9 @@ export default function App() {
                     </div>
                   </div>
                   {deep === 'compare' && partnerData ? (
-                    <PairCompare a={partnerData} b={data} t={tl} onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
+                    <PairCompare a={partnerData} b={data} t={tl} expert={expert}
+                      onCloseUp={(id) => { setCloseUp((c) => ({ id, n: (c?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
                   ) : deep === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
                   ) : deep === 'mission' ? (
