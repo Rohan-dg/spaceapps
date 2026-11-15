@@ -74,6 +74,7 @@ const extra: Record<string, ReactNode> = {
   shadow: <><circle cx="9" cy="10" r="4.4" /><path d="M12.4 13.4 20 21M14.6 11.6 21 18M10.6 14.6 17 21" /></>,
   mountain: <path d="M2.8 19.5 9.2 8.8l3.4 5.4 2.2-3.2 6.4 8.5z" />,
   sparkle: <path d="M12 3.5c.7 4.3 2.9 6.5 7.2 7.2-4.3.7-6.5 2.9-7.2 7.2-.7-4.3-2.9-6.5-7.2-7.2C9.1 10 11.3 7.8 12 3.5z" />,
+  expand: <path d="M4.5 9.5v-5h5M14.5 4.5h5v5M19.5 14.5v5h-5M9.5 19.5h-5v-5" />,
   home: <path d="M4 11.2 12 4.5l8 6.7M6.5 9.6V19.5h4.2v-5.2h2.6v5.2h4.2V9.6" />,
   compass: <><circle cx="12" cy="12" r="8.5" /><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z" /></>,
   rover: <><rect x="4" y="8" width="16" height="7" rx="1.5" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /><path d="M12 8V4.5M10 4.5h4" /></>,
