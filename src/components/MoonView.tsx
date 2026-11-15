@@ -266,9 +266,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       scene.add(l);
       return l;
     };
-    const earthLine = sightLine(0x6cb6ff);
+    const earthLine = sightLine(0xededef);
     // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
-    const sunLine = sightLine(0xffd166);
+    const sunLine = sightLine(0xff6b6b);
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
@@ -1121,8 +1121,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         line.frustumCulled = false; line.renderOrder = 3;
         grp.add(line);
       };
-      ringLine(r.ring, 0x7cc4ff, false);
-      ringLine(r.returnRing, 0x7cc4ff, true);
+      ringLine(r.ring, 0xededef, false);
+      ringLine(r.returnRing, 0xededef, true);
       st.rangePos = v3(posOf(rangeShown.lat, rangeShown.lon, groundAt(rangeShown.lat, rangeShown.lon).drawn));
       if (sunPlan && sunPlan !== 'busy' && sunPlan.kind === 'drive') {
         const a = { lat: rangeShown.lat, lon: rangeShown.lon }, b = sunPlan.target;
@@ -1130,7 +1130,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         const arr = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => arr.set(posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift), i * 3));
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffd166, toneMapped: false }));
+        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xff6b6b, toneMapped: false }));
         line.frustumCulled = false; line.renderOrder = 3;
         grp.add(line);
         st.sunPos = v3(posOf(b.lat, b.lon, groundAt(b.lat, b.lon).drawn));
@@ -1184,8 +1184,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         l.computeLineDistances();
         (l.material as THREE.LineDashedMaterial).color.set(color);
       };
-      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x6cb6ff : 0xef6a5f);
-      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xffd166 : now.sunPct > 0.5 ? 0xff9f43 : 0xef6a5f);
+      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0xededef : 0x6b6b72);
+      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xff6b6b : now.sunPct > 0.5 ? 0xffa8a3 : 0x6b6b72);
     }
     st.request();
   }, [probe, now, earthLineOn, sunLineOn, relief, hiInfo]);

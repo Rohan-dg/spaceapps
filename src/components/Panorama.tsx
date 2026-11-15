@@ -65,7 +65,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
     if (!cv) return;
     const g = fitCanvas(cv, width, height, dpr);
     g.clearRect(0, 0, width, height);
-    const font = (px: number, w = 400, mono = true) => `${w} ${px}px ${mono ? c.mono : c.font}`;
+    const font = (px: number, w = 400) => `${w} ${px}px ${c.font}`;
     const grid = mix(c.sky, c.ink, 0.1);
 
     g.fillStyle = c.sky; g.fillRect(padL, padT, plotW, plotH);
@@ -146,7 +146,7 @@ export default function Panorama({ data, t, height = 300, yRange, compact = fals
     g.textAlign = 'right'; g.fillStyle = c.ink3;
     for (let el = Math.ceil(lo / elStep) * elStep; el <= hi; el += elStep) g.fillText(`${el}°`, padL - 6, Y(el) + 4);
     if (!compact) {
-      g.textAlign = 'left'; g.font = font(12, 500, false); g.fillStyle = c.ink;
+      g.textAlign = 'left'; g.font = font(12, 500); g.fillStyle = c.ink;
       const lab = (az: number, el: number, r: number, text: string) => {
         if (el < lo || el > hi) return;
         g.fillText(text, Math.min(X(az) + r * kx + 7, padL + plotW - 50), Y(el) - r * ky - 5);
