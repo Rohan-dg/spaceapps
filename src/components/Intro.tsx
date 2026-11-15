@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { LogoMark } from './Logo';
 
 /**
- * Opening sting, on black: an orange laptop rises and flips up, its lid swings open and the screen lights, the camera
- * dives into the screen, then the wordmark builds ("Sol" slides in, the orange "Teris" box pops in) before the
+ * Opening sting, on black: a blue laptop rises and flips up, its lid swings open and the screen lights with the logo,
+ * the camera dives into the screen, then the logo builds (the mark pops in, "Sol Teris" slides in) before the
  * overlay fades to reveal the app, which loads underneath throughout. Silent, about 3.9 s, skipped by any click
  * or key, and not shown at all when the OS asks for reduced motion.
  * The timings live in the CSS (index.css, "opening sting"); LEAVE_MS is when the fade-out starts.
@@ -29,8 +30,8 @@ export default function Intro() {
         <div className="lt-rig">
           <div className="lt-tilt">
             <div className="lt-lid">
-              <div className="lt-screen"><i /></div>
-              <div className="lt-shell"><i /></div>
+              <div className="lt-screen"><LogoMark /></div>
+              <div className="lt-shell"><LogoMark /></div>
             </div>
             <div className="lt-base">
               <div className="lt-keys" />
@@ -41,8 +42,8 @@ export default function Intro() {
         </div>
       </div>
       <div className="intro-mark">
-        <span className="intro-word">Sol</span>
-        <span className="intro-box">Teris</span>
+        <LogoMark />
+        <span className="intro-word">Sol Teris</span>
       </div>
     </div>
   );

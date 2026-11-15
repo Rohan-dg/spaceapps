@@ -1,5 +1,6 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
+import { LogoMark } from './components/Logo';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -114,6 +115,12 @@ export default function App() {
 
   const onT = useCallback((x: number) => setT(x), []);
   const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
+  // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
+  const [homeSignal, setHomeSignal] = useState(0);
+  const goHome = useCallback(() => {
+    setMode('explore'); setSiteId(''); setHomeSignal((n) => n + 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
   const closeGuide = useCallback(() => setGuide(false), []);
   const applyPreset = useCallback((p: Preset) => {
     setPlaying(false);
@@ -190,7 +197,6 @@ export default function App() {
     <div className="app">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
-        <span className="ct-rail-mark" aria-hidden />
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
         <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
         <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
@@ -203,8 +209,9 @@ export default function App() {
       </nav>
       <div className="ct-main">
       <header className="ct-bar">
-        <span className="ct-bar-icon" aria-hidden><Globe size={18} /></span>
-        <h1 className="ct-title brand">Sol <span className="brand-box">Teris</span></h1>
+        <h1 className="ct-title">
+          <button className="ct-home" onClick={goHome} title="Home: Explore, no site selected, whole Moon"><LogoMark size={22} /><span>Sol Teris</span></button>
+        </h1>
         <label className="preset-pick">
           <span>Preset</span>
           <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
@@ -229,7 +236,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -388,7 +395,6 @@ export default function App() {
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       <div className="action-bar">
         <span className="ab-ctx">
-          <span className="brand-mark" aria-hidden />
           <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
           <span className="num muted">{when(t)} UTC</span>
         </span>

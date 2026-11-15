@@ -4,6 +4,7 @@
  */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from './Icons';
+import { LogoMark } from './Logo';
 
 export interface Command {
   id: string;
@@ -99,7 +100,7 @@ export default function CommandPalette({ commands, onClose }: { commands: Comman
           ))}
         </div>
         <div className="cmdk-foot">
-          <span className="cmdk-foot-mark"><span className="brand-mark" aria-hidden /> Sol Teris</span>
+          <span className="cmdk-foot-mark"><LogoMark size={16} /> Sol Teris</span>
           <span className="cmdk-foot-keys">
             <span>{activeCmd ? 'Run' : ''} <kbd>↵</kbd></span>
             <span className="sep" />
