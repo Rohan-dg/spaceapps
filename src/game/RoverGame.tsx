@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SiteInfo } from '../lib/data';
-import { Game, type Hud, type Stats } from './engine';
+import { CAM_VIEWS, Game, type Hud, type Stats } from './engine';
 import { PHASES, RATE } from './sim';
 import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
 import RoverPreview from './RoverPreview';
@@ -195,7 +195,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       {hud?.gain && <div className="rg-gain" key={hud.gain.id}><b>+{fmt(hud.gain.pts)}</b><span>{hud.gain.label}</span></div>}
       {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}
-      <div className="rg-drive-data"><span>{hud?.view === 'mast' ? 'Mast camera' : 'Chase camera'}</span><strong>{Math.abs(hud?.speed ?? 0).toFixed(1)}<small> m/s</small></strong><span>View {(hud?.camAz ?? 0).toFixed(0).padStart(3, '0')}°</span></div>
+      <div className="rg-drive-data"><span>{CAM_VIEWS.find((v) => v.id === hud?.view)?.label ?? 'Chase'} camera</span><strong>{Math.abs(hud?.speed ?? 0).toFixed(1)}<small> m/s</small></strong><span>View {(hud?.camAz ?? 0).toFixed(0).padStart(3, '0')}°</span></div>
 
       <footer className="rg-controls">
         <div className="rg-dpad" role="group" aria-label="Driving controls">
@@ -212,7 +212,10 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
           <button aria-pressed={!!hud?.lamp} onClick={() => press('l')}><kbd>L</kbd> Lights</button>
         </div>
         <div className="rg-camera-actions" role="group" aria-label="Camera controls">
-          <button aria-pressed={hud?.view === 'mast'} onClick={() => press('c')} title="Switch chase and mast cameras (C)"><RoverGlyph kind="camera" /><span>{hud?.view === 'mast' ? 'Chase' : 'Mast'}</span></button>
+          <div className="rg-views" role="radiogroup" aria-label="Camera position (C cycles)">
+            <RoverGlyph kind="camera" />
+            {CAM_VIEWS.map((v) => <button key={v.id} role="radio" aria-checked={(hud?.view ?? 'chase') === v.id} onClick={() => engine.current?.setView(v.id)} title={`${v.label} camera (C cycles)`}>{v.label}</button>)}
+          </div>
           <button aria-pressed={hud?.tele} onClick={() => press('z')} title="Perspective zoom (Z)">Lens</button>
           <button onClick={() => engine.current?.zoom(-0.3)} aria-label="Zoom in">+</button><button onClick={() => engine.current?.zoom(0.3)} aria-label="Zoom out">−</button>
           <button onClick={() => engine.current?.resetCamera()} aria-label="Reset camera"><RoverGlyph kind="reset" /></button>
@@ -277,6 +280,6 @@ function ScienceNote() {
   return <details className="rg-science"><summary>What is real in this simulation?</summary><p>The surface uses NASA LOLA elevations. Sun and Earth positions follow the app's ephemeris and terrain horizon. Badger uses NASA's RASSOR 3D model; the other rovers are drawn from the published layout and dimensions of VIPER, the Apollo Lunar Roving Vehicle, Lunokhod 1 and Yutu-2.</p><p>Each rover's speed, battery, solar and heater figures keep its real character but are scaled for a short game. Ice locations, science targets, mission story, movement, battery and heat figures are fictional teaching models. Fine surface detail is illustrative. Solar collection assumes a Sun-tracking panel. This is not a flight simulation or a map of confirmed ice.</p><a href="https://github.com/nasa/NASA-3D-Resources" target="_blank" rel="noreferrer">NASA model source ↗</a></details>;
 }
 function Controls() {
-  const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A D / ← →', 'Steer, including turning in place'], ['Space', 'Brake'], ['E', 'Dig while stopped near a deposit'], ['T', 'Transmit while stopped with Earth in view'], ['F (hold)', 'Wait faster while parked'], ['L', 'Toggle headlights'], ['C', 'Switch chase / mast camera'], ['Z', 'Perspective zoom'], ['Drag / scroll', 'Orbit / zoom'], ['Esc', 'Pause / resume']];
+  const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A D / ← →', 'Steer, including turning in place'], ['Space', 'Brake'], ['E', 'Dig while stopped near a deposit'], ['T', 'Transmit while stopped with Earth in view'], ['F (hold)', 'Wait faster while parked'], ['L', 'Toggle headlights'], ['C', 'Next camera: chase, close, high, overhead, mast'], ['Z', 'Perspective zoom'], ['Drag / scroll', 'Orbit / zoom'], ['Esc', 'Pause / resume']];
   return <div className="rg-key-list">{rows.map(([key, text]) => <div key={key}><kbd>{key}</kbd><span>{text}</span></div>)}<p>On touch screens, hold the arrow buttons to drive. Tap Sun or Earth in the telemetry strip to point the camera toward it.</p></div>;
 }
