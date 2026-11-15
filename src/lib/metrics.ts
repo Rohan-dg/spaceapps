@@ -129,3 +129,14 @@ export function tMinus(e: Event, now: number): string {
   const p = (x: number) => String(x).padStart(2, '0');
   return `T−${d > 0 ? `${d} d ` : ''}${p(h)}:${p(m)}:${p(ss)}`;
 }
+
+/** "in 3 days 4 hours", spelled out for a general audience. */
+export function inWords(e: Event, now: number): string {
+  if (e.t === null) return e.beyondRange ? 'not for years' : 'never';
+  const m = Math.max(0, Math.round((e.t - now) / 60000));
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  const u = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  if (d > 0) return `in ${u(d, 'day')}${h ? ` ${u(h, 'hour')}` : ''}`;
+  if (h > 0) return `in ${u(h, 'hour')}${mm ? ` ${u(mm, 'minute')}` : ''}`;
+  return `in ${u(mm, 'minute')}`;
+}

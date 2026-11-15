@@ -1480,3 +1480,66 @@ button[aria-busy='true']::after { content: ''; position: absolute; inset: 0;
 .me-chart > *, .sm-body > * { min-width: 0; }
 .slip-held { margin: 0; font-size: 11.5px; color: var(--accent); }
 .slip.held .slip-strip, .slip.held .slip-table { opacity: 0.6; }
+
+/* Normal / Expert switch in the top bar */
+.ui-toggle { flex: none; }
+.ui-toggle button { min-width: 64px; }
+
+/* Normal mode (src/components/SimpleView.tsx): one column, big plain answers */
+.simple { display: grid; gap: 18px; max-width: 980px; padding-block: 18px 32px; }
+.simple-hero h2 { margin: 2px 0 6px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.simple-hero p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); max-width: 70ch; }
+.simple-time { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.simple-time button:not(.btn-primary) { height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.simple-time button:not(.btn-primary):hover { background: var(--btn-hover); }
+.simple-date { font-size: 14px; color: var(--ink); margin-left: 6px; }
+.simple-now { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.simple-tile { display: grid; gap: 6px; align-content: start; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); }
+.simple-tile h3 { margin: 0; font-size: 20px; font-weight: 600; color: var(--ink); }
+.simple-tile p { margin: 0; font-size: 14px; line-height: 1.5; }
+.simple-tile svg { color: var(--ink-2); opacity: 0.6; }
+.simple-tile.on svg { color: var(--sun); opacity: 1; }
+.simple-tile.on.earth svg { color: var(--earth); }
+.simple-tile .link { justify-self: start; font-size: 13px; }
+.simple-verdict { padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.simple-verdict h3 { margin: 4px 0; font-size: 22px; font-weight: 600; }
+.simple-verdict p { margin: 0 0 10px; font-size: 14px; color: var(--ink-2); }
+.simple-verdict ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.simple-verdict li b { display: inline-block; min-width: 46px; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 12px; text-align: center; }
+.simple-verdict li.lv-green b { background: var(--ink); color: var(--bg); }
+.simple-verdict li.lv-amber b { background: var(--accent-tint); color: var(--accent); }
+.simple-verdict li.lv-red b { background: var(--surface-2); color: var(--ink-2); outline: 1px solid var(--line); }
+.simple-block { display: grid; gap: 8px; min-width: 0; }
+.simple-block > * { min-width: 0; }
+.simple-block h3 { margin: 0; font-size: 17px; font-weight: 600; }
+.simple-block > p { margin: 0; font-size: 13.5px; }
+.simple-more { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-2); }
+.simple-empty { max-width: 760px; padding-block: 28px; }
+.simple-empty h2 { margin: 0 0 8px; font-size: 26px; font-weight: 600; }
+.simple-empty p { margin: 0 0 16px; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+.simple-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.simple-picks button { display: grid; gap: 2px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.simple-picks button:hover { border-color: var(--accent); }
+.simple-picks small { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+@media (max-width: 720px) { .simple-now { grid-template-columns: 1fr; } .simple-hero h2, .simple-empty h2 { font-size: 22px; } .ui-toggle button { min-width: 0; padding: 0 10px; } }
+
+/* Time remaining before sunset / Earthset (src/components/TimeLeft.tsx) */
+.tl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 12px; }
+.tl-row { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; }
+.tl-ico { padding-top: 1px; color: var(--ink-2); }
+.tl-row.sun.up .tl-ico { color: var(--sun); }
+.tl-row.earth.up .tl-ico { color: var(--earth); }
+.tl-main { display: grid; gap: 5px; min-width: 0; }
+.tl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12.5px; color: var(--ink-2); }
+.tl-head b { font-size: 16px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tl-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; outline: 1px solid var(--line); }
+.tl-track i { display: block; height: 100%; background: var(--ink-2); transition: width 200ms linear; }
+.tl-row.sun.up .tl-track i { background: var(--sun); }
+.tl-row.earth.up .tl-track i { background: var(--earth); }
+.tl-row.urgent .tl-head b { color: var(--accent); }
+.tl-sub { margin: 0; font-size: 11.5px; color: var(--ink-2); line-height: 1.4; }
+.simple .tl { margin-top: 0; }
+.simple .tl-head b { font-size: 18px; }
+@media (max-width: 720px) { .tl { grid-template-columns: 1fr; } }
+/* Normal mode keeps the 3D Moon for picking sites but drops its expert tools */
+.ui-normal .hud-toggle[title^="How far a rover"], .ui-normal .hud-toggle[title^="Open the site mesh"], .ui-normal .hud-toggle[title^="Lighting"] { display: none; }
