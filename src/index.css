@@ -874,11 +874,11 @@ kbd {
   .hud-tr { top: 84px; }
   .moon-hud > .hud-panels { top: 124px; }
 }
-.los-swatch { display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2px dotted #63a1ff; }
-.los-swatch.blocked { border-top-color: #6b6b72; }
-.los-swatch.sun { border-top-color: #fff; }
-.los-swatch.sun.partial { border-top-color: #fff; }
-.los-swatch.sun.blocked { border-top-color: #6b6b72; }
+.los-swatch { display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2px dotted #34c759; }
+.los-swatch.blocked { border-top-color: #ff453a; }
+.los-swatch.sun { border-top-color: #ffd23f; }
+.los-swatch.sun.partial { border-top-color: #ff9f0a; }
+.los-swatch.sun.blocked { border-top-color: #ff453a; }
 
 /* ---------- Explore: panels under the 3D view. Flat instrument panels, one titled header each. ---------- */
 .explore .work { gap: 16px; }
