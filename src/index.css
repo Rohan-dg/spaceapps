@@ -9,7 +9,7 @@
   --bg: #000000; --surface: #0f0f0f; --surface-2: #1a1a1a; --line: #262626; --field-line: #333333;
   --ink: #ffffff; --ink-2: #a3a3a3; --ink-3: #a3a3a3;
   --accent: #0071BC; --accent-hover: #2a8fd6; --accent-fill: #0B3D91; --accent-fill-hover: #14509f; --accent-ink: #ffffff; --accent-tint: rgba(0, 113, 188, 0.24); --mission: #E03116;
-  --btn: #1a1a1a; --btn-hover: #262626; --sel: #2e2e2e; --sel-ink: #ffffff;
+  --btn: #1a1a1a; --btn-hover: #262626; --sel: #0B3D91; --sel-ink: #ffffff;
   --sun: #ffffff; --sun-disk: #ffffff; --earth: #0071BC;
   --terrain: #1c1c1c; --terrain-edge: #8a8a8a; --sky: #050505;
   --good: #ffffff; --warn: #0071BC; --poor: #E03116;
@@ -27,7 +27,7 @@
   --bg: #f6f6f7; --surface: #ffffff; --surface-2: #efeff1; --line: #e4e4e7; --field-line: #d4d4d8;
   --ink: #18181b; --ink-2: #5f5f67; --ink-3: #5f5f67;
   --accent: #0071BC; --accent-hover: #005a96; --accent-fill: #0B3D91; --accent-fill-hover: #082d6b; --accent-ink: #ffffff; --accent-tint: rgba(0, 113, 188, 0.14); --mission: #E03116;
-  --btn: #ebebed; --btn-hover: #e1e1e4; --sel: #ffffff; --sel-ink: #18181b;
+  --btn: #ebebed; --btn-hover: #e1e1e4; --sel: #0B3D91; --sel-ink: #ffffff;
   --sun: #18181b; --sun-disk: #18181b; --earth: #0B3D91;
   --terrain: #d2d2d7; --terrain-edge: #8e8e95; --sky: #fbfbfd;
   --good: #18181b; --warn: #0071BC; --poor: #E03116;
@@ -42,7 +42,7 @@
   --bg: #f6f6f7; --surface: #ffffff; --surface-2: #efeff1; --line: #e4e4e7; --field-line: #d4d4d8;
   --ink: #18181b; --ink-2: #5f5f67; --ink-3: #5f5f67;
   --accent: #0071BC; --accent-hover: #005a96; --accent-fill: #0B3D91; --accent-fill-hover: #082d6b; --accent-ink: #ffffff; --accent-tint: rgba(0, 113, 188, 0.14); --mission: #E03116;
-  --btn: #ebebed; --btn-hover: #e1e1e4; --sel: #ffffff; --sel-ink: #18181b;
+  --btn: #ebebed; --btn-hover: #e1e1e4; --sel: #0B3D91; --sel-ink: #ffffff;
   --sun: #18181b; --sun-disk: #18181b; --earth: #0B3D91;
   --terrain: #d2d2d7; --terrain-edge: #8e8e95; --sky: #fbfbfd;
   --good: #18181b; --warn: #0071BC; --poor: #E03116;
@@ -1071,3 +1071,16 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 @keyframes emb-turn { from { transform: rotate(-35deg); } to { transform: none; } }
 @keyframes intro-word { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
 @keyframes intro-out { to { opacity: 0; visibility: hidden; } }
+
+/* NASA accents, each with one visible job:
+   Mission Red  #E03116  primary actions (Play, Compute, Plan launches, Plan a launch to here) and the selected day
+   NASA Blue    #0B3D91  selected states: segmented controls, selected rows, active rail item, panel badges
+   Atmospheric  #0071BC  links, active tab text and underline, focus rings, site points, Earth */
+.btn-primary, .hud-probe-launch, .hud-range .range-go { background: #E03116; border-color: #E03116; color: #fff; }
+.btn-primary:hover, .btn-primary:active, .hud-probe-launch:hover, .hud-range .range-go:hover { background: #c42a12; border-color: #c42a12; color: #fff; }
+.btn-primary:disabled:hover { background: #E03116; }
+.ct-rail button.on { background: #0B3D91; color: #fff; }
+.ct-badge { background: #0B3D91; color: #fff; box-shadow: 0 0 0 3px rgba(0, 113, 188, 0.35); }
+.ct-panel .site-row.selected, .site-row.selected { background: rgba(11, 61, 145, 0.45); box-shadow: inset 3px 0 0 #0071BC; }
+.ct-tabs button[aria-selected='true'] { color: #0071BC; }
+.ct-tabs button::after { background: #0071BC; }
