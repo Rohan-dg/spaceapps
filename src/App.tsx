@@ -178,7 +178,7 @@ export default function App() {
     <div className="app">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <header className="masthead wrap">
-        <h1 className="brand"><span className="brand-mark" aria-hidden />Lunar Site Compare</h1>
+        <h1 className="brand">Lunar Site <span className="brand-box">Compare</span></h1>
         <nav className="tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore <kbd>1</kbd></button>
           <button role="tab" aria-selected={mode === 'compare'}
