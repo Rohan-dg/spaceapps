@@ -53,9 +53,7 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
   return (
     <div className="simple">
       <header className="simple-hero">
-        <span className="overline">{info.mission || 'Landing site'}</span>
         <h2>{info.name}</h2>
-        <p>{info.description}</p>
       </header>
 
       <section className="simple-time" aria-label="Time">
