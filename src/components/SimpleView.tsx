@@ -75,7 +75,7 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         </ul>
       </header>
 
-      <section className="sv-sec" aria-label="Right now">
+      <section className="sv-sec sv-now" aria-label="Right now">
         <div className="sv-row"><span className="sv-k">Right now</span><span className="sv-date">{longDate(tLive)}</span></div>
         <p className="sv-big">
           <span className="sv-icons" aria-hidden>
@@ -97,7 +97,7 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         </div>
       </section>
 
-      <section className="sv-sec" aria-label="Is it a good place to land?">
+      <section className="sv-sec sv-land" aria-label="Is it a good place to land?">
         <span className="sv-k">Good place to land?</span>
         <p className="sv-big">{verdict(r)}</p>
         <ul className="sv-why">
@@ -106,19 +106,19 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         </ul>
       </section>
 
-      <section className="sv-sec" aria-label="What you would see">
+      <section className="sv-sec sv-see" aria-label="What you would see">
         <span className="sv-k">Standing here</span>
         <p className="sv-note">Drag to look around. The hills are real terrain measured by NASA's Lunar Reconnaissance Orbiter.</p>
         <FirstPerson data={data} t={t} height={280} />
       </section>
 
-      <section className="sv-sec" aria-label="The month ahead">
+      <section className="sv-sec sv-month" aria-label="The month ahead">
         <span className="sv-k">The month ahead</span>
         <p className="sv-note"><i className="sv-sw sun" aria-hidden />Sunny <i className="sv-sw earth" aria-hidden />Earth in view. Click to jump to a day.</p>
         <Timeline data={data} t={t} onSeek={onT} />
       </section>
 
-      <section className="sv-sec" aria-label="Why it is not like Earth">
+      <section className="sv-sec sv-earth" aria-label="Why it is not like Earth">
         <span className="sv-k">Not like Earth</span>
         <dl className="sv-diff">
           <div><dt>One day lasts</dt><dd>29.5 Earth days</dd><p>About two weeks of light, then two of dark{info.lat < -80 ? '. Near the pole the Sun just circles the horizon' : ''}.</p></div>
