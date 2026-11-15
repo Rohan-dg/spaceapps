@@ -295,7 +295,7 @@ export function feasibility(o: {
   const routeOk = route.found && route.hazardsRoute === 0;
   const parts: ScorePart[] = [
     { label: 'Power at the landing site', pts: 25 * LV[o.power], max: 25, note: `${o.power} verdict` },
-    { label: 'Direct-to-Earth comms', pts: 25 * LV[o.comms], max: 25, note: `${o.comms} verdict` },
+    { label: 'Radio to Earth', pts: 25 * LV[o.comms], max: 25, note: `${o.comms} verdict` },
     {
       label: 'Route', max: 20,
       pts: !route.terrain ? 10 : routeOk ? 20 : route.found ? 8 : 0,
