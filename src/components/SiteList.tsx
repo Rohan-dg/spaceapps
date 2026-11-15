@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { Earth, Sun, SunDim } from './Icons';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { useScenario } from '../lib/useScenario';
+import { findRun } from '../lib/series';
 import { LevelIcon } from './Metrics';
 
 const REGION: Record<string, string> = { 'south-pole': 'pole', 'high-latitude': 'high lat.', 'mid-latitude': 'mid lat.', equatorial: 'equator', 'far-side': 'far side' };
@@ -22,8 +23,9 @@ const Row = memo(function Row({ info, data, t, selected, onSelect }: { info: Sit
   const r0 = useScenario(data, Math.floor(t / 10800000) * 10800000);
   const r = useMemo(() => {
     if (!r0 || !data) return r0;
-    const s = data.series, i = Math.round((t - s.t0) / s.stepMs), ok = i >= 0 && i < s.n;
-    return { ...r0, metrics: { ...r0.metrics, sunUp: ok ? !!s.sunUp[i] : r0.metrics.sunUp, earthUp: ok ? !!s.earthUp[i] : r0.metrics.earthUp } };
+    // the series store run-length visibility ([start, end, ...] sample indices), so look up the run
+    const s = data.series, i = Math.floor((t - s.t0) / s.stepMs), ok = i >= 0 && i < s.n;
+    return { ...r0, metrics: { ...r0.metrics, sunUp: ok ? findRun(s.sunUp, i) >= 0 : r0.metrics.sunUp, earthUp: ok ? findRun(s.earthUp, i) >= 0 : r0.metrics.earthUp } };
   }, [r0, data, t]);
   const label = r
     ? `${info.short}. Now: ${r.metrics.sunUp ? 'sunlit' : 'in shadow'}, Earth ${r.metrics.earthUp ? 'in view' : 'hidden'}. Power ${WORD[r.power.level]}, comms ${WORD[r.comms.level]}.`
