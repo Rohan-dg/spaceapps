@@ -803,13 +803,21 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
     };
-    // a double-click flies down to that point for a near-horizontal close-up, and does nothing else
+    // a double-click flies down to that point for a near-horizontal close-up, and (where clicks make points, as in
+    // Scientific) creates and probes the point exactly as a single click does
     const onDbl = (e: MouseEvent) => {
       e.preventDefault();
       if (clickWait.current) { clearTimeout(clickWait.current); clickWait.current = 0; }
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) zoomRef.current(hit);
+      if (!hit) return;
+      zoomRef.current(hit);
+      if (minimalRef.current || !pointRef.current) return;
+      const h = hit.clone();
+      const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+      if (idle) idle(() => pickRef.current(h), { timeout: 400 }); else setTimeout(() => pickRef.current(h), 60);
+      const r = hit.length();
+      pointRef.current(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
     };
     // The 3D panel fills most of the first screen, so a bare scroll over it scrolls the page. Clicking or dragging
     // the Moon engages it: from then until the pointer leaves the panel the wheel zooms. Pinch (a wheel event with
@@ -1699,10 +1707,16 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               interface (rendered on the page body), so no panel or screen size can hide it */}
           {(() => {
             const btn = (
-              <button className={`hud-toggle${fill ? ' on' : ''}${expert ? ' shadow-fab' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
+              <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
                 title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
             );
-            return expert && typeof document !== 'undefined' ? createPortal(btn, document.body) : btn;
+            if (!expert || typeof document === 'undefined') return btn;
+            // Scientific: Moon (home view) and Remove shadows side by side in the bottom-right corner
+            return createPortal(
+              <div className="moon-fab" role="group" aria-label="Moon view">
+                <button className="hud-toggle" onClick={() => homeRef.current()} title="Back to the whole Moon in its starting position (H)"><Icon name="home" /> Moon</button>
+                {btn}
+              </div>, document.body);
           })()}
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
