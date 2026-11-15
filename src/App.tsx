@@ -1,7 +1,6 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { flushSync } from 'react-dom';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -164,22 +163,24 @@ export default function App() {
   const [mode, setMode] = useState<Mode>(init.mode);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(ui === 'normal' ? 2 : 1);
-  // switching modes cross-fades the whole page with the View Transitions API (instant without it, or with reduced motion)
+  // Switching between Normal and Expert re-renders the whole page from scratch: the app's root is keyed on the
+  // mode, so every component (the 3D Moon included) unmounts and mounts fresh. Selection and time are kept.
+  // one-shot camera requests to the 3D view (a site close-up, the home view); cleared on a mode switch
+  const [closeUp, setCloseUp] = useState<{ id: string; n: number } | null>(null);
+  const [homeSignal, setHomeSignal] = useState(0);
   const uiRef = useRef(ui);
   useEffect(() => { uiRef.current = ui; }, [ui]);
   const setUi = useCallback((u: Ui, alsoInside?: () => void) => {
-    const apply = () => {
-      setUiState(u);
-      try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
-      if (u === 'normal') setMode('explore'); // the other modes are Expert tools
-      alsoInside?.();
-    };
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (!document.startViewTransition || reduce || (u === uiRef.current && !alsoInside)) { apply(); return; }
-    const root = document.documentElement;
-    root.dataset.uiSwitch = u;
-    const vt = document.startViewTransition(() => flushSync(apply));
-    vt.finished.finally(() => { delete root.dataset.uiSwitch; });
+    const changed = u !== uiRef.current;
+    setUiState(u);
+    try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+    if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+    if (changed) {
+      // one-shot camera requests belong to the old 3D view; the new one starts from its own opening view
+      setCloseUp(null); setHomeSignal(0);
+      window.scrollTo({ top: 0 });
+    }
+    alsoInside?.();
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -220,7 +221,6 @@ export default function App() {
     setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
   }, []);
   const [pointBusy, setPointBusy] = useState<string | null>(null);
-  const [closeUp, setCloseUp] = useState<{ id: string; n: number } | null>(null);
   const planLaunchTo = useCallback((lat: number, lon: number) => { setLaunchTarget({ lat, lon, nonce: Date.now() }); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
@@ -324,7 +324,6 @@ export default function App() {
     pickSite(id);
   }, [missionsOpen, pickSite]);
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
-  const [homeSignal, setHomeSignal] = useState(0);
   const goHome = useCallback(() => {
     setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -481,7 +480,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
+    <div key={ui} className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
