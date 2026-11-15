@@ -120,3 +120,12 @@ export function formatDuration(ms: number): string {
   if (h > 0) return `${h} h ${mm} m`;
   return `${mm} m`;
 }
+
+/** T−d HH:MM:SS to an event, or a phrase when there is none in the data range. */
+export function tMinus(e: Event, now: number): string {
+  if (e.t === null) return e.beyondRange ? 'not before data ends' : 'none';
+  const s = Math.max(0, Math.round((e.t - now) / 1000));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  const p = (x: number) => String(x).padStart(2, '0');
+  return `T−${d > 0 ? `${d} d ` : ''}${p(h)}:${p(m)}:${p(ss)}`;
+}

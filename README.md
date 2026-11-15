@@ -12,6 +12,10 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 
 - **Skyline and overhead views.** The terrain horizon with the Sun and Earth at true angular size, and their paths over the next 24 hours.
 - **Countdowns and verdicts.** Time to the next sunrise, sunset, Earthrise and Earthset, with a power and comms rating for the next lunar day.
+- **Live status bar.** Always visible at the bottom of Explore: the Sun's elevation and a ticking T− countdown to the next sunset (or sunrise) and Earthset (or Earthrise).
+- **If the landing date slips.** The power and radio rating for every 12 hours from 15 days before to 30 days after the chosen date, the window the date can move without losing the rating, and a table of typical slips against the plan.
+- **Moon vs Earth.** The site's real Sun elevation over a week next to the same latitude on Earth, with the differences that matter for planning: a 29.5-day day, slow sunrises, no twilight or refraction, temperature extremes, and Earth hanging almost still in the sky.
+- **Shadow map.** A top-down map of the ground around the site (24 × 24 km at polar sites) that follows the time slider, so *Play* shows shadows sweeping across it. A second layer shows the share of the next lunar day each point is sunlit, and rings the best-lit ground within a short move of the site.
 - **Calendar.** A 30-day strip and a three-year heat map (2027 to 2029) that marks the best landing windows.
 - **Compare.** Two to four site-and-date scenarios side by side.
 - **Any point on the Moon.** Enter coordinates (or click the 3D Moon and choose *Plan a launch to here* in the probed-point panel). The skyline is traced in the browser: 400 m polar terrain south of 80.5°S, the global LOLA map (about 2.7 km/px) elsewhere, so results are approximate.
