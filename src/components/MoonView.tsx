@@ -958,7 +958,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     quietPick.current = false;
     const picked = firstSite.current === '\u0000picked' && !quiet;
     let arrived = false;
-    const arrive = (fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo(scale === 'moon' ? fallback : scale); } };
+    // a single pick only ever shows the broad surface around the site; the terrain close-up is for a double-click
+    const arrive = (_fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo('region'); } };
     // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
     // never waits for a download and then lurches
     if (sel.lat < -80.5 && !sel.id.startsWith('custom') && pendingClose.current !== sel.id) arrive('site');
@@ -1168,8 +1169,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const now = cam.distanceTo(P);
     // clicking a point never zooms in step after step: the first click brings the camera to CLICK_KM above the
     // point; later clicks keep that distance (or a closer one the user zoomed to by hand) and only move across
-    const CLICK_KM = 120;
-    const D = Math.max(1.5, Math.min(now, CLICK_KM));
+    const CLICK_KM = 700; // broad surface: the region around the point, not its terrain
+    const D = CLICK_KM; // always the same broad view; only a double-click goes down to the terrain
     const tilt = Math.PI / 180;
     const off = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt));
     const to = P.clone().addScaledVector(off, D);
