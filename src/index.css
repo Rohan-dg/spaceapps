@@ -765,6 +765,11 @@ kbd {
 .sky-ptr em { display: none; font-style: normal; font-weight: 400; letter-spacing: 0.04em; color: #c9c9c9; }
 .sky-ptr.blocked b { opacity: 0.6; }
 .sky-ptr.blocked em { display: inline; }
+/* on screen: no arrow, a tag just above the body with a short stem down to it */
+.sky-ptr.tag b { display: none; }
+.sky-ptr.tag span { transform: translate(-50%, calc(-100% - var(--toff, 12px))); }
+.sky-ptr.tag span::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 8px; background: var(--ptr); }
+.sky-ptr.tag.blocked span::after { opacity: 0.5; }
 
 /* Launch planner: flight path */
 .fp { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); display: grid; gap: 10px; }
