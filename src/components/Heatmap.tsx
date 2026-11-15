@@ -27,7 +27,7 @@ export default function Heatmap({ data, t, onPick }: Props) {
   }, [days]);
   // One hue per metric, from the page background to the full data colour. "Both" uses ink.
   const hue = metric === 'sun' ? c.sun : metric === 'earth' ? c.earth : c.ink;
-  const color = (f: number) => (f <= 0 ? mix(c.bg, c.ink, 0.07) : mix(mix(c.bg, c.ink, 0.07), hue, 0.18 + 0.82 * Math.min(1, f)));
+  const color = (f: number) => (f <= 0 ? 'transparent' : mix(c.bg, hue, 0.12 + 0.78 * Math.min(1, f)));
   const today = fmt(t);
   const shown = hover ?? days.find((d) => fmt(d.t) === today) ?? null;
   const inBest = (d: DayStat) => best.some((w) => d.t >= w.start && d.t < w.start + w.days * 86400000);
@@ -61,7 +61,7 @@ export default function Heatmap({ data, t, onPick }: Props) {
                     if (!d) return <span key={i} className="cell none">{i + 1}</span>;
                     const iso = fmt(d.t), bg = color(d[metric]);
                     return (
-                      <button key={i} className={`cell${iso === today ? ' current' : ''}${inBest(d) ? ' best' : ''}`} style={{ background: bg, color: light(bg) ? '#111' : '#f4f4f4' }}
+                      <button key={i} className={`cell${iso === today ? ' current' : ''}${inBest(d) ? ' best' : ''}`} style={{ background: bg, color: bg === 'transparent' ? 'var(--ink-2)' : light(bg) ? '#111' : '#f4f4f4' }}
                         aria-label={`${iso}: sunlight ${pct(d.sun)}, Earth ${pct(d.earth)}, both ${pct(d.both)}`}
                         onMouseEnter={() => setHover(d)} onFocus={() => setHover(d)} onMouseLeave={() => setHover(null)}
                         onClick={() => onPick(d.t)}>{i + 1}</button>
@@ -85,7 +85,7 @@ export default function Heatmap({ data, t, onPick }: Props) {
           </div>
           <div id="hm-legend" className="legend">
             <span className="num">0%</span>
-            <span className="ramp" style={{ background: `linear-gradient(90deg, ${color(0)}, ${color(0.01)}, ${color(1)})` }} />
+            <span className="ramp" style={{ background: `linear-gradient(90deg, ${mix(c.bg, hue, 0.12)}, ${color(1)})` }} />
             <span className="num">100%</span>
           </div>
           <div className="best">
