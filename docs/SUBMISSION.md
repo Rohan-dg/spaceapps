@@ -28,10 +28,11 @@ Upload the 30-second video (script in [docs/DEMO.md](DEMO.md)) or a deck of at m
 - a power and radio rating for the next lunar day (share of time sunlit, longest dark spell, share of time Earth is in view, longest blackout);
 - a 30-day strip and a three-year calendar (2027 to 2029) that marks the best landing windows;
 - side-by-side comparison of up to four site-and-date scenarios;
+- a mission comparison sidebar: pick any two missions, flown or planned, and compare them on the same criteria (sunlight, Earth contact, longest night and the battery to survive it, radio blackouts, good landing days) with a long-run efficiency score whose weights are shown;
 - a 3D Moon with real LOLA relief, down to 5 m near the south-pole sites, lit by the true Sun direction;
 - a rover-range and launch-window planner built on the same results.
 
-The sites include the Artemis III candidate regions at the south pole (each at a published, cited coordinate) and flown and planned missions from Apollo and CLPS to Chang'e, Chandrayaan-3, SLIM and Luna. Any other point on the Moon can be entered by coordinates or by clicking the 3D Moon.
+The sites include the Artemis III candidate regions at the south pole (each at a published, cited coordinate) and flown and planned missions from Apollo and CLPS to Chang'e, Chandrayaan-3, SLIM and Luna, including upcoming NASA CLPS deliveries (Griffin Mission One, IM-3, IM-4, IM-5, Blue Ghost 2 to 4, APEX 1.0, Blue Moon MK1) and Chang'e-7 and -8, Chandrayaan-4 and Luna 27. Unpublished landing points use the announced target region and are marked as such. Any other point on the Moon can be entered by coordinates or by clicking the 3D Moon.
 
 **How it works.** For each site, a ray is traced every degree of azimuth for 150 km over the LOLA terrain from an observer 2 m above the ground, with the Moon's curvature included. This gives the skyline. Sun and Earth positions come from astronomy-engine, rotated into the IAU Moon-fixed frame, so libration is included. There is no atmosphere, so there is no refraction. Visibility is sampled every 30 minutes over three years, and rise and set times are refined to about a minute. Positions agree with JPL Horizons (DE441) to within 0.004° at every test point.
 
@@ -73,7 +74,7 @@ Open-source software: astronomy-engine (MIT), three.js (MIT), React (MIT), D3 (I
 | Objective in the challenge | Where in Sol Teris |
 |---|---|
 | Curated sites and custom coordinates | Site list (south-pole candidates plus flown and planned missions); "Custom point" by coordinates, or by clicking the 3D Moon |
-| Side-by-side comparison | Compare: up to four site-and-date scenarios |
+| Side-by-side comparison | Compare: up to four site-and-date scenarios; Missions sidebar: any two missions, past or future, with a long-run verdict |
 | Date and time flexibility | Time slider, step buttons, date entry, three-year calendar |
 | Sun and Earth relative to the horizon | Horizon view: Panorama, Sky plot and First person |
 | Time to sunset or Earthset | Summary: "Sun sets in", "Sets in" (Earth), and rise times when below |
