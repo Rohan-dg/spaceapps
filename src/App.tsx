@@ -232,23 +232,16 @@ export default function App() {
             {data && res ? (
               <>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>{data.info.name}</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
                 </div>
 
-                <div className="instrument">
-                  <h3 className="sec-h step">Epoch</h3>
-                  <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
-                </div>
-                <div className="instrument">
-                  <h3 className="sec-h step">Status at epoch</h3>
-                  <Summary r={res} />
-                </div>
+                <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
+                <Summary r={res} />
 
                 <div className="instrument">
                   <div className="view-head">
-                    <h3 className="sec-h step">Horizon</h3>
+                    <h3 className="sec-h">Horizon</h3>
                     <div className="seg" role="radiogroup" aria-label="View">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
@@ -261,7 +254,7 @@ export default function App() {
 
                 <div className="instrument">
                   <div className="view-head">
-                    <h3 className="sec-h step">Next 30 days</h3>
+                    <h3 className="sec-h">Next 30 days</h3>
                     <ul className="chart-legend" aria-label="Legend">
                       <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
                       <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
@@ -272,13 +265,10 @@ export default function App() {
                 </div>
 
                 <section className="deep" aria-label="Detail">
-                  <div className="view-head">
-                  <h3 className="sec-h step">Analysis</h3>
                   <div className="seg" role="tablist" aria-label="Detail panels">
                     <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
                     <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>Readout</button>
                     <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission variables</button>
-                  </div>
                   </div>
                   {deep === 'calendar' ? (
                     <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }} />

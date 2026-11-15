@@ -1,8 +1,9 @@
+import { Earth, Sun, SunDim } from './Icons';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { useScenario } from '../lib/useScenario';
+import { LevelIcon } from './Metrics';
 
 const REGION: Record<string, string> = { 'south-pole': 'pole', 'high-latitude': 'high lat.', equatorial: 'equator', 'far-side': 'far side' };
-const LAMP = { green: 'good', amber: 'warn', red: 'poor' } as const;
 const WORD = { green: 'good', amber: 'marginal', red: 'poor' } as const;
 
 function Row({ info, data, t, selected, onSelect }: { info: SiteInfo; data: SiteData | null; t: number; selected: boolean; onSelect: () => void }) {
@@ -20,12 +21,12 @@ function Row({ info, data, t, selected, onSelect }: { info: SiteInfo; data: Site
         {r ? (
           <>
             <span className="cell-status" aria-hidden>
-              <i className={`lamp sun${r.metrics.sunUp ? ' on' : ''}`} />
-              <i className={`lamp earth${r.metrics.earthUp ? ' on' : ''}`} />
+              {r.metrics.sunUp ? <Sun size={15} className="ico-sun on" /> : <SunDim size={15} className="ico-off" />}
+              <Earth size={15} className={r.metrics.earthUp ? 'ico-earth on' : 'ico-off'} />
             </span>
             <span className="cell-status" aria-hidden>
-              <i className={`lamp ${LAMP[r.power.level]}`} />
-              <i className={`lamp ${LAMP[r.comms.level]}`} />
+              <LevelIcon level={r.power.level} size={15} />
+              <LevelIcon level={r.comms.level} size={15} />
             </span>
           </>
         ) : <><span className="cell-status muted">…</span><span /></>}
@@ -40,13 +41,12 @@ export default function SiteList({ sites, all, t, selected, onSelect }: { sites:
     <nav className="site-index" aria-label="Landing sites">
       <div className="site-index-head">
         <span>Site</span>
-        <span title="Sun / Earth above the skyline now">Sun · Earth</span>
-        <span title="Power / comms rating, next lunar day">Pwr · Com</span>
+        <span title="Sun / Earth above the skyline now">Now</span>
+        <span title="Power / comms rating, next lunar day">Rating</span>
       </div>
       <ul className="site-list">
         {sites.map((s, i) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={() => onSelect(s.id)} />)}
       </ul>
-      <p className="site-key" aria-hidden><span><i className="lamp sun on" /> Sun up</span><span><i className="lamp earth on" /> Earth up</span><span><i className="lamp good" /> Good</span><span><i className="lamp warn" /> Marginal</span><span><i className="lamp poor" /> Poor</span></p>
     </nav>
   );
 }
