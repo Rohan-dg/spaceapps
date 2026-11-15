@@ -93,8 +93,8 @@ export default function PairCompare({ a, b, t, onSwap, onClear }: { a: SiteData;
       <div className="pair-score">
         {[{ s: sa, n: nameA, k: 'a' }, { s: sb, n: nameB, k: 'b' }].map(({ s, n, k }) => (
           <div key={k} className={`pair-score-card ${k}${v.winner === k ? ' wins' : ''}`}>
-            <span className="pair-score-n num">{s.score.toFixed(1)}</span>
-            <span className="pair-score-l">Long-run success score · {n}</span>
+            <span className="pair-score-n num">{s.score.toFixed(1)}<small>%</small></span>
+            <span className="pair-score-l">Success rate · {n}</span>
             <ul>
               {s.parts.map((p) => (
                 <li key={p.key}><span>{p.label}</span><span className="bar"><i style={{ width: `${p.value * 100}%` }} /></span><span className="num">{Math.round(p.value * 100)}%</span></li>
@@ -104,9 +104,9 @@ export default function PairCompare({ a, b, t, onSwap, onClear }: { a: SiteData;
         ))}
       </div>
       <p className="pair-verdict">
-        {winner ? <><b>{winner}</b> scores higher overall ({v.scoreA.toFixed(1)} vs {v.scoreB.toFixed(1)}).</> : <>Too close to call ({v.scoreA.toFixed(1)} vs {v.scoreB.toFixed(1)}).</>}
+        {winner ? <><b>{winner}</b> has the higher success rate ({v.scoreA.toFixed(1)}% vs {v.scoreB.toFixed(1)}%).</> : <>Too close to call ({v.scoreA.toFixed(1)}% vs {v.scoreB.toFixed(1)}%).</>}
         {v.reasons.length > 0 && <> {v.reasons.join('. ')}.</>}
-        <small> Score weights: sunlight 35 %, Earth contact 25 %, surviving the night 20 %, radio blackouts 10 %, landing opportunities 10 %.</small>
+        <small> Success rate weights: sunlight 35 %, Earth contact 25 %, surviving the night 20 %, radio blackouts 10 %, landing opportunities 10 %.</small>
       </p>
 
       <table className="pair-table">

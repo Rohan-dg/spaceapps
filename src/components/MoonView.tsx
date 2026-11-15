@@ -102,10 +102,12 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
+  /** Home: the app clears the selection (and bumps homeSignal), so the view returns to the whole Moon. */
+  onHome?: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -120,6 +122,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
+  /** Home: drop the probed point and any pivot, deselect everything, and fly out to the whole Moon. */
+  const homeRef = useRef<() => void>(() => {});
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
   const rangePin = useRef<HTMLDivElement>(null);
@@ -518,6 +522,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     }
     function frame() {
       raf = 0;
+      // drag-to-rotate turns the globe about its centre, so the same drag sweeps far more ground when you are close:
+      // scale the rotation with height above the surface (full speed from about 3000 km out, slowest near the ground)
+      if (st.mode === 'globe' && !st.flying) {
+        const alt = Math.max(0, camera.position.length() - R_KM);
+        st.controls.rotateSpeed = 0.6 * Math.min(1, Math.max(0.03, alt / 3000));
+      }
       const moving = st.flying ? false : st.controls.update();
       constrainCamera(camera.position, st.controls.target, surfaceRadius, st.mode === 'site' && !st.flying);
       camera.lookAt(st.controls.target);
@@ -1022,12 +1032,19 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   // the canvas resizes itself (ResizeObserver) when the view is expanded
   useEffect(() => { if (expanded) S.current?.request(); }, [expanded]);
 
+  homeRef.current = () => {
+    const st = S.current;
+    if (st) { st.probePos = null; st.focus = null; st.request(); }
+    setProbe(null); setPeriod(null); setRangeOpen(false);
+    // the app deselects the site (and bumps homeSignal, which flies to the whole Moon about its centre)
+    if (onHome) onHome(); else goToRef.current('moon');
+  };
   // H or Home key: back to the home view (ignored while typing)
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'h' || e.key === 'H' || e.key === 'Home') { e.preventDefault(); goToRef.current('moon'); }
+      if (e.key === 'h' || e.key === 'H' || e.key === 'Home') { e.preventDefault(); homeRef.current(); }
       if (e.key === 'Escape') escRef.current();
     };
     window.addEventListener('keydown', k);
@@ -1360,7 +1377,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         </dl>
         <div className="hud-bl hud-anim">
           <div className="hud-home-row">
-          <button className="hud-toggle" onClick={() => goTo('moon')} title="Home view: the whole Moon, north up (H)"><Icon name="home" /> Home</button>
+          <button className="hud-toggle" onClick={() => homeRef.current()} title="Home view: the whole Moon, nothing selected, turning about its centre (H)"><Icon name="home" /> Home</button>
           <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
             {SCALES.map((s) => (
               <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>

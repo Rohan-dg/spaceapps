@@ -19,11 +19,31 @@ export interface HelpContext {
   partner?: string | null;
 }
 
-interface Msg { id: number; from: 'user' | 'bot'; text: string; actions?: Action[]; support?: boolean }
+interface Msg { id: number; from: 'user' | 'bot'; text: string; actions?: Action[]; support?: boolean; follow?: string[] }
 interface Props { sites: SiteRef[]; onAction: (a: Action) => void; context?: HelpContext }
 
 const SUGGEST = ['What is this site?', 'Is it sunlit right now?', 'Can it talk to Earth?', 'How good is this site?', 'Best launch time', 'Talk to a person'];
-const WELCOME = 'Hi, I am the Sol Teris helper. Ask about the site you are looking at, how anything here works, or tell me where to go ("show me Apollo 15").';
+const WELCOME = "Hi! I'm Sol, your guide to this site. Ask me anything in your own words: about the landing site you're looking at, what a number means, or where to find something. I can also take you places, like \"show me Apollo 15\".";
+
+/** Friendly next questions after each kind of answer, so there is always an easy way to keep going. */
+const FOLLOW: Record<string, string[]> = {
+  sunlit: ['Can it talk to Earth?', 'How good is this site?', 'Best landing dates'],
+  earth: ['Is it sunlit right now?', 'How good is this site?', 'Why is Earth never visible?'],
+  ratings: ['Is it sunlit right now?', 'Compare two sites', 'Best landing dates'],
+  what: ['What is this site?', 'How do I pick a site?', 'How do I use the 3D Moon?'],
+  calendar: ['How good is this site?', 'Best launch time', 'How do I change the date?'],
+  missions: ['Compare two sites', 'What do the ratings mean?', 'Show me Malapert'],
+  launch: ['Best landing dates', 'How good is this site?', 'Talk to a person'],
+  greet: ['What is this site?', 'Is it sunlit right now?', 'How do I use the 3D Moon?'],
+  thanks: ['How good is this site?', 'Compare two sites', 'Talk to a person'],
+};
+const FOLLOW_DEFAULT = ['What is this site?', 'Is it sunlit right now?', 'How good is this site?'];
+const SMALL_TALK: [RegExp, string][] = [
+  [/\b(how are you|how's it going|how are things)\b/i, "I'm doing great, thanks for asking! What would you like to know about the Moon?"],
+  [/\b(who are you|what are you|your name)\b/i, "I'm Sol, a small helper that runs right here in your browser. I know this website inside out, and nothing you type leaves your device."],
+  [/\b(bye|goodbye|see you|that's all|that is all)\b/i, 'Happy exploring! Open me again any time from the Need help? button.'],
+  [/^(ok|okay|cool|nice|great|awesome|got it)[.!]*$/i, 'Great! Anything else you would like to look at?'],
+];
 const latlon = (lat: number, lon: number) => {
   const l = ((lon % 360) + 360) % 360;
   return `${Math.abs(lat).toFixed(2)}° ${lat < 0 ? 'S' : 'N'}, ${(l > 180 ? 360 - l : l).toFixed(2)}° ${l > 180 ? 'W' : 'E'}`;
@@ -110,18 +130,27 @@ export default function AssistantChat({ sites, onAction, context }: Props) {
     setQ('');
     push({ from: 'user', text: t });
     if (/talk to (a )?(person|human|someone)|real person|agent/i.test(t)) { setTyping(true); setTimeout(() => { setTyping(false); push({ from: 'bot', text: 'Connecting you to the team queue.' }); setQueue(true); }, 600); return; }
+    const small = SMALL_TALK.find(([re]) => re.test(t));
+    if (small) {
+      setTyping(true);
+      setTimeout(() => { setTyping(false); push({ from: 'bot', text: small[1], follow: FOLLOW_DEFAULT }); }, 500);
+      return;
+    }
     const r = answer(model, t, sites);
     const miss = r.topic === null && !r.site;
     const n = miss ? misses + 1 : 0;
     setMisses(n);
     const support = r.support || n >= 2;
-    const body = withContext(r, t, ctx.current);
-    const reply = n >= 2 && !r.support ? `${body} It looks like I am not the right help here, so here is how to reach a person.` : body;
+    const body = miss
+      ? "Hmm, I didn't quite catch that. I know this website best, so try asking it another way, or tap one of these:"
+      : withContext(r, t, ctx.current);
+    const reply = n >= 2 && !r.support ? "I'm sorry, I'm not the right help for this one. A person from the team can help you instead." : body;
+    const follow = miss ? FOLLOW_DEFAULT : FOLLOW[r.topic?.id ?? ''] ?? FOLLOW_DEFAULT;
     // a short, length-scaled pause so the reply reads as considered rather than instant
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      push({ from: 'bot', text: reply, actions: r.actions.filter((a) => a.type !== 'support'), support });
+      push({ from: 'bot', text: reply, actions: r.actions.filter((a) => a.type !== 'support'), support, follow: follow.filter((f) => f.toLowerCase() !== t.toLowerCase()) });
       if (r.site && r.actions[0]?.type === 'site' && r.topic === null) onAction(r.actions[0]);
     }, Math.min(1400, 450 + reply.length * 4));
   };
@@ -149,13 +178,16 @@ export default function AssistantChat({ sites, onAction, context }: Props) {
           </header>
           <button className="as-person" onClick={() => setQueue(true)}>Need a person? Talk to the team <ArrowRight size={14} /></button>
           <div className="as-log" ref={log} aria-live="polite">
-            {msgs.map((m) => (
+            {msgs.map((m, i) => (
               <div key={m.id} className={`as-msg ${m.from}`}>
                 <p>{m.text}</p>
                 {m.actions && m.actions.length > 0 && (
                   <div className="as-actions">{m.actions.map((a, k) => <button key={k} onClick={() => act(a)}>{a.label}</button>)}</div>
                 )}
                 {m.support && <button className="as-support-btn" onClick={() => setQueue(true)}>Talk to a person <ArrowRight size={14} /></button>}
+                {m.follow && i === msgs.length - 1 && !typing && (
+                  <div className="as-chips as-follow" aria-label="Suggested next questions">{m.follow.map((f) => <button key={f} onClick={() => ask(f)}>{f}</button>)}</div>
+                )}
               </div>
             ))}
             {typing && <div className="as-msg bot as-typing" aria-label="Helper is typing"><p><i /><i /><i /></p></div>}
@@ -164,7 +196,7 @@ export default function AssistantChat({ sites, onAction, context }: Props) {
             )}
           </div>
           <form className="as-form" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
-            <input id="as-input" ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask about this site…" autoComplete="off"
+            <input id="as-input" ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder={context?.site ? `Ask anything about ${context.site.short || context.site.name}…` : 'Ask me anything, in your own words…'} autoComplete="off"
               onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (queue) setQueue(false); else hide(); } }} />
             <button type="submit" disabled={!q.trim() || typing} aria-label="Send">Ask</button>
           </form>
