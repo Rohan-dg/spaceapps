@@ -114,6 +114,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const sunPtr = useRef<HTMLDivElement>(null);
   const earthPtr = useRef<HTMLDivElement>(null);
   const [pointers, setPointers] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [probeMin, setProbeMin] = useState(false);
+  const [rangeMin, setRangeMin] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
@@ -668,12 +673,30 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel?.id]);
 
+  // Esc closes the Display menu first, then the probe panel, then the rover range panel
+  const escRef = useRef<() => void>(() => {});
+  escRef.current = () => {
+    if (menuOpen) setMenuOpen(false);
+    else if (probe) clearProbe();
+    else if (rangeOpen) setRangeOpen(false);
+  };
+  // the Display menu closes on any click outside it
+  useEffect(() => {
+    if (!menuOpen) return;
+    const k = (e: PointerEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    document.addEventListener('pointerdown', k);
+    return () => document.removeEventListener('pointerdown', k);
+  }, [menuOpen]);
+  // the canvas resizes itself (ResizeObserver) when the view is expanded
+  useEffect(() => { if (expanded) S.current?.request(); }, [expanded]);
+
   // H or Home key: back to the home view (ignored while typing)
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'h' || e.key === 'H' || e.key === 'Home') { e.preventDefault(); goToRef.current('moon'); }
+      if (e.key === 'Escape') escRef.current();
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
@@ -851,7 +874,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
 
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
-    <section className="moon" aria-label="3D Moon">
+    <section className={`moon${expanded ? ' expanded' : ''}`} aria-label="3D Moon">
       <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point." />
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
@@ -863,12 +886,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Click anywhere on the surface for light and Earth contact</p>}
+          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click the surface for light and Earth contact · H home · Esc close</p>}
         </div>
+        <div className="hud-panels">
         {probe && (
-          <div className="hud-probe" aria-live="polite">
+          <div className={`hud-probe${probeMin ? ' min' : ''}`} aria-live="polite">
             <div className="hud-probe-head">
-              <span>Probed point</span>
+              <button className="hud-collapse" aria-expanded={!probeMin} onClick={() => setProbeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Probed point</button>
               <button onClick={clearProbe} aria-label="Clear probed point">×</button>
             </div>
             <dl>
@@ -887,27 +911,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
             <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
           </div>
         )}
-        <dl className="hud-tr hud-anim">
-          <div><dt>Ground</dt><dd className="num" ref={(e) => { readout.current.res = e; }}>-</dd></div>
-          <div><dt>Altitude</dt><dd className="num" ref={(e) => { readout.current.alt = e; }}>-</dd></div>
-          {sunInfo && <div><dt>Sun</dt><dd className="num">{sunInfo.el >= 0 ? '+' : ''}{sunInfo.el.toFixed(2)}° el · {sunInfo.az.toFixed(0)}° az</dd></div>}
-          <div className="wide"><dt>Data</dt><dd ref={(e) => { readout.current.src = e; }}>-</dd></div>
-        </dl>
-        <div className="hud-bl hud-anim">
-          <div className="hud-home-row">
-          <button className="hud-toggle" onClick={() => goTo('moon')} title="Home view: the whole Moon, north up (H)"><Icon name="home" /> Home</button>
-          <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
-            {SCALES.map((s) => (
-              <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>
-            ))}
-          </div>
-          </div>
-          {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
-        </div>
         {rangeOpen && (
-          <form className="hud-range" onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
+          <form className={`hud-range${rangeMin ? ' min' : ''}`} onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
             <div className="hud-probe-head">
-              <span>Rover range on battery</span>
+              <button type="button" className="hud-collapse" aria-expanded={!rangeMin} onClick={() => setRangeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Rover range on battery</button>
               <button type="button" onClick={() => setRangeOpen(false)} aria-label="Close rover range">×</button>
             </div>
             <div className="range-grid">
@@ -943,14 +950,46 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
             <p className="hud-probe-note">Straight-line reach on flat ground at constant speed. Slopes and detours shorten it; the mission planner routes around them.</p>
           </form>
         )}
+        </div>
+        <dl className="hud-tr hud-anim">
+          <div><dt>Ground</dt><dd className="num" ref={(e) => { readout.current.res = e; }}>-</dd></div>
+          <div><dt>Altitude</dt><dd className="num" ref={(e) => { readout.current.alt = e; }}>-</dd></div>
+          {sunInfo && <div><dt>Sun</dt><dd className="num">{sunInfo.el >= 0 ? '+' : ''}{sunInfo.el.toFixed(2)}° el · {sunInfo.az.toFixed(0)}° az</dd></div>}
+          <div className="wide"><dt>Data</dt><dd ref={(e) => { readout.current.src = e; }}>-</dd></div>
+        </dl>
+        <div className="hud-bl hud-anim">
+          <div className="hud-home-row">
+          <button className="hud-toggle" onClick={() => goTo('moon')} title="Home view: the whole Moon, north up (H)"><Icon name="home" /> Home</button>
+          <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
+            {SCALES.map((s) => (
+              <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>
+            ))}
+          </div>
+          </div>
+          {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
+        </div>
         <div className="hud-br hud-anim">
-          <button className={`hud-toggle${pointers ? ' on' : ''}`} aria-pressed={pointers} onClick={() => setPointers((x) => !x)} title="Show where the Sun and Earth are, with arrows when they are off screen"><Icon name="compass" /> Sun &amp; Earth</button>
           <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
-          <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)} title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
-          <button className={`hud-toggle${shadows ? ' on' : ''}`} aria-pressed={shadows} onClick={() => setShadows((x) => !x)} title="Cast shadows, ray-traced on the LOLA heights"><Icon name="shadow" /> Shadows</button>
-          <button className={`hud-toggle${relief > 1 ? ' on' : ''}`} aria-pressed={relief > 1} onClick={() => setRelief((x) => (x > 1 ? 1 : 3))} title="Exaggerate the relief 3×"><Icon name="mountain" /> Relief ×3</button>
-          <button className={`hud-toggle${detail ? ' on' : ''}`} aria-pressed={detail} onClick={() => setDetail((x) => !x)} title="Procedural craters and rocks below the resolution of the real data. Illustrative only."><Icon name="sparkle" /> Fine detail</button>
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
+          <div className="hud-menu-wrap" ref={menuRef}>
+            <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
+            {menuOpen && (
+              <div className="hud-menu" role="menu" aria-label="Display">
+                {([
+                  ['lamp', 'Light dark areas', fill, () => setFill((x) => !x), 'Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight.'],
+                  ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Show where the Sun and Earth are, with arrows when they are off screen'],
+                  ['shadow', 'Shadows', shadows, () => setShadows((x) => !x), 'Cast shadows, ray-traced on the LOLA heights'],
+                  ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],
+                  ['sparkle', 'Fine detail', detail, () => setDetail((x) => !x), 'Procedural craters and rocks below the resolution of the real data. Illustrative only.'],
+                ] as const).map(([icon, label, on, toggle, title]) => (
+                  <button key={label} role="menuitemcheckbox" aria-checked={on} className="hud-menu-item" onClick={toggle} title={title}>
+                    <Icon name={icon} /><span>{label}</span><span className={`hud-switch${on ? ' on' : ''}`} aria-hidden />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button className={`hud-toggle${expanded ? ' on' : ''}`} aria-pressed={expanded} onClick={() => setExpanded((x) => !x)} title={expanded ? 'Back to the normal size' : 'Make the Moon fill the window'}><Icon name="expand" /> {expanded ? 'Shrink' : 'Expand'}</button>
         </div>
         {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>

@@ -290,7 +290,7 @@ export default function App() {
         </main>
       ) : mode === 'launch' ? (
         <main className="compare-main wrap">
-          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} range={range} target={launchTarget} />
+          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
         </main>
       ) : mode === 'calc' ? (
         <main className="compare-main wrap">

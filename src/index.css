@@ -108,7 +108,7 @@ select {
 }
 select:hover { background-color: var(--btn-hover); }
 select option { background: var(--surface); color: var(--ink); }
-input[type='text'], input[type='number'], input[type='datetime-local'], input:not([type]), textarea {
+input[type='text'], input[type='number'], input[type='datetime-local'], input[type='date'], input:not([type]), textarea {
   height: 28px; padding: 0 9px; border: 1px solid var(--field-line); border-radius: var(--r);
   background: var(--surface); color: var(--ink); font-size: 13px; min-width: 0;
 }
@@ -791,8 +791,57 @@ kbd {
 .fp-note { margin: 0; max-width: 90ch; }
 .hud-probe-launch { margin-top: 8px; width: 100%; height: 28px; border-radius: 7px; border: 1px solid #ffd166; background: #ffd166; color: #1b1405; font-weight: 600; font-size: 12px; }
 .launch-point { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
-.launch-point-title { flex-basis: 100%; font-size: 12px; font-weight: 600; }
 .launch-point label { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
 .launch-point input { width: 120px; font-family: var(--font-mono); }
 .launch-approx { margin: 0; max-width: 90ch; }
 .launch-empty p { margin: 0 0 8px; }
+
+/* Launch planner: setup cards */
+.launch-setup { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 900px) { .launch-setup { grid-template-columns: minmax(0, 1fr); } }
+.launch-card { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); display: grid; gap: 10px; align-content: start; min-width: 0; }
+.launch-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.launch-card-title { font-size: 12px; font-weight: 600; }
+.launch-card-foot { margin: 0; }
+.launch-field { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); min-width: 0; }
+.launch-field select { width: 100%; }
+.launch-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.launch-fields input { width: 100%; font-family: var(--font-mono); }
+.launch-card .launch-point { padding: 0; border: 0; background: none; }
+.launch-hero-actions { margin: 8px 0 2px; }
+
+
+/* 3D Moon HUD: one column of collapsible panels on the left, Display menu, expanded view */
+.moon-hud > .hud-panels { left: 14px; top: 92px; bottom: 56px; width: min(330px, calc(100% - 28px)); display: flex; flex-direction: column; gap: 8px; overflow-y: auto; pointer-events: none; scrollbar-width: thin; }
+.hud-panels > * { pointer-events: auto; flex: none; }
+.hud-panels .hud-probe, .hud-panels .hud-range { position: static; width: auto; max-height: none; top: auto; left: auto; right: auto; bottom: auto; overflow: visible; }
+.hud-probe.min > :not(.hud-probe-head), .hud-range.min > :not(.hud-probe-head) { display: none; }
+.hud-probe.min .hud-probe-head, .hud-range.min .hud-probe-head { margin-bottom: 0; }
+.hud-collapse { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 4px 0 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.hud-collapse:hover { color: #fff; background: none; }
+.hud-collapse .chev, .hud-toggle .chev { display: inline-block; font-size: 10px; transition: transform 150ms; }
+.hud-collapse[aria-expanded='false'] .chev { transform: rotate(-90deg); }
+.hud-toggle[aria-expanded='true'] .chev { transform: rotate(180deg); }
+.hud-hint { max-width: 46ch; line-height: 1.4; }
+.hud-br { flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.hud-menu-wrap { position: relative; }
+.hud-menu {
+  position: absolute; right: 0; bottom: 32px; width: 236px; padding: 6px; border-radius: 10px; z-index: 5;
+  border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(20, 20, 24, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); display: grid; gap: 2px;
+}
+.hud-menu-item { display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: #fff; font-size: 12.5px; text-align: left; }
+.hud-menu-item:hover, .hud-menu-item:focus-visible { background: rgba(255, 255, 255, 0.08); }
+.hud-switch { width: 28px; height: 16px; border-radius: 8px; background: rgba(255, 255, 255, 0.18); position: relative; transition: background 150ms; }
+.hud-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform 150ms; }
+.hud-switch.on { background: #34c759; }
+.hud-switch.on::after { transform: translateX(12px); }
+.moon.expanded { height: calc(100dvh - 120px); min-height: 480px; }
+@media (max-width: 760px) {
+  .moon-hud > .hud-panels { top: 104px; bottom: 112px; }
+  .hud-panels .hud-probe, .hud-panels .hud-range { max-height: none; padding: 8px 10px; }
+  .hud-menu { bottom: 32px; right: auto; left: 0; }
+  .moon.expanded { height: calc(100dvh - 90px); }
+}
+@media (prefers-reduced-motion: reduce) { .hud-collapse .chev, .hud-toggle .chev, .hud-switch, .hud-switch::after { transition: none; } }
+@media (max-width: 760px) { .hud-hint { display: none; } }
