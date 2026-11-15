@@ -1,4 +1,4 @@
-import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun, CircleCheck } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,7 +26,7 @@ import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
 import { simSnapshot, useMission } from './lib/useMission';
-import { useScenario } from './lib/useScenario';
+import { scenarioFor, useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
 const PLAN_KEY = 'lsc-mission-plan';
@@ -123,6 +123,9 @@ export default function App() {
     }
     return { n, sun, earth };
   }, [all, tq]);
+  // "good for power" needs the full verdict, which covers the next lunar day, so a 6-hour step is plenty and cheap
+  const t6 = Math.floor(tl / 21600000) * 21600000;
+  const goodPower = useMemo(() => all.reduce((n, d) => n + (d && scenarioFor(d, t6).power.level === 'green' ? 1 : 0), 0), [all, t6]);
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, tl);
@@ -264,6 +267,7 @@ export default function App() {
         <div className="ct-kpi"><span className="ct-kpi-ico"><Globe size={18} /></span><b className="num">{kpi.n}</b><span>Sites tracked</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico sun"><Sun size={18} /></span><b className="num">{kpi.sun}</b><span>Sunlit now</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico earth"><Earth size={18} /></span><b className="num">{kpi.earth}</b><span>Earth in view now</span></div>
+        <div className="ct-kpi"><span className="ct-kpi-ico good"><CircleCheck size={18} /></span><b className="num">{goodPower}</b><span>Good for power, next lunar day</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
       </div>
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>

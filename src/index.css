@@ -982,7 +982,7 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .ct-tabs button[aria-selected='true']::after { transform: scaleX(1); }
 .ct-tabs button:active:not(:disabled) { transform: none; }
 
-.ct-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 14px 16px 0; background: var(--line); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.ct-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin: 14px 16px 0; background: var(--line); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
 .ct-kpi { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); min-width: 0; }
 .ct-kpi-ico { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 3px; background: var(--surface-2); color: var(--ink-2); }
 .ct-kpi-ico.sun { color: var(--sun); } .ct-kpi-ico.earth { color: var(--earth); }
@@ -1228,3 +1228,5 @@ button[aria-busy='true']::after { content: ''; position: absolute; inset: 0;
   background: rgba(255, 255, 255, 0.16); color: #fff; vertical-align: 1px; }
 .moon-marker { transition: opacity 200ms, transform 0s; }
 .moon-marker span { transition: opacity 220ms; }
+
+.ct-kpi-ico.good { color: var(--good); }
