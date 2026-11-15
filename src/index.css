@@ -864,17 +864,41 @@ kbd {
 .explore .view-head { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .explore .instrument > .sec-h.step { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 
-/* status board: flat cells with a status rule on top */
-.explore .answer { gap: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
-.explore .answer-now, .explore .answer-card { border: 0; border-radius: 0; background: transparent; border-top: 3px solid var(--line); padding: 10px 14px 12px; }
-.explore .answer-card { border-left: 1px solid var(--line); }
+/* status board: one plain-language sentence, then four labelled cells */
+.explore .answer { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.explore .answer-lede { grid-column: 1 / -1; padding: 14px 16px; font-size: 14px; line-height: 1.55; color: var(--ink); border-bottom: 1px solid var(--line); }
+.explore .answer-lede b { font-weight: 600; }
+.explore .answer-lede b.good { color: var(--good); } .explore .answer-lede b.warn { color: var(--warn); } .explore .answer-lede b.poor { color: var(--poor); }
+.explore .answer-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 14px 12px; border-top: 3px solid transparent; }
+.explore .answer-cell + .answer-cell { border-left: 1px solid var(--line); }
+.explore .answer-card { background: transparent; border-radius: 0; border-right: 0; border-bottom: 0; }
 .explore .answer-card.good { border-top-color: var(--good); }
 .explore .answer-card.warn { border-top-color: var(--warn); }
 .explore .answer-card.poor { border-top-color: var(--poor); }
 .explore .answer-kind { font: 600 10.5px var(--font-mono); letter-spacing: 0.1em; }
-.explore .answer-word { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
-.explore .answer-foot { padding: 6px 14px; border-top: 1px solid var(--line); font: 11.5px var(--font-mono); }
-@media (max-width: 720px) { .explore .answer-card { border-left: 0; } }
+.explore .answer-word { font-size: 15px; font-weight: 600; }
+.explore .answer-word.sun { color: var(--sun); } .explore .answer-word.earth { color: var(--earth); }
+.explore .answer-reason { font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.explore .answer-foot { padding: 6px 16px; border-top: 1px solid var(--line); font-size: 11.5px; }
+@media (max-width: 900px) {
+  .explore .answer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .explore .answer-cell:nth-of-type(3) { border-left: 0; }
+  .explore .answer-cell:nth-of-type(n+3) { border-top: 1px solid var(--line); }
+  .explore .answer-card.good { border-top: 3px solid var(--good); } .explore .answer-card.warn { border-top: 3px solid var(--warn); } .explore .answer-card.poor { border-top: 3px solid var(--poor); }
+}
+
+/* site index: square status lamps instead of icons */
+.lamp { display: inline-block; width: 9px; height: 9px; border: 1px solid var(--ink-2); vertical-align: middle; }
+.lamp.sun, .lamp.earth { border-radius: 50%; }
+.lamp.sun.on { background: var(--sun-disk); border-color: var(--sun-disk); }
+.lamp.earth.on { background: var(--earth); border-color: var(--earth); }
+.lamp.good { background: var(--good); border-color: var(--good); }
+.lamp.warn { background: var(--warn); border-color: var(--warn); }
+.lamp.poor { background: var(--poor); border-color: var(--poor); }
+.explore .cell-status { gap: 6px; align-items: center; }
+.explore .site-index-head span { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+.site-key { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 11px; color: var(--ink-2); }
+.site-key span { display: inline-flex; align-items: center; gap: 5px; }
 
 /* rail facts */
 .explore .site-info, .explore .plan { border-radius: 4px; }

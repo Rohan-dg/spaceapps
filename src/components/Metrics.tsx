@@ -34,23 +34,27 @@ export function Summary({ r }: { r: ScenarioResult }) {
   const m = r.metrics;
   const sunNext = m.sunUp ? m.nextSunset : m.nextSunrise;
   const eNext = m.earthUp ? m.nextEarthset : m.nextEarthrise;
+  const at = new Date(m.t).toISOString().slice(0, 16).replace('T', ' ');
   return (
     <section className="answer" aria-label="Status">
-      <div className="answer-now">
-        <span className="answer-kind">Now</span>
-        <p className={`now-line${m.sunUp ? ' on-sun' : ''}`}>
-          {m.sunUp ? <Sun size={20} className="ico-sun on" aria-hidden /> : <SunDim size={20} className="ico-off" aria-hidden />}
-          <span><b>{m.sunUp ? 'In sunlight' : 'In shadow'}</b><small>{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</small></span>
-        </p>
-        <p className={`now-line${m.earthUp ? ' on-earth' : ''}`}>
-          <Earth size={20} className={m.earthUp ? 'ico-earth on' : 'ico-off'} aria-hidden />
-          <span><b>{m.earthUp ? 'Earth in view' : 'Earth hidden'}</b><small>{m.earthUp ? 'Sets' : 'Rises'} {eventText(eNext, m.t)}</small></span>
-        </p>
+      <p className="answer-lede">
+        At <span className="num">{at} UTC</span> the site is <b>{m.sunUp ? 'in sunlight' : 'in shadow'}</b> and {m.earthUp ? <b>has a direct line to Earth</b> : <b>out of direct contact with Earth</b>}.
+        Over the next lunar day, power is <b className={CLS[r.power.level]}>{WORD[r.power.level].toLowerCase()}</b> and direct-to-Earth comms are <b className={CLS[r.comms.level]}>{WORD[r.comms.level].toLowerCase()}</b>.
+      </p>
+      <div className="answer-cell">
+        <span className="answer-kind">Sunlight</span>
+        <span className={`answer-word${m.sunUp ? ' sun' : ''}`}>{m.sunUp ? 'Sunlit' : 'Shadow'}</span>
+        <p className="answer-reason">{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</p>
+      </div>
+      <div className="answer-cell">
+        <span className="answer-kind">Earth link</span>
+        <span className={`answer-word${m.earthUp ? ' earth' : ''}`}>{m.earthUp ? 'In view' : 'No line of sight'}</span>
+        <p className="answer-reason">{m.earthUp ? 'Earth sets' : 'Earth rises'} {eventText(eNext, m.t)}</p>
       </div>
       <AnswerCard title="Power" v={r.power} />
       <AnswerCard title="DTE comms" v={r.comms} />
       <p className="answer-foot">
-        <span>Window <span className="num">{m.windowDays.toFixed(1)} d</span>{m.windowTruncated ? ', truncated at data end' : ''}</span>
+        <span>Ratings cover the next lunar day: <span className="num">{m.windowDays.toFixed(1)} d</span>{m.windowTruncated ? ', truncated at data end' : ''}</span>
         <HelpTip label="Rating thresholds" align="right">
           <b>Good</b>: power needs sun at least 70% of the time and no dark spell over about 4 days; radio needs Earth in view at least 90% of the time and no gap over 24 hours.
           <b> Marginal</b>: workable with planning. <b>Poor</b>: needs a different site, date or a relay satellite.
@@ -62,14 +66,13 @@ export function Summary({ r }: { r: ScenarioResult }) {
 
 function AnswerCard({ title, v }: { title: string; v: Verdict }) {
   return (
-    <div className={`answer-card ${CLS[v.level]}`}>
+    <div className={`answer-cell answer-card ${CLS[v.level]}`}>
       <span className="answer-kind">{title}</span>
-      <span className="answer-word"><LevelIcon level={v.level} size={24} /> {WORD[v.level]}</span>
+      <span className="answer-word">{WORD[v.level]}</span>
       <p className="answer-reason">{v.reason}</p>
     </div>
   );
 }
-
 export function eventText(e: Event, now: number): string {
   if (e.t === null) return e.beyondRange ? 'after the data ends' : 'none';
   return `in ${formatDuration(e.t - now)}`;
