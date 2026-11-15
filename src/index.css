@@ -156,7 +156,7 @@ kbd {
 }
 .brand { display: inline-flex; align-items: center; gap: 5px; font: 700 15px/1 var(--font-display); letter-spacing: -0.01em; white-space: nowrap; color: var(--ink); }
 /* wordmark: the last word sits in a solid orange box with black type */
-.brand-box { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 12px; background: var(--accent-fill); color: var(--accent-ink); }
+.brand-box { display: inline-flex; align-items: center; height: 24px; padding: 0 6px; border-radius: 5px; background: var(--accent-fill); color: var(--accent-ink); }
 .brand-mark { width: 22px; height: 22px; border-radius: 6px; flex: none; background: var(--accent-fill); display: grid; place-items: center; }
 .brand-mark::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--accent-ink); }
 .cmdk-trigger {
