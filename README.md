@@ -11,6 +11,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 ## Features
 
 - **Skyline and overhead views.** The terrain horizon with the Sun and Earth at true angular size, and their paths over the next 24 hours.
+- **Libration and orbital variation.** The first tab of Detailed analysis, highlighted: Earth's wobble in the lunar sky (about ±8° in longitude, ±7° in latitude), the Earth–Moon distance from perigee to apogee and Earth's apparent size, and the Sun's ±1.5° seasonal swing, with their measured periods. For the selected site it charts Earth's track against the terrain skyline over the next lunar cycle and states what libration does there: whether it hides Earth part of the time or is the only reason Earth is ever in view (compared with Earth held at its mean position).
 - **Countdowns and verdicts.** Time to the next sunrise, sunset, Earthrise and Earthset, with a power and comms rating for the next lunar day.
 - **Calendar.** A 30-day strip and a three-year heat map (2027 to 2029) that marks the best landing windows.
 - **Compare.** Two to four site-and-date scenarios side by side.
@@ -23,7 +24,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
   Each launch also has an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with times, a speed-change (Δv) budget and a diagram of the transfer (patched conics, timed to meet the Moon at arrival).
 - **Mission comparison sidebar.** The *Missions* button (or the M key) opens a sidebar over every mission in the catalogue: flown, failed, planned (including upcoming NASA CLPS deliveries) and Artemis III candidates. Filter past or future, search, and pick any two (from the list or by clicking sites on the 3D Moon). They are compared side by side on the same criteria (sunlight, Earth contact, longest night and the battery to survive it, radio blackouts, good landing days, skyline height), with a long-run efficiency score whose weights are shown. A mission uploaded without precomputed data is computed in the browser from its coordinates, so every mission gets every criterion.
 - **Help assistant.** The *Need help?* button opens a chat that answers questions about the site and can navigate it ("show me Malapert", "open the launch planner"). It is a small on-device model (TF-IDF retrieval over a knowledge base of the site, typo tolerant) that runs in the browser: no network requests, no API, no usage cost. When it cannot answer, or on request, it shows how to reach a person (support contacts are set in `src/config/support.ts`).
-- **Export and share.** CSV or JSON export. The URL keeps the site, time and comparison.
+- **Export and share.** CSV or JSON export (under the Libration & orbit tab). The URL keeps the site, time and comparison.
 
 ## Sites
 

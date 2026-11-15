@@ -15,7 +15,8 @@ import Guide from './components/Guide';
 import { Loading } from './components/Help';
 import Heatmap from './components/Heatmap';
 import MissionPanel from './components/MissionPanel';
-import { Readout, Summary } from './components/Metrics';
+import { Summary } from './components/Metrics';
+import LibrationTool from './components/LibrationTool';
 import Panorama from './components/Panorama';
 import SiteList, { isAttempt } from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
@@ -37,7 +38,7 @@ function loadPlan(t: number): MissionPlan {
   return { ...DEFAULT_PLAN, departure: t };
 }
 type View = 'panorama' | 'sky' | 'first';
-type Deep = 'calendar' | 'numbers' | 'mission';
+type Deep = 'libration' | 'calendar' | 'mission';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
@@ -62,7 +63,7 @@ function readHash() {
 // Panels below the 3D view are memoised and fed a deferred time, so time playback and the 3D view stay smooth:
 // React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
 const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
-const TimelineM = memo(Timeline), SummaryM = memo(Summary), ReadoutM = memo(Readout), ExportM = memo(Export);
+const TimelineM = memo(Timeline), SummaryM = memo(Summary), ExportM = memo(Export);
 /** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
  *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
 const upAt = (runs: Runs, s: Series, t: number) => findRun(runs, Math.floor(indexAt(s, t))) >= 0;
@@ -91,7 +92,7 @@ export default function App() {
     if (!o) setPair((p) => (p.a || p.b ? p : { a: siteId || 'apollo-11', b: 'griffin-1', active: 'b' }));
     return !o;
   }), [siteId]);
-  const [deep, setDeep] = useState<Deep>('calendar');
+  const [deep, setDeep] = useState<Deep>('libration');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -225,7 +226,7 @@ export default function App() {
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
-      { id: 'deep-numbers', group: 'Views', title: 'Readout and export', keywords: 'csv json numbers', icon: <SlidersHorizontal size={16} />, run: showDeep('numbers') },
+      { id: 'deep-libration', group: 'Views', title: 'Libration and orbital variation', keywords: 'wobble libration orbit perigee apogee earth distance season export csv json', icon: <Earth size={16} />, run: showDeep('libration') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
@@ -389,10 +390,10 @@ export default function App() {
 
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>Detailed analysis</h3><p>{deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'numbers' ? 'Every computed figure for this site and time, with CSV and JSON export.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
+                    <div><h3>Detailed analysis</h3><p>{deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'libration' ? 'Earth\'s wobble and the Moon\'s orbital variation, and what they do to Earth contact here. CSV and JSON export below.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
+                      <button role="tab" className="seg-key" aria-selected={deep === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> Libration &amp; orbit</button>
                       <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
-                      <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
                       <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
                     </div>
                   </div>
@@ -405,7 +406,7 @@ export default function App() {
                       onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
                   ) : (
                     <div className="numbers">
-                      <ReadoutM r={res} />
+                      <LibrationTool data={data} t={tl} range={range} onSeek={pickDay} />
                       <ExportM d={data} r={res} />
                     </div>
                   )}
