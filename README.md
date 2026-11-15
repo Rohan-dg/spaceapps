@@ -20,6 +20,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 - **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point, and searches the terrain for the nearest spot that will be sunlit when the rover gets there (or whether sunrise reaches the start first). Clicking any point turns the globe so that point is at the centre.
 - **Sun and Earth pointers, Home view.** Rings mark the Sun and Earth when they are on screen; arrows at the edge point the way when they are not. *Home* (or the H key) returns to the whole Moon, north up.
 - **Launch planner.** For the next good landing days at a site (Sun up ≥ 70 % and Earth in view ≥ 90 % of the day), the best launch time from a NASA launch centre in the United States (Kennedy Space Center or Wallops Flight Facility), with azimuth and orbit inclination. First-order geometry: the parking orbit must contain the Moon's arrival direction.
+  Each launch also has an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with times, a speed-change (Δv) budget and a diagram of the transfer (patched conics, timed to meet the Moon at arrival).
 - **Export and share.** CSV or JSON export. The URL keeps the site, time and comparison.
 
 ## Sites
