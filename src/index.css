@@ -2501,12 +2501,14 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash-sheet { right: auto; width: var(--shW); --shW: calc(100% - var(--L) - var(--R)); }
 .dash-sheet.sh-sites, .dash-sheet.sh-slip, .dash-sheet.sh-earth, .dash-sheet.sh-libration, .dash-sheet.sh-mission { --shW: min(640px, calc(100% - var(--L) - var(--R))); }
 /* content slides in the direction of travel, with a glass blur (--dy / --dx set when a section is picked) */
-.dash .sh-body { animation: sh-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dash .sh-body { animation: sh-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 @keyframes sh-slide { from { opacity: 0; transform: translateY(calc(var(--dy, 1) * 22px)); filter: blur(6px); } }
-.dash-compare .dw-body, .dash-launch .dw-body, .dash-calc .dw-body { animation: dw-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dash-compare .dw-body, .dash-launch .dw-body, .dash-calc .dw-body { animation: dw-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 @keyframes dw-slide { from { opacity: 0; transform: translateX(calc(var(--dx, 1) * 26px)); filter: blur(6px); } }
-.dash .dash-side { animation: dw-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-@media (prefers-reduced-motion: reduce) { .dash .sh-body, .dash .dw-body, .dash .dash-side { animation: none; } }
+/* no filter here: a filter on the column would switch off the cards' backdrop blur */
+.dash .dash-side > * { animation: side-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+@keyframes side-slide { from { opacity: 0; transform: translateX(calc(var(--dx, 1) * 26px)); } }
+@media (prefers-reduced-motion: reduce) { .dash .sh-body, .dash .dw-body, .dash .dash-side > * { animation: none; } }
 /* a glass highlight that glides between the dock's sections and between the top tabs */
 .dash-dock.has-ind { isolation: isolate; }
 .dash .dash-dock.has-ind.ind-on::before { border-radius: 50% !important; background: rgba(255, 255, 255, 0.92) !important;
