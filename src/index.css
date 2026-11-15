@@ -641,3 +641,26 @@ kbd {
   .ab-btn { padding: 0 10px; }
   .cmdk-backdrop { padding-top: 8vh; }
 }
+
+/* 3D Moon: point probe */
+.hud-hint { margin: 4px 0 0; font-size: 11px; color: #bdbdbd; text-shadow: 0 1px 2px #000; }
+.moon-probe-pin { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; transition: opacity 150ms; will-change: transform; }
+.moon-probe-pin i { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ffd166; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.7), 0 0 10px rgba(255, 209, 102, 0.7); }
+.moon-probe-pin i::after { content: ''; position: absolute; left: 3px; top: 3px; width: 4px; height: 4px; border-radius: 50%; background: #ffd166; }
+.hud-probe {
+  left: 14px; top: 76px; width: min(320px, calc(100% - 28px)); padding: 10px 12px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(20, 20, 24, 0.72); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  font-size: 12px; color: #fff;
+}
+.hud-probe-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #bdbdbd; }
+.hud-probe-head button { height: 22px; width: 22px; padding: 0; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.06); color: #fff; font-size: 15px; line-height: 1; }
+.hud-probe dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
+.hud-probe dt { color: #bdbdbd; }
+.hud-probe dd { margin: 0; line-height: 1.35; }
+.hud-probe .dim { color: #a9a9a9; }
+.hud-probe b { font-weight: 600; }
+.hud-probe b.ok { color: #4fae7a; } .hud-probe b.part { color: #e0b44a; } .hud-probe b.no { color: #ef6a5f; }
+.hud-probe-note { margin: 8px 0 0; font-size: 10.5px; color: #9a9a9a; }
+@media (max-width: 760px) {
+  .hud-probe { top: auto; bottom: 112px; }
+}
