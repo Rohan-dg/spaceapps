@@ -1,6 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
+import { flushSync } from 'react-dom';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -162,24 +163,27 @@ export default function App() {
   const [mode, setMode] = useState<Mode>(init.mode);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(ui === 'normal' ? 2 : 1);
-  // Switching between Normal and Expert re-renders the whole page from scratch: the app's root is keyed on the
-  // mode, so every component (the 3D Moon included) unmounts and mounts fresh. Selection and time are kept.
+  // switching modes cross-fades the whole page with the View Transitions API (instant without it, or with reduced motion)
   // one-shot camera requests to the 3D view (a site close-up, the home view); cleared on a mode switch
   const [closeUp, setCloseUp] = useState<{ id: string; n: number } | null>(null);
   const [homeSignal, setHomeSignal] = useState(0);
   const uiRef = useRef(ui);
   useEffect(() => { uiRef.current = ui; }, [ui]);
   const setUi = useCallback((u: Ui, alsoInside?: () => void) => {
-    const changed = u !== uiRef.current;
-    setUiState(u);
-    try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
-    if (u === 'normal') setMode('explore'); // the other modes are Expert tools
-    if (changed) {
-      // one-shot camera requests belong to the old 3D view; the new one starts from its own opening view
-      setCloseUp(null); setHomeSignal(0);
-      window.scrollTo({ top: 0 });
-    }
-    alsoInside?.();
+    const apply = () => {
+      setUiState(u);
+      try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+      if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+      // the 3D Moon is rebuilt on every switch (keyed on the mode below); old camera requests must not replay in it
+      if (u !== uiRef.current) { setCloseUp(null); setHomeSignal(0); }
+      alsoInside?.();
+    };
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduce || (u === uiRef.current && !alsoInside)) { apply(); return; }
+    const root = document.documentElement;
+    root.dataset.uiSwitch = u;
+    const vt = document.startViewTransition(() => flushSync(apply));
+    vt.finished.finally(() => { delete root.dataset.uiSwitch; });
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -473,7 +477,7 @@ export default function App() {
   };
 
   return (
-    <div key={ui} className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
+    <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
@@ -527,7 +531,8 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
+            {/* keyed on the mode: switching Normal <-> Expert reloads the 3D rendering from scratch */}
+            <MoonView key={ui} sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
           </Suspense>
         </div>
         {mode === 'explore' && (
