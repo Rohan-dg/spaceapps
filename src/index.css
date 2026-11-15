@@ -845,3 +845,4 @@ kbd {
 }
 @media (prefers-reduced-motion: reduce) { .hud-collapse .chev, .hud-toggle .chev, .hud-switch, .hud-switch::after { transition: none; } }
 @media (max-width: 760px) { .hud-hint { display: none; } }
+.hud-probe-head .hud-collapse { width: auto; height: 22px; padding: 0 4px 0 0; border: 0; border-radius: 0; background: none; font-size: inherit; line-height: 1; }
