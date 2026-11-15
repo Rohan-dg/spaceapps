@@ -12,6 +12,7 @@ import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import ModeChooser, { type Ui } from './components/ModeChooser';
+import { tourSeen } from './onboarding/seen';
 import { computeSite } from './lib/customSite';
 import Countdown from './components/Countdown';
 import SlipPanel from './components/SlipPanel';
@@ -114,6 +115,7 @@ const COPY = {
   },
 };
 const MoonView = lazy(() => import('./components/MoonView'));
+const Onboarding = lazy(() => import('./components/Onboarding'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
@@ -152,6 +154,8 @@ export default function App() {
   const [ui, setUiState] = useState<Ui>(lastUi ?? 'normal');
   // every load starts by asking which mode to use (components/ModeChooser.tsx)
   const [choosing, setChoosing] = useState(true);
+  // the guided tour for a mode opens right after that mode is first chosen, and on request (rail, command menu)
+  const [tour, setTour] = useState<Ui | null>(null);
   const expert = ui === 'expert';
   const L = COPY[ui];
   const [mode, setMode] = useState<Mode>(init.mode);
@@ -377,6 +381,7 @@ export default function App() {
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
+      { id: 'act-tour', group: 'Actions', title: 'Take the tour', keywords: 'tour onboarding tutorial walkthrough intro how to use learn', icon: <Sparkles size={16} />, run: () => setTour(expert ? 'expert' : 'normal') },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
     // Normal mode leaves out the Expert-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
@@ -473,6 +478,7 @@ export default function App() {
         <span className="ct-rail-gap" />
         <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
         <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={18} /></button>
+        <button aria-label="Take the tour" title="Take the tour" onClick={() => setTour(ui)}><Sparkles size={18} /></button>
         <button aria-label="Help" title="Help" onClick={() => setGuide(true)}><CircleHelp size={18} /></button>
         <button aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark" onClick={theme.toggle}><Contrast size={18} /></button>
       </nav>
@@ -723,7 +729,8 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => { setChoosing(false); if (!tourSeen(u)) setTour(u); })} />}
+      {tour && <Suspense fallback={null}><Onboarding ui={tour} onClose={() => setTour(null)} /></Suspense>}
       <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
