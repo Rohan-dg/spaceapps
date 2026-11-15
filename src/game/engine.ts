@@ -462,7 +462,7 @@ export class Game {
     if (!down || this.state !== 'play') return;
     if (key === 'e') this.act('dig'); else if (key === 't') this.act('tx');
     else if (key === 'z') this.lensTo = this.lensTo ? 0 : 1;
-    else if (key === 'c') this.setView(CAM_VIEWS[(CAM_VIEWS.findIndex((v) => v.id === this.view) + 1) % CAM_VIEWS.length].id);
+    else if (key === 'c') this.setView(this.view === 'mast' ? 'chase' : 'mast'); // first person <-> third person
     else if (key === 'l') { this.lampAuto = false; this.lampOn = !this.lampOn; }
   }
   private act(kind: 'dig' | 'tx') {
@@ -827,8 +827,11 @@ export class Game {
   private camera(dt: number, now: number) {
     const cam = this.cam, rp = this.rover.position, d = dt || 0.016;
     this.lens = lerp(this.lens, this.lensTo, k(3.2, d));
+    // the camera sits exactly behind the rover: while driving, any look-around offset eases back to dead astern,
+    // and the camera follows the heading closely in every view
+    if (this.drag === null && Math.abs(this.v) > 0.05 && this.view !== 'top') this.camOff *= 1 - k(3, d);
     const want = this.psi / D2R + this.camOff;
-    this.camAz += wrap180(want - this.camAz) * k(this.view === 'mast' ? 14 : 5, d);
+    this.camAz += wrap180(want - this.camAz) * k(14, d);
     const az = this.camAz * D2R;
     if (this.view === 'mast') {
       const p = this.camPitch * D2R, look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));

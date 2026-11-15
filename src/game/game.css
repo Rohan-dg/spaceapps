@@ -352,3 +352,15 @@
   .rg-camera-actions { flex-wrap: wrap; }
   .rg-camera-actions .rg-views button { flex: 1; padding: 4px 2px; font-size: 10px; }
 }
+
+/* no Earth signal: a pop-up at the top centre of the screen */
+.rg-alert { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); z-index: 4; max-width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: 14px; background: #2a1214f0; border: 1px solid #ff6363; color: #fff; font-size: 13px; line-height: 1.4; box-shadow: 0 12px 30px -10px #000;
+  animation: rg-alert-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; pointer-events: none; }
+.rg-alert b { margin-right: 6px; color: #ff8a8a; }
+.rg-alert kbd { font-size: 11px; }
+@keyframes rg-alert-in { from { opacity: 0; transform: translate(-50%, -8px); } }
+@media (prefers-reduced-motion: reduce) { .rg-alert { animation: none; } }
+/* hint wrappers around Dig and Transmit keep the grid cells exactly as before */
+.rg-actions > span { display: grid; min-width: 0; }
+.rg-actions > span > button { width: 100%; }
