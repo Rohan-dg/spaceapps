@@ -1888,3 +1888,7 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .site-list li:has(.site-remove) .site-row { padding-right: 32px; }
 /* your points: the orange diamond only, never a blue ring */
 .moon-marker.mine.pair i, .moon-marker.mine.on i { background: #ff8a00; box-shadow: 0 0 0 2px #000; }
+
+/* a point still being computed: the same orange diamond, gently pulsing */
+.moon-marker.pending i { animation: pt-pulse 1s ease-in-out infinite; }
+@keyframes pt-pulse { 50% { opacity: 0.45; } }
