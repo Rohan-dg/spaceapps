@@ -143,6 +143,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [sunLineOn, setSunLineOn] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const expandedRef = useRef(false);
+  expandedRef.current = expanded;
   const [probeMin, setProbeMin] = useState(false);
   const [rangeMin, setRangeMin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -711,20 +713,29 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) zoomRef.current(hit);
     };
-    // The scroll wheel and trackpad pinch (a wheel event with ctrlKey) over any part of the 3D panel belong to the
-    // 3D view. OrbitControls only claims them on the bare canvas while it is enabled, so over the HUD, the markers
-    // or during a camera flight they fell through and scrolled or zoomed the whole page.
+    // The 3D panel fills most of the first screen, so a bare scroll over it scrolls the page. Clicking or dragging
+    // the Moon engages it: from then until the pointer leaves the panel the wheel zooms. Pinch (a wheel event with
+    // ctrlKey), Cmd/Ctrl + scroll and the expanded view always zoom. The listener runs in the capture phase so it
+    // decides before OrbitControls sees the event on the canvas.
     const box = el.parentElement ?? el;
+    let engaged = false;
+    const engage = () => { engaged = true; };
+    const disengage = () => { engaged = false; };
     const onWheel = (e: WheelEvent) => {
       const tgt = e.target as HTMLElement;
+      const zoom = engaged || e.ctrlKey || e.metaKey || expandedRef.current;
+      st.controls.enableZoom = zoom;
+      if (!zoom) return;   // let the page scroll
       if (!e.ctrlKey && tgt.closest('.hud-probe, .hud-menu')) return; // these panels scroll their own content
       e.preventDefault();
       if (tgt !== renderer.domElement && st.controls.enabled) {
-        renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, cancelable: true }));
+        renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, metaKey: e.metaKey, cancelable: true }));
       }
     };
     const noGesture = (e: Event) => e.preventDefault(); // Safari pinch
-    box.addEventListener('wheel', onWheel, { passive: false });
+    box.addEventListener('wheel', onWheel, { passive: false, capture: true });
+    box.addEventListener('pointerdown', engage);
+    box.addEventListener('pointerleave', disengage);
     box.addEventListener('gesturestart', noGesture);
     box.addEventListener('gesturechange', noGesture);
     renderer.domElement.addEventListener('pointerdown', onDown);
@@ -781,7 +792,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     return () => {
       alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf); unhold();
       renderer.domElement.removeEventListener('pointerdown', onDown);
-      box.removeEventListener('wheel', onWheel); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
+      box.removeEventListener('wheel', onWheel, { capture: true }); box.removeEventListener('pointerdown', engage); box.removeEventListener('pointerleave', disengage); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
       renderer.domElement.removeEventListener('pointerup', onUp);
       renderer.domElement.removeEventListener('dblclick', onDbl);
       st.flying?.kill(); st.controls.dispose();
@@ -1349,7 +1360,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
+          {!probe && <p className="hud-hint">Drag to rotate · click the Moon, then scroll to zoom (or pinch) · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
         </div>
         <div className="hud-panels">
         {probe && (
@@ -1442,12 +1453,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         <div className="hud-br hud-anim">
           <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
+          {/* a direct switch in both modes, not tucked in the Display menu */}
+          <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
+            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (
               <div className="hud-menu" role="menu" aria-label="Display">
                 {([
-                  ['lamp', 'Light dark areas', fill, () => setFill((x) => !x), 'Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight.'],
                   ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Show where the Sun and Earth are, with arrows when they are off screen'],
                   ['shadow', 'Shadows', shadows, () => setShadows((x) => !x), 'Cast shadows, ray-traced on the LOLA heights'],
                   ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],

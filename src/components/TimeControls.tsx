@@ -1,5 +1,4 @@
 import { Pause, Play } from './Icons';
-import { useEffect, useRef } from 'react';
 
 export const toInput = (t: number) => new Date(t).toISOString().slice(0, 16);
 export const fromInput = (s: string) => Date.parse(s + ':00Z');
@@ -16,23 +15,8 @@ interface Props {
   playing: boolean; onPlaying: (p: boolean) => void; speed: number; onSpeed: (s: number) => void;
 }
 
+/** Date, step and play controls. The play loop itself runs in App, so Play works the same in Normal mode. */
 export default function TimeControls({ t, t0, t1, onChange, playing, onPlaying, speed, onSpeed }: Props) {
-  const tRef = useRef(t);
-  tRef.current = t;
-  useEffect(() => {
-    if (!playing) return;
-    let raf = 0, last = performance.now();
-    const tick = (now: number) => {
-      const dt = (now - last) / 1000; last = now;
-      const next = tRef.current + dt * SPEEDS[speed].hps * 3600000;
-      if (next >= t1) { onChange(t1); onPlaying(false); return; }
-      onChange(next);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, speed, t1, onChange, onPlaying]);
-
   const clamp = (x: number) => Math.max(t0, Math.min(t1, x));
   const step = (h: number) => onChange(clamp(t + h * 3600000));
   return (
