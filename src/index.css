@@ -19,6 +19,8 @@
   color-scheme: dark;
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* numbers: SF Pro on Apple devices; the closest system face elsewhere (SF Pro cannot be self-hosted) */
+  --font-num: 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Inter, Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --r: 8px; --r-lg: 12px;
 }
@@ -72,7 +74,7 @@ a:hover { color: var(--accent-hover); }
 b, strong { font-weight: 600; }
 code { font: 11.5px var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); }
 table { font-variant-numeric: tabular-nums; }
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 12px; letter-spacing: 0; }
 .muted { color: var(--ink-2); }
 .small { font-size: 12px; }
 .unit { font-size: 12px; color: var(--ink-2); font-weight: 400; }
@@ -857,7 +859,7 @@ kbd {
 .explore .work-head { gap: 4px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .explore .overline { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-2); }
 .explore .work-head h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-.explore .work-head .when { font: 12px var(--font-mono); color: var(--ink-2); gap: 2px 18px; }
+.explore .work-head .when { font: 12.5px var(--font-num); font-variant-numeric: tabular-nums; color: var(--ink-2); gap: 2px 18px; }
 .explore .instrument, .explore .deep { gap: 12px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
 .explore .pnl-h { display: flex; flex-direction: column; gap: 3px; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
 .explore .view-head.pnl-h { flex-direction: row; align-items: flex-end; justify-content: space-between; }
