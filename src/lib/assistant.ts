@@ -17,7 +17,7 @@ export type Action =
   | { type: 'palette'; label: string }
   | { type: 'theme'; label: string }
   | { type: 'home'; label: string }
-  | { type: 'view'; view: 'panorama' | 'sky' | 'first'; label: string }
+  | { type: 'view'; view: 'panorama' | 'sky' | 'first' | 'shadow'; label: string }
   | { type: 'deep'; deep: 'calendar' | 'numbers' | 'mission'; label: string }
   | { type: 'site'; id: string; label: string }
   | { type: 'support'; label: string };

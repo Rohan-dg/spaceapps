@@ -11,6 +11,10 @@ import AssistantChat, { type HelpContext } from './components/AssistantChat';
 import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
+import Countdown from './components/Countdown';
+import SlipPanel from './components/SlipPanel';
+import MoonEarth from './components/MoonEarth';
+import ShadowMap from './components/ShadowMap';
 import Export from './components/Export';
 import Guide from './components/Guide';
 import { Loading } from './components/Help';
@@ -38,12 +42,13 @@ function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
   return { ...DEFAULT_PLAN, departure: t };
 }
-type View = 'panorama' | 'sky' | 'first';
+type View = 'panorama' | 'sky' | 'first' | 'shadow';
 type Deep = 'calendar' | 'numbers' | 'mission' | 'compare';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
   { id: 'first', label: 'First person' },
+  { id: 'shadow', label: 'Shadow map' },
 ];
 const MoonView = lazy(() => import('./components/MoonView'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
@@ -64,6 +69,7 @@ function readHash() {
 // Panels below the 3D view are memoised and fed a deferred time, so time playback and the 3D view stay smooth:
 // React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
 const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
+const SlipPanelM = memo(SlipPanel), MoonEarthM = memo(MoonEarth);
 const TimelineM = memo(Timeline), SummaryM = memo(Summary), ReadoutM = memo(Readout), ExportM = memo(Export);
 /** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
  *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
@@ -383,6 +389,7 @@ export default function App() {
                   </div>
                   {view === 'panorama' ? <PanoramaM data={data} t={tl} height={300} />
                     : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
+                    : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} />
                     : <SkyPlotM data={data} t={tl} />}
                 </div>
 
@@ -396,6 +403,16 @@ export default function App() {
                     </ul>
                   </div>
                   <TimelineM data={data} t={tl} onSeek={onT} />
+                </div>
+
+                <div className="instrument">
+                  <header className="pnl-h"><h3>If the landing date slips</h3><p>The same site at earlier and later landing dates: how far the date can move before the power or radio rating changes.</p></header>
+                  <SlipPanelM data={data} t={tl} t0={range[0]} t1={range[1]} onSeek={pickDay} playing={playing} />
+                </div>
+
+                <div className="instrument">
+                  <header className="pnl-h"><h3>Moon vs Earth</h3><p>This site next to the same latitude on Earth: why lunar days, shadows and sunsets need different planning.</p></header>
+                  <MoonEarthM data={data} t={tl} m={res.metrics} />
                 </div>
 
                 <section className="deep" aria-label="Detail">
@@ -446,6 +463,8 @@ export default function App() {
                 </div>
                 {[['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth.'],
                   ['Next 30 days', 'When the site is sunlit and when Earth is above the horizon.'],
+                  ['If the landing date slips', 'How far the landing date can move before the power or radio rating changes.'],
+                  ['Moon vs Earth', 'The selected site next to the same latitude on Earth.'],
                   ['Detailed analysis', 'Calendar, all figures and the mission plan for the selected site.']].map(([h, c]) => (
                   <div className="instrument" key={h}>
                     <header className="pnl-h"><h3>{h}</h3><p>{c}</p></header>
@@ -480,10 +499,11 @@ export default function App() {
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       <div className="action-bar">
+        {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} /> : (
         <span className="ab-ctx">
           <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
-          <span className="num muted">{when(t)} UTC</span>
-        </span>
+        </span>)}
+        <span className="ab-time num muted">{when(t)} UTC</span>
       </div>
     </div>
   );
