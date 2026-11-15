@@ -15,7 +15,6 @@
   --icon-knock: #101012;
   --panel-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 12px 32px rgba(0, 0, 0, 0.35);
   --glass: rgba(22, 22, 25, 0.82);
-  --glow: radial-gradient(1200px 420px at 50% -120px, rgba(255, 99, 99, 0.10), transparent 70%);
   color-scheme: dark;
   /* Type: self-hosted from @fontsource (src/main.tsx), identical on every platform. */
   --font-display: 'Chakra Petch', 'Geist Variable', system-ui, sans-serif;  /* headings, brand, HUD */
@@ -38,7 +37,6 @@
   --icon-knock: #ffffff;
   --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
   --glass: rgba(255, 255, 255, 0.85);
-  --glow: radial-gradient(1200px 420px at 50% -120px, rgba(209, 52, 58, 0.06), transparent 70%);
   color-scheme: light;
   }
 }
@@ -54,7 +52,6 @@
   --icon-knock: #ffffff;
   --panel-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
   --glass: rgba(255, 255, 255, 0.85);
-  --glow: radial-gradient(1200px 420px at 50% -120px, rgba(209, 52, 58, 0.06), transparent 70%);
   color-scheme: light;
 }
 
@@ -62,7 +59,7 @@
 * { box-sizing: border-box; }
 html { background: var(--bg); -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; background: var(--glow) no-repeat, var(--bg); color: var(--ink);
+  margin: 0; background: var(--bg); color: var(--ink);
   font: 400 13px/1.4 var(--font-body); font-variant-numeric: tabular-nums;
   text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
@@ -130,7 +127,6 @@ input:focus-visible, textarea:focus-visible { outline: 0; border-color: var(--ac
 .seg button[aria-checked='true'], .seg button[aria-selected='true'], .tabs button[aria-selected='true'] {
   background: var(--sel); color: var(--sel-ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
-.tabs button kbd { margin-left: 2px; }
 /* tracks scroll on narrow screens, so draw focus rings inside them */
 .seg button:focus-visible, .tabs button:focus-visible, .hud-seg button:focus-visible { outline-offset: -2px; }
 
@@ -169,8 +165,6 @@ kbd {
 .cmdk-trigger:hover { background: var(--surface); border-color: var(--ink-2); color: var(--ink); }
 .cmdk-trigger > span { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
 .cmdk-trigger .keys { display: inline-flex; gap: 3px; }
-.preset-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); min-width: 0; }
-.preset-pick select { max-width: 200px; color: var(--ink); }
 .mast-tools { display: flex; gap: 6px; }
 .mast-tools button:first-child { width: 28px; padding: 0; }
 
@@ -429,8 +423,8 @@ kbd {
 .compare-table thead th { color: var(--ink); }
 .compare-table thead th:first-child { color: var(--ink-2); }
 .compare-table thead small { font-family: var(--font-mono); font-weight: 400; }
-.compare-table td.best { font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); padding-left: 8px; }
-.best-tag { font: 600 11px var(--font-body); color: var(--accent); margin-left: 6px; }
+.compare-table td.best { font-weight: 600; color: var(--ink); }
+.best-tag { font: 500 10.5px var(--font-label); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin-left: 6px; }
 .delta { display: block; font: 11.5px var(--font-body); color: var(--ink-2); }
 .compare-table tr.is-current th, .compare-table tr.is-current td { background: var(--accent-tint); }
 
@@ -541,7 +535,6 @@ kbd {
   .brand { order: 1; flex: 1 1 auto; }
   .mast-tools { order: 2; }
   .tabs { order: 3; }
-  .preset-pick { order: 4; }
   .explore { grid-template-columns: 1fr; padding-block: 12px 24px; }
   .rail { display: contents; }
   .site-index { order: 1; margin-bottom: 16px; }
@@ -569,7 +562,6 @@ kbd {
 @media (max-width: 600px) {
   .mast-label { display: none; }
   .mast-tools button { width: 28px; padding: 0; }
-  .preset-pick select { max-width: 200px; }
   .answer { grid-template-columns: 1fr; }
   .time-main .btn-group { order: 3; flex-basis: 100%; }
   .time-main .btn-group button { flex: 1 1 0; padding: 0 4px; }
@@ -633,19 +625,12 @@ kbd {
 .ab-actions { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .ab-btn { height: 30px; padding: 0 6px 0 10px; border: 0; background: transparent; font-weight: 500; gap: 8px; }
 .ab-btn:hover { background: var(--btn-hover); }
-.ab-btn kbd { margin-left: -3px; }
-.ab-btn kbd:first-of-type { margin-left: 0; }
-
-/* tab shortcut chips sit inside the segment and fade unless it's selected */
-.tabs button kbd { height: 17px; min-width: 17px; font-size: 10px; padding: 0 4px; opacity: 0.7; }
-.tabs button[aria-selected='true'] kbd { opacity: 1; }
 @media (max-width: 900px) {
   .cmdk-trigger { order: 5; flex-basis: 100%; max-width: none; margin-left: 0; }
-  .tabs button kbd { display: none; }
 }
 @media (max-width: 600px) {
   .ab-ctx .num { display: none; }
-  .ab-btn kbd, .cmdk-trigger .keys { display: none; }
+  .cmdk-trigger .keys { display: none; }
   .ab-btn { padding: 0 10px; }
   .cmdk-backdrop { padding-top: 8vh; }
 }
@@ -879,7 +864,6 @@ kbd {
 .explore .view-head.pnl-h > div:first-child { flex: 1 1 auto; }
 .explore .deep #hm-h, .explore .deep #mv-h { display: none; }
 .explore .pnl-h h3 { display: flex; align-items: center; gap: 8px; font: 600 12px var(--font-label); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); }
-.explore .pnl-h h3::before { content: ''; width: 3px; height: 12px; background: var(--accent); flex: none; }
 .explore .pnl-h p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); max-width: 72ch; }
 .explore .chart-legend { font-size: 11.5px; }
 
