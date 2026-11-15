@@ -192,6 +192,29 @@ const HEAD_F = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 `;
 const FRAG_ONLY = /* glsl */ `
+/*
+ * Mid-zoom colour and normals stream in as 10-degree chunks (256 px, LROC WAC 16k and the 8k normal map)
+ * held in two 8 x 8 slot atlases; uChunkIdx says which slot holds each chunk. Where a chunk is not loaded,
+ * or the screen footprint is coarse enough that the 2k maps already resolve it, w is 0 and the 2k maps show.
+ */
+uniform sampler2D uChunkIdx;   // 36 x 18, one texel per chunk: (slot x, slot y) / 255, b = 1 when loaded
+uniform sampler2D uChunkC;
+uniform sampler2D uChunkN;
+const float CHUNK_M = 1184.6;  // 10 degrees / 256 px on the reference sphere
+vec2 chunkUV(float lat, float lon, float fp, out float w) {
+  w = 0.0;
+  vec2 g = vec2((lon + PI) / (2.0 * PI) * 36.0, (0.5 * PI - lat) / PI * 18.0);
+  vec2 cell = clamp(floor(g), vec2(0.0), vec2(35.0, 17.0));
+  vec4 ix = texelFetch(uChunkIdx, ivec2(cell), 0);
+  if (ix.b < 0.5) return vec2(0.0);
+  w = 1.0 - smoothstep(1.0, 2.0, fp / CHUNK_M);
+  vec2 f = clamp(g - cell, 0.5 / 256.0, 1.0 - 0.5 / 256.0);
+  return (floor(ix.rg * 255.0 + 0.5) + f) / 8.0;
+}
+vec3 albedoAt(vec2 uv, vec2 cu, float cw) {
+  vec3 a = texture(uColor, uv).rgb;
+  return cw > 0.0 ? mix(a, textureLod(uChunkC, cu, 0.0).rgb, cw) : a;
+}
 /** Equirect texture coordinate without a seam at ±180° (Tarini's trick). */
 vec2 seamlessUV(float lat, float lon) {
   float x = (lon + PI) / (2.0 * PI);
@@ -355,11 +378,15 @@ void main() {
   vec2 uv = seamlessUV(lat, lon);
   vec3 s = toENU(uSun, lat, lon);
   float gs = reliefGain(s.z);
-  vec3 albedo = texture(uColor, uv).rgb;
-  vec3 nt = texture(uNormal, uv).xyz * 2.0 - 1.0;
+  float cw;
+  vec2 cu = chunkUV(lat, lon, fp, cw);
+  vec3 albedo = albedoAt(uv, cu, cw);
+  vec3 nt = texture(uNormal, uv).xyz;
+  if (cw > 0.0) nt = mix(nt, textureLod(uChunkN, cu, 0.0).xyz, cw);
+  nt = nt * 2.0 - 1.0;
   nt.z = max(nt.z, 0.05);
-  float cTex = PI * R_M / float(textureSize(uColor, 0).y);
-  float nTex = PI * R_M / float(textureSize(uNormal, 0).y);
+  float cTex = mix(PI * R_M / float(textureSize(uColor, 0).y), CHUNK_M, cw);
+  float nTex = mix(PI * R_M / float(textureSize(uNormal, 0).y), CHUNK_M, cw);
   vec3 dt = subTexel(vRel, fp, d, enuE(lon), enuN(lat, lon), nTex, cTex);
   vec3 n = normalize(vec3(nt.xy * uRelief * gs - dt.xy * gs * nt.z, nt.z));
   albedo *= dt.z;
@@ -437,7 +464,11 @@ float sunVisTile(float lat, float lon, float h0, vec3 s, float d0, float fp) {
   }
   return vis;
 }
+uniform float uFade;      // 0..1 while a newly loaded tile dissolves in over the globe
 void main() {
+  // dissolve, not blend: a screen-space dither keeps depth testing exact, and the still-frame antialiasing
+  // accumulation turns it into a smooth cross-fade
+  if (uFade < 1.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) >= uFade) discard;
   float lat = uTileLL.x - vUV.y * uTileLL.z, lon = uTileLL.y + vUV.x * uTileLL.z;
   float fp = max(length(fwidth(vLoc)) * 1000.0, 1e-3);   // metres per pixel on the ground
   float tN = tileTexel(), cl = max(cos(lat), 1e-3);
@@ -505,12 +536,14 @@ void main() {
   vec2 gg = vec2(hx1 - hx0, hy1 - hy0) / (2.0 * e) * uRelief * gs;
   float cl = cos(lon), sl = sin(lon);
   vec2 gEN = vec2(gg.x * cl - gg.y * sl, gg.x * sl + gg.y * cl);
-  float cTex = PI * R_M / float(textureSize(uColor, 0).y);
+  float cw;
+  vec2 cu = chunkUV(lat, lon, fp, cw);
+  float cTex = mix(PI * R_M / float(textureSize(uColor, 0).y), CHUNK_M, cw);
   vec3 dt = subTexel(vRel, fp, enuU(lat, lon), enuE(lon), enuN(lat, lon), uCapRes, cTex);
   vec3 n = normalize(vec3(-gEN - dt.xy * gs, 1.0));
   vec3 v = toENU(normalize(uCamRel - vRel), lat, lon);
   vec3 ee = toENU(uEarthDir, lat, lon);
-  vec3 albedo = texture(uColor, seamlessUV(lat, lon)).rgb * dt.z;
+  vec3 albedo = albedoAt(seamlessUV(lat, lon), cu, cw) * dt.z;
   float vis = 0.0;
   if (dot(n, s) > -0.02) {
     float h0 = textureLod(uCap, c, lod).r;
@@ -642,7 +675,9 @@ void main() {
   vec3 nb = normalize(vec3(-vec2(gd.x * cl - gd.y * sl, gd.x * sl + gd.y * cl), 1.0));   // data-only normal
   vec3 v = toENU(normalize(uCamLocal - vPos), lat, lon);
   vec3 ee = toENU(uEarthDir, lat, lon);
-  vec3 albedo = texture(uColor, seamlessUV(lat, lon)).rgb;
+  float cw;
+  vec2 cu = chunkUV(lat, lon, fp, cw);
+  vec3 albedo = albedoAt(seamlessUV(lat, lon), cu, cw);
   // mottling of fresh regolith at ~30 cm, faded out before it drops below a couple of pixels
   float wsp = smoothstep(2.0 * fp, 5.0 * fp, 0.33) * uDetail;
   albedo *= 1.0 + 0.07 * (2.0 * vnoise(vLocal * 3.0).x - 1.0) * wsp;

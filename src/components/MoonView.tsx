@@ -2,7 +2,7 @@
  * The whole Moon in 3D, always on screen, flying down to the selected landing site.
  *
  * Data, coarse to fine (all NASA LRO):
- *   globe   LROC WAC colour (8k) + LOLA 64 px/deg relief normals + LOLA 16 px/deg heights
+ *   globe   LROC WAC colour (2k, then 10° chunks of the 16k mosaic by view) + LOLA relief normals + 4k heights
  *   tiles   NASA SVS CGI Moon Kit LOLA ldem_64 (64 px/deg, ~474 m) meshes + LROC 16k colour, 5° tiles streamed
  *           around the view when zoomed in (90°N to 80°S)
  *   cap     LOLA LDEM_80S_80M, 80°S to the pole, resampled to 148 m
@@ -227,7 +227,23 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const loader = new THREE.TextureLoader();
     const grey = new THREE.DataTexture(new Uint8Array([140, 138, 134, 255]), 1, 1); grey.needsUpdate = true; grey.colorSpace = THREE.SRGBColorSpace;
     const flat = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flat.needsUpdate = true;
+    // mid-zoom colour and normals: 10-degree chunks streamed into two 8 x 8 slot atlases (see FRAG_ONLY in
+    // shaders.ts), instead of holding the whole 8k mosaic and normal map on the GPU
+    const CH = { rows: 18, cols: 36, px: 256, slots: 8 };
+    const chunkIdxData = new Uint8Array(CH.cols * CH.rows * 4);
+    const chunkIdx = new THREE.DataTexture(chunkIdxData, CH.cols, CH.rows);
+    chunkIdx.magFilter = chunkIdx.minFilter = THREE.NearestFilter; chunkIdx.needsUpdate = true;
+    const makeAtlas = (srgb: boolean) => {
+      const n = CH.px * CH.slots, t = new THREE.DataTexture(new Uint8Array(n * n * 4), n, n);
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      t.magFilter = t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; t.needsUpdate = true;
+      renderer.initTexture(t);
+      (t.image as { data: Uint8Array | null }).data = null;   // uploaded once; chunks are copied in on the GPU
+      return t;
+    };
+    const atlasC = makeAtlas(true), atlasN = makeAtlas(false);
     const u: Record<string, THREE.IUniform> = {
+      uChunkIdx: { value: chunkIdx }, uChunkC: { value: atlasC }, uChunkN: { value: atlasN },
       uSun: { value: new THREE.Vector3(1, 0, 0) }, uEarthDir: { value: new THREE.Vector3(0, -1, 0) },
       uEarthshine: { value: 0.02 }, uSunPower: { value: 1.35 }, uFill: { value: 0 },
       uColor: { value: grey }, uNormal: { value: flat }, uEqH: { value: blank },
@@ -271,8 +287,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const sunLine = sightLine(0xffd166);
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
-    const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
-    const cap = new THREE.Mesh(cGeo, mat(CAP_V, CAP_F));
+    // (loaded only while the view is near the south pole; see updateCap)
+    const cap = new THREE.Mesh(new THREE.BufferGeometry(), mat(CAP_V, CAP_F));
     cap.frustumCulled = false;
     cap.visible = false;
     scene.add(cap);
@@ -340,10 +356,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     // silhouette is all the mesh adds), every 2nd around a double-clicked point and every sample on that
     // point's own tile. Tiles load one or two at a time, nearest first, never during a camera flight, and at
     // most one mesh is (re)built per frame, so detail fills in progressively instead of in one burst.
-    interface LiveTile { key: string; r: number; c: number; heights: TileHeights | null; mesh: THREE.Mesh | null; stride: number; want: number; loading: boolean; failed: boolean; used: number }
+    interface LiveTile { key: string; r: number; c: number; heights: TileHeights | null; mesh: THREE.Mesh | null; stride: number; want: number; loading: boolean; failed: boolean; used: number; shownAt: number }
     const tiles = new Map<string, LiveTile>();
     let tIdx: TileIndex | null = null, inflight = 0, tilesShown = 0;
-    const MAX_CACHED = 60, MAX_INFLIGHT = 2;
+    const MAX_CACHED = 32, MAX_INFLIGHT = 2, FADE_MS = 450, REBUILD_MS = 90;
+    let lastRebuild = 0;
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
     fetch(`${base}tiles/index.json`).then((r) => (r.ok ? r.json() : null)).then((j: TileIndex | null) => { tIdx = j; request(); }).catch(() => {});
     /** Height (m) from a drawn tile (full data, or as its mesh draws it), or NaN where no tile is drawn. */
@@ -386,13 +403,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         if (S.current !== st) { ctex.dispose(); return; }
         ctex.colorSpace = THREE.SRGBColorSpace; ctex.anisotropy = maxAniso; ctex.flipY = false;
         t.heights = { r: t.r, c: t.c, n: idx.n, h: dec.data };
-        t.stride = t.want;
+        t.stride = Math.max(t.want, 4);   // coarse first; updateTiles refines it a step at a time
         const { geo, center } = tileGeometry(idx, t.heights, t.stride);
         const [la0, lo0] = tileOrigin(idx, t.r, t.c), rad = Math.PI / 180;
         const mt = new THREE.ShaderMaterial({
           vertexShader: TILE_V, fragmentShader: TILE_F, side: THREE.DoubleSide,
           uniforms: { ...u, uTH: { value: floatTex(dec.data, dec.w, dec.h, linearFloat, false, dec.mips) }, uTC: { value: ctex },
-            uTileLL: { value: new THREE.Vector3(la0 * rad, lo0 * rad, idx.deg * rad) }, uTileN: { value: idx.n } },
+            uTileLL: { value: new THREE.Vector3(la0 * rad, lo0 * rad, idx.deg * rad) }, uTileN: { value: idx.n }, uFade: { value: 0 } },
         });
         const mesh = new THREE.Mesh(geo, mt);
         mesh.position.set(center[0], center[1], center[2]);
@@ -402,20 +419,24 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       finally { t.loading = false; inflight--; request(); }
     }
     /** Pick the tiles around the centre of the view when the globe maps are coarser than the screen. */
-    function updateTiles() {
-      const idx = tIdx; if (!idx) return;
-      const cam = camera.position, camR = cam.length(), now = performance.now();
+    /** Ground point at the centre of the view, its distance, and metres per pixel there. */
+    function viewGround() {
+      const cam = camera.position, camR = cam.length();
       const dv = st.controls.target.clone().sub(cam).normalize();
       const b = cam.dot(dv), disc = b * b - (camR * camR - R_KM * R_KM);
       const tHit = disc > 0 ? -b - Math.sqrt(disc) : -1;
       const P = tHit > 0 ? cam.clone().addScaledVector(dv, tHit) : cam.clone().setLength(R_KM);
       const dist = cam.distanceTo(P), half = Math.tan((camera.fov * Math.PI) / 360);
-      const mpp = (2 * dist * 1000 * half) / (renderer.domElement.clientHeight || 1);
+      return { cam, camR, P, dist, half, mpp: (2 * dist * 1000 * half) / (renderer.domElement.clientHeight || 1) };
+    }
+    function updateTiles() {
+      const idx = tIdx; if (!idx) return;
+      const { cam, camR, P, dist, half, mpp } = viewGround(), now = performance.now();
       const want = new Set<LiveTile>();
       const need = (r: number, c: number, stride: number) => {
         const key = tileKey(r, c);
         let t = tiles.get(key);
-        if (!t) { t = { key, r, c, heights: null, mesh: null, stride: 0, want: stride, loading: false, failed: false, used: 0 }; tiles.set(key, t); }
+        if (!t) { t = { key, r, c, heights: null, mesh: null, stride: 0, want: stride, loading: false, failed: false, used: 0, shownAt: 0 }; tiles.set(key, t); }
         t.used = now; t.want = stride; want.add(t);
       };
       // a double-clicked point: only its tile (every sample) and the eight around it (every 2nd)
@@ -446,22 +467,129 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       for (const t of tiles.values()) {
         const vis = want.has(t) && !!t.mesh;
         if (vis) tilesShown++;
-        if (t.mesh && t.mesh.visible !== vis) { t.mesh.visible = vis; setMask(t, vis); }
-      }
-      // progressive: load nearest first, a couple at a time, and not while flying; rebuild at most one mesh a frame
-      if (!st.flying) {
-        for (const t of want) if (!t.mesh && !t.loading && !t.failed && inflight < MAX_INFLIGHT) void loadTile(t);
-        const re = [...want].find((t) => t.mesh && t.heights && t.stride !== t.want);
-        if (re && re.mesh && re.heights) {
-          const old = re.mesh.geometry;
-          re.mesh.geometry = tileGeometry(idx, re.heights, re.want).geo; old.dispose();
-          re.stride = re.want; request();
+        if (!t.mesh) continue;
+        if (t.mesh.visible !== vis) {
+          t.mesh.visible = vis;
+          if (vis) t.shownAt = now; else setMask(t, false);
+        }
+        if (vis) {
+          // dissolve in over the globe, which keeps drawing underneath until the tile is fully in
+          const fade = Math.min(1, (now - t.shownAt) / FADE_MS), fu = (t.mesh.material as THREE.ShaderMaterial).uniforms.uFade;
+          if (fu.value !== fade) { fu.value = fade; request(); }
+          if (fade >= 1 && !maskData[t.r * 72 + t.c]) setMask(t, true);
         }
       }
+      // progressive: tiles load nearest (or double-clicked) first, a couple at a time, also during a flight so
+      // the close-up builds up on the way in; meshes refine one stride step (4, 2, 1) at a time, one tile per
+      // REBUILD_MS, and the full-resolution step waits until the camera has stopped
+      for (const t of want) if (!t.mesh && !t.loading && !t.failed && inflight < (st.flying ? 1 : MAX_INFLIGHT)) void loadTile(t);
+      if (now - lastRebuild > REBUILD_MS) {
+        const re = [...want].find((t) => t.mesh && t.heights && t.stride !== t.want && (!st.flying || t.stride / 2 >= 2));
+        if (re && re.mesh && re.heights) {
+          const next = re.stride > re.want ? Math.max(re.want, re.stride / 2) : re.want;
+          const old = re.mesh.geometry;
+          re.mesh.geometry = tileGeometry(idx, re.heights, next).geo; old.dispose();
+          re.stride = next; lastRebuild = now; request();
+        }
+      }
+      if ([...want].some((t) => !t.mesh && !t.failed) || [...want].some((t) => t.mesh && t.stride !== t.want)) request(false);
+
       if (tiles.size > MAX_CACHED) {
         const old = [...tiles.values()].filter((t) => !want.has(t) && !t.loading).sort((x, y) => x.used - y.used);
         for (const t of old.slice(0, tiles.size - MAX_CACHED)) dropTile(t);
       }
+    }
+
+    /* ---------- mid-zoom colour/normal chunks (10 degrees), streamed into the atlases ---------- */
+    interface Chunk { r: number; c: number; slot: number; loaded: boolean; used: number }
+    const chunks = new Map<string, Chunk>();
+    const slotOwner: (Chunk | null)[] = Array(CH.slots * CH.slots).fill(null);
+    const imgLoader = new THREE.ImageLoader();
+    let chunkInflight = 0;
+    const CHUNK_M = (Math.PI * R_KM * 1000) / (CH.rows * CH.px);
+    const loadImg = (url: string) => new Promise<HTMLImageElement>((res, rej) => imgLoader.load(url, res, undefined, rej));
+    async function loadChunk(k: Chunk) {
+      chunkInflight++;
+      try {
+        const [ci, ni] = await Promise.all([loadImg(`${base}tiles/m/${k.r}_${k.c}.jpg`), loadImg(`${base}tiles/n/${k.r}_${k.c}.jpg`)]);
+        if (S.current !== st || slotOwner[k.slot] !== k) return;
+        const at = new THREE.Vector2((k.slot % CH.slots) * CH.px, Math.floor(k.slot / CH.slots) * CH.px);
+        for (const [img, atlas] of [[ci, atlasC], [ni, atlasN]] as const) {
+          const src = new THREE.Texture(img);
+          renderer.copyTextureToTexture(src, atlas, null, at);
+          src.dispose();
+        }
+        const o = (k.r * CH.cols + k.c) * 4;
+        chunkIdxData[o] = k.slot % CH.slots; chunkIdxData[o + 1] = Math.floor(k.slot / CH.slots); chunkIdxData[o + 2] = 255;
+        chunkIdx.needsUpdate = true; k.loaded = true;
+      } catch { /* leave it to the 2k maps */ }
+      finally { chunkInflight--; request(); }
+    }
+    /** Keep the chunks around the centre of the view loaded once the 2k maps are coarser than the screen. */
+    function updateChunks(now: number) {
+      const { cam, camR, P, dist, half, mpp } = viewGround();
+      if (mpp > CHUNK_M * 2) return;   // the shaders only use chunks below 2 chunk texels per pixel
+      const a = Math.min((dist * half * Math.max(camera.aspect, 1) * 1.4) / R_KM + 0.13, 1.4);
+      // a 10-degree chunk reaches ~7 degrees (0.13 rad) from its centre
+      const lim = Math.cos(Math.min(a + 0.13, Math.PI)), Pn = P.clone().normalize(), horizon = R_KM / camR;
+      const cand: [number, number, number][] = [];
+      for (let r = 0; r < CH.rows; r++) for (let c = 0; c < CH.cols; c++) {
+        const d = dirOf(85 - r * 10, -175 + c * 10);
+        const dp = d[0] * Pn.x + d[1] * Pn.y + d[2] * Pn.z;
+        if (dp < lim || (d[0] * cam.x + d[1] * cam.y + d[2] * cam.z) / camR < horizon - 0.15) continue;
+        cand.push([r, c, dp]);
+      }
+      cand.sort((x, y) => y[2] - x[2]);
+      const want = new Set<Chunk>();
+      for (const [r, c] of cand.slice(0, slotOwner.length - 8)) {
+        const key = `${r}_${c}`;
+        let k = chunks.get(key);
+        if (!k) {
+          if (chunkInflight >= MAX_INFLIGHT) continue;
+          let slot = slotOwner.indexOf(null);
+          if (slot < 0) {
+            // evict the least recently wanted chunk
+            let lru: Chunk | null = null;
+            for (const o of slotOwner) if (o && !want.has(o) && o.used < now && (!lru || o.used < lru.used)) lru = o;
+            if (!lru) continue;
+            slot = lru.slot; chunks.delete(`${lru.r}_${lru.c}`);
+            chunkIdxData[(lru.r * CH.cols + lru.c) * 4 + 2] = 0; chunkIdx.needsUpdate = true;
+          }
+          k = { r, c, slot, loaded: false, used: now };
+          chunks.set(key, k); slotOwner[slot] = k;
+          void loadChunk(k);
+        }
+        k.used = now; want.add(k);
+      }
+    }
+
+    /* ---------- south polar cap (LOLA 80S, 4096^2 heights): loaded only while the view is near the pole ---------- */
+    let capState: 'off' | 'loading' | 'on' = 'off';
+    async function loadCap() {
+      const sm = st.meta?.south; if (!sm) return;
+      capState = 'loading'; setStatus('Loading the south polar terrain');
+      try {
+        const sp = await decodeHeights(`${base}moon/south_height.png`, sm.hMinM, sm.quantumM);
+        if (S.current !== st || capState !== 'loading') return;
+        st.cap = { h: sp.data, n: sp.w, resM: sm.resM, x0: -sm.halfM + sm.resM / 2, y0: sm.halfM - sm.resM / 2 };
+        u.uCap.value = floatTex(sp.data, sp.w, sp.h, linearFloat, false, sp.mips); u.uCapHalf.value = sm.halfM; u.uCapRes.value = sm.resM; u.uCapOn.value = 1;
+        cap.geometry.dispose(); cap.geometry = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
+        cap.visible = true; capState = 'on';
+      } catch { capState = 'off'; }
+      finally { setStatus(''); request(); }
+    }
+    function dropCap() {
+      if (capState === 'on') {
+        (u.uCap.value as THREE.Texture).dispose(); u.uCap.value = blank; u.uCapOn.value = 0;
+        cap.visible = false; cap.geometry.dispose(); cap.geometry = new THREE.BufferGeometry();
+        st.cap = null; request();
+      }
+      capState = 'off';
+    }
+    function updateCap() {
+      const { P, camR } = viewGround(), lat = Math.asin(P.z / P.length()) * 180 / Math.PI, alt = camR - R_KM;
+      if (capState === 'off' && (st.mode === 'site' || (lat < -60 && alt < 4500))) void loadCap();
+      else if (capState !== 'off' && st.mode !== 'site' && (lat > -48 || alt > 7000)) dropCap();
     }
     S.current = st;
     if (import.meta.env.DEV) Object.assign(window as object, { __moon: st, __gsap: gsap });
@@ -530,6 +658,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       if (st.patch) u.uCamLocal.value.copy(camera.position).sub(st.patch.position);
       st.sun.position.copy(camera.position).addScaledVector(u.uSun.value, 1e5);
       updateTiles();
+      if (st.meta) { updateChunks(performance.now()); updateCap(); }
       const still = !moving && !st.flying, wasFresh = fresh;
       fresh = false;
       taa.accumulate = still && !wasFresh;
@@ -639,7 +768,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       if (ro.src) {
         const hiRes = st.hi?.resM ?? Infinity;
         const near = st.mode === 'site' && st.patch && dist < 40;
-        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
+        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 || !st.cap ? 'LROC WAC · LOLA global' : 'LOLA polar 148 m · LROC WAC')
           : mpp < hiRes / 3 && u.uDetail.value > 0 ? `LOLA ${hiRes} m + procedural below ${hiRes} m` : `LOLA ${hiRes} m/px`;
       }
       if (moving) request();
@@ -672,7 +801,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const ro = new ResizeObserver(() => { resizeTargets(); request(); });
     ro.observe(el);
 
-    /* progressive data loading: small textures first, then the 8k mosaic and the height maps */
+    /* startup loads only the 2k maps and the 4k global heights; everything finer streams in by view */
     const texture = (path: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => loader.load(`${base}${path}`, (tx) => {
       tx.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
       // the shaders put north at v = 0 (row 0 of the image), like the height maps; the loader's default
@@ -694,17 +823,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         if (!alive) return;
         st.eq = { h: eq.data, w: eq.w, hgt: eq.h };
         u.uEqH.value = floatTex(eq.data, eq.w, eq.h, linearFloat, true, eq.mips); request();
-        setStatus('Loading the south polar terrain');
-        const sm = meta.south;
-        const sp = await decodeHeights(`${base}moon/south_height.png`, sm.hMinM, sm.quantumM);
-        if (!alive) return;
-        st.cap = { h: sp.data, n: sp.w, resM: sm.resM, x0: -sm.halfM + sm.resM / 2, y0: sm.halfM - sm.resM / 2 };
-        u.uCap.value = floatTex(sp.data, sp.w, sp.h, linearFloat, false, sp.mips); u.uCapHalf.value = sm.halfM; u.uCapRes.value = sm.resM; u.uCapOn.value = 1;
-        cap.visible = true; request();
-        setStatus('Loading the 8k LROC mosaic');
-        const [c8, n8] = await Promise.all([texture('moon/color_8k.jpg', true), texture('moon/normal_8k.jpg', false)]);
-        if (!alive) return;
-        u.uColor.value = c8; u.uNormal.value = n8; c2.dispose(); n2.dispose();
+        // the rest streams in as the view needs it: colour/normal chunks, the south polar cap and the
+        // real-terrain tiles (updateChunks, updateCap, updateTiles)
         setStatus(''); request();
       } catch (e) { setStatus(`Some terrain failed to load (${String(e)})`); }
     })();
@@ -720,7 +840,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       st.flying?.kill(); st.controls.dispose();
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
       for (const t of [...tiles.values()]) dropTile(t);
-      composer.dispose(); tileMask.dispose();
+      composer.dispose(); tileMask.dispose(); chunkIdx.dispose(); atlasC.dispose(); atlasN.dispose();
       renderer.dispose(); renderer.domElement.remove(); S.current = null;
     };
   }, []);
