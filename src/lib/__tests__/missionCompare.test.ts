@@ -60,6 +60,8 @@ describe('mission comparison', () => {
   it('eras, years and distances', () => {
     expect(eraOf({ status: 'landed' })).toBe('past');
     expect(eraOf({ status: 'target' })).toBe('past');
+    expect(eraOf({ status: 'crashed' })).toBe('past');
+    expect(eraOf({ status: 'impact' })).toBe('past');
     expect(eraOf({ status: 'planned' })).toBe('future');
     expect(eraOf({ status: 'candidate' })).toBe('future');
     expect(eraOf({})).toBe('reference');

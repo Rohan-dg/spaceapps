@@ -8,10 +8,12 @@ export interface SiteInfo {
   siteHeightM: number; dem: string; demResolutionM: number | null; synthetic: boolean;
   stats: { sunPct: number; sunDiskPct: number; earthPct: number };
   approximate?: boolean;
-  /** Grouping in the site list: artemis | clps | apollo | international | reference (custom points have none). */
+  /** Who flew or plans it: artemis | clps | apollo | nasa | commercial | international | reference (custom points have none). */
   program?: string;
-  /** landed | planned | target (planned site of a failed landing) | candidate | reference */
+  /** landed | crashed | impact (deliberate or end of mission) | planned | target (planned site of a failed landing) | candidate | reference */
   status?: string;
+  /** Year of landing or impact, or planned year (e.g. "1966", "2027"). */
+  date?: string;
 }
 export interface SitesDoc { generated: string; range: { start: string; end: string; stepMin: number }; sites: SiteInfo[] }
 export interface HorizonFile {
@@ -73,14 +75,16 @@ export function useSiteData(id: string | null) {
   return data && data.info.id === id ? data : null;
 }
 
-/** Preload every site in the background so the site list can show live status. */
-export function useAllSites(ids: string[]) {
+/** Preload sites in the background so the site list can show live status. Ids in `lazy` are not preloaded:
+ *  their list rows load them when shown. */
+export function useAllSites(ids: string[], lazy?: ReadonlySet<string>) {
   const [, force] = useState(0);
+  const eager = ids.filter((id) => !lazy?.has(id));
   useEffect(() => {
     let live = true;
     // a site uploaded without its precomputed files just shows no status here (the mission sidebar computes it instead)
-    ids.forEach((id) => loadSite(id).then(() => live && force((x) => x + 1), () => undefined));
+    eager.forEach((id) => loadSite(id).then(() => live && force((x) => x + 1), () => undefined));
     return () => { live = false; };
-  }, [ids.join(',')]);
+  }, [eager.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   return ids.map((id) => getLoaded(id) ?? null);
 }
