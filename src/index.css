@@ -24,6 +24,7 @@
   color-scheme: dark;
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --r: 8px; --r-lg: 16px;
 }
 @media (prefers-color-scheme: light) {
@@ -1742,3 +1743,34 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { border-color
 .ct-kpi span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-theme='light'] { --glass: rgba(255, 255, 255, 0.86); }
 @media (max-width: 720px) { .explore .work-head h2, .simple-hero h2, .simple-empty h2 { font-size: 26px; } .chooser h2 { font-size: 28px; } .ct-bar { margin: 0; top: 0; border-radius: 0; border-width: 0 0 1px; } }
+
+/* ---------- Raycast-style: monospace and accents ----------
+   Geist Mono carries technical metadata: eyebrow tags, UTC times, coordinates, countdowns, keyboard keys,
+   badges, the footer strip and the 3D view's readouts. Reading text stays Inter.
+   Accents: coral marks the brand and the active place (selected tab, rail item, site row); ember hush tints
+   coral-anchored surfaces; info blue and success green are soft washes behind Earth and "good" content. */
+:root { --info: #56c2ff; --success: #59d499; --ember: #452324; }
+:root[data-theme='light'] { --info: #0a84d6; --success: #1a9b5f; --ember: #fde8e8; }
+.overline, .ct-from small, .answer-kind, .chooser-k, .slip-tick, .ct-chip, .site-status, .flag, kbd,
+.footer, .ab-time, .when .num, .ct-fields .num, .cd-big, .tl-head b, .tl-sub .num, .hud-tr, .hud-probe-sum, .moon-marker span + em, .site-year,
+.chooser-card em, .simple-date, .sm-meta, .sm-hover, .hz-note .num, .slip-table td.num, .readout td, .pair-vs .num {
+  font-family: var(--font-mono); font-feature-settings: 'calt', 'kern', 'liga', 'ss03', 'ss09';
+}
+.overline, .ct-from small, .answer-kind, .chooser-k { font-size: 10px; letter-spacing: 0.05em; font-weight: 500; }
+.footer, .ab-time { font-size: 12px; letter-spacing: 0.017em; font-weight: 400; }
+.cd-big { font-weight: 500; letter-spacing: 0; }
+.tl-head b { font-weight: 500; letter-spacing: -0.01em; }
+kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; }
+
+/* coral marks where you are */
+.ct-tabs button::after { background: var(--brand); }
+.ct-rail button.on { background: color-mix(in srgb, var(--brand) 16%, transparent); color: var(--brand); }
+.ct-home .logo-sun { fill: var(--brand); }
+.seg button[aria-checked='true'] .dot, .ct-tabs button[aria-selected='true'] svg { color: var(--brand); }
+/* soft washes: success green behind "good", info blue behind Earth contact, ember behind coral content */
+.simple-verdict li.lv-green b { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.simple-tile.on.earth { background: linear-gradient(180deg, color-mix(in srgb, var(--info) 7%, transparent), transparent 70%), var(--surface); }
+.simple-tile.on:not(.earth) { background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 6%, transparent), transparent 70%), var(--surface); }
+.site-group.featured { background: color-mix(in srgb, var(--ember) 55%, transparent); }
+.chooser-card em { background: var(--ember); }
+.answer-card.good .answer-word, .verdict.good .verdict-word { color: var(--success); }
