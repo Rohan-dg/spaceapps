@@ -7,13 +7,19 @@ import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import MissionCompare, { type MissionPair } from './components/MissionCompare';
-import AssistantChat from './components/AssistantChat';
+import AssistantChat, { type HelpContext } from './components/AssistantChat';
+import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
+import Countdown from './components/Countdown';
+import SlipPanel from './components/SlipPanel';
+import MoonEarth from './components/MoonEarth';
+import ShadowMap from './components/ShadowMap';
 import Export from './components/Export';
 import Guide from './components/Guide';
 import { Loading } from './components/Help';
 import Heatmap from './components/Heatmap';
+import PairCompare from './components/PairCompare';
 import MissionPanel from './components/MissionPanel';
 import { Summary } from './components/Metrics';
 import LibrationTool from './components/LibrationTool';
@@ -37,12 +43,13 @@ function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
   return { ...DEFAULT_PLAN, departure: t };
 }
-type View = 'panorama' | 'sky' | 'first';
-type Deep = 'libration' | 'calendar' | 'mission';
+type View = 'panorama' | 'sky' | 'first' | 'shadow';
+type Deep = 'libration' | 'calendar' | 'mission' | 'compare';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
   { id: 'first', label: 'First person' },
+  { id: 'shadow', label: 'Shadow map' },
 ];
 const MoonView = lazy(() => import('./components/MoonView'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
@@ -63,6 +70,7 @@ function readHash() {
 // Panels below the 3D view are memoised and fed a deferred time, so time playback and the 3D view stay smooth:
 // React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
 const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
+const SlipPanelM = memo(SlipPanel), MoonEarthM = memo(MoonEarth);
 const TimelineM = memo(Timeline), SummaryM = memo(Summary), ExportM = memo(Export);
 /** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
  *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
@@ -147,12 +155,15 @@ export default function App() {
   const onT = useCallback((x: number) => setT(x), []);
   const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
   // "Compare with another site": the next site picked (3D Moon or list) becomes the second column in Compare
-  const [cmpFrom, setCmpFrom] = useState<string | null>(null);
+  // Two points at a time: picking a different site keeps the previous one as the second site (B), so any two
+  // clicks on the 3D Moon or the list give a pair, and Compare lights up
+  const [partner, setPartner] = useState<string | null>(null);
   const chooseSite = useCallback((id: string) => {
-    if (cmpFrom && id !== cmpFrom) { setScenarios([{ siteId: cmpFrom, t }, { siteId: id, t }]); setCmpFrom(null); setMode('compare'); window.scrollTo({ top: 0 }); return; }
-    setSiteId(id);
-  }, [cmpFrom, t]);
-  const pickSite = useCallback((id: string) => { chooseSite(id); if (!cmpFrom && mode !== 'explore') setMode('explore'); }, [chooseSite, cmpFrom, mode]);
+    setSiteId((cur) => { if (cur && cur !== id) setPartner(cur); return id; });
+  }, []);
+  const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
+  const partnerData = useSiteData(partner && partner !== siteId ? partner : null);
+  const openCompare = () => { setDeep('compare'); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
   const onMoonSelect = useCallback((id: string) => {
     if (missionsOpen) setPair((p) => (p.active === 'a' ? { a: id, b: p.b, active: 'b' } : { a: p.a, b: id, active: 'a' }));
@@ -183,7 +194,7 @@ export default function App() {
         const h = (e.shiftKey ? 24 : 1) * (e.key === 'ArrowRight' ? 1 : -1);
         setT((x) => Math.max(range[0], Math.min(range[1], x + h * 3600000)));
       }
-      if (e.key === 'Escape') { setAbout(false); closeGuide(); setCmpFrom(null); }
+      if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'm' || e.key === 'M')) toggleMissions();
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
@@ -234,6 +245,22 @@ export default function App() {
     ];
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions]);
 
+  // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
+  const helpContext = useMemo<HelpContext>(() => {
+    const m = res?.metrics;
+    const pInfo = partner ? allSites.find((s) => s.id === partner) : null;
+    return {
+      mode, when: `${when(tl)} UTC`,
+      site: info ? { name: info.name, short: info.short, lat: info.lat, lon: info.lon, heightM: info.siteHeightM } : null,
+      now: m ? {
+        sunUp: m.sunUp, sunEl: m.sky.sun.el, earthUp: m.earthUp, earthEl: m.sky.earth.el,
+        sunNext: `the Sun ${m.sunUp ? 'sets' : 'rises'} ${eventText(m.sunUp ? m.nextSunset : m.nextSunrise, m.t)}`,
+        earthNext: `Earth ${m.earthUp ? 'sets' : 'rises'} ${eventText(m.earthUp ? m.nextEarthset : m.nextEarthrise, m.t)}`,
+      } : null,
+      ratings: res && m ? { power: { green: 'good', amber: 'marginal', red: 'poor' }[res.power.level], comms: { green: 'good', amber: 'marginal', red: 'poor' }[res.comms.level], sunPct: m.sunPct, earthPct: m.earthPct, longestDarkH: m.longestDarkH } : null,
+      partner: pInfo && pInfo.id !== siteId ? pInfo.short || pInfo.name : null,
+    };
+  }, [res, info, partner, allSites, siteId, mode, tl]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -272,13 +299,6 @@ export default function App() {
         <h1 className="ct-title">
           <button className="ct-home" onClick={goHome} title="Home: Explore, no site selected, whole Moon"><LogoMark size={22} /><span>Sol Teris</span></button>
         </h1>
-        <label className="preset-pick">
-          <span>Preset</span>
-          <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
-            <option value="">Select</option>
-            {PRESETS.map((p) => <option key={p.id} value={p.id} title={p.blurb}>{p.title}</option>)}
-          </select>
-        </label>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
@@ -296,10 +316,9 @@ export default function App() {
         <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
       </div>
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
-        <div className={`ct-map${cmpFrom ? ' picking' : ''}`}>
-          {cmpFrom && <div className="ct-pick-banner" role="status"><Columns2 size={15} /> Click a second site to compare with <b>{allSites.find((s) => s.id === cmpFrom)?.short}</b><button onClick={() => setCmpFrom(null)}>Cancel</button></div>}
+        <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -311,19 +330,17 @@ export default function App() {
             </section>
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>Review site</h2></header>
-              {info && (cmpFrom ? (
-                <div className="ct-picking" role="status">
-                  <span><b>Pick a second site</b> on the 3D Moon or in the list to compare with {info.short || info.name}.</span>
-                  <button onClick={() => setCmpFrom(null)}>Cancel</button>
-                </div>
-              ) : (
+              {info && (
                 <div className="ct-actions">
-                  <button className="ct-primary" onClick={() => setCmpFrom(siteId)}><Columns2 size={15} /> Compare with another site</button>
+                  <button className="ct-primary" disabled={!partnerData} onClick={openCompare}
+                    title={partnerData ? 'Open the side-by-side comparison' : 'Click a second site on the 3D Moon or in the list'}>
+                    <Columns2 size={15} /> {partnerData ? <>Compare <b>{partnerData.info.short || partnerData.info.name}</b> and <b>{info.short || info.name}</b></> : 'Click a second site to compare'}
+                  </button>
                   <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> Plan launch</button>
                   <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> Show logic</button>
                   <button onClick={() => setAbout(true)}><Info size={14} /> Explain</button>
                 </div>
-              ))}
+              )}
               {info ? (
                 <div className="ct-review">
                   <p className="ct-from"><span className="ct-from-ico"><Sparkles size={16} /></span><span><b>{info.name}</b>{info.approximate && <span className="flag flag-approx">approximate</span>}<small>{info.mission ?? 'Landing site'}</small></span></p>
@@ -373,6 +390,7 @@ export default function App() {
                   </div>
                   {view === 'panorama' ? <PanoramaM data={data} t={tl} height={300} />
                     : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
+                    : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} />
                     : <SkyPlotM data={data} t={tl} />}
                 </div>
 
@@ -388,16 +406,29 @@ export default function App() {
                   <TimelineM data={data} t={tl} onSeek={onT} />
                 </div>
 
+                <div className="instrument">
+                  <header className="pnl-h"><h3>If the landing date slips</h3><p>The same site at earlier and later landing dates: how far the date can move before the power or radio rating changes.</p></header>
+                  <SlipPanelM data={data} t={tl} t0={range[0]} t1={range[1]} onSeek={pickDay} playing={playing} />
+                </div>
+
+                <div className="instrument">
+                  <header className="pnl-h"><h3>Moon vs Earth</h3><p>This site next to the same latitude on Earth: why lunar days, shadows and sunsets need different planning.</p></header>
+                  <MoonEarthM data={data} t={tl} m={res.metrics} />
+                </div>
+
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>Detailed analysis</h3><p>{deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'libration' ? 'Earth\'s wobble and the Moon\'s orbital variation, and what they do to Earth contact here. CSV and JSON export below.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
+                    <div><h3>Detailed analysis</h3><p>{deep === 'compare' && partnerData ? 'The two picked sites side by side: conditions now, the next lunar day, the long run and an overall success score.' : deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'libration' ? 'Earth\'s wobble and the Moon\'s orbital variation, and what they do to Earth contact here. CSV and JSON export below.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
                       <button role="tab" className="seg-key" aria-selected={deep === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> Libration &amp; orbit</button>
+                      {partnerData && <button role="tab" aria-selected={deep === 'compare'} onClick={() => setDeep('compare')}>Compare</button>}
                       <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
                       <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
                     </div>
                   </div>
-                  {deep === 'calendar' ? (
+                  {deep === 'compare' && partnerData ? (
+                    <PairCompare a={partnerData} b={data} t={tl} onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
+                  ) : deep === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
                   ) : deep === 'mission' ? (
                     mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
@@ -433,6 +464,8 @@ export default function App() {
                 </div>
                 {[['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth.'],
                   ['Next 30 days', 'When the site is sunlit and when Earth is above the horizon.'],
+                  ['If the landing date slips', 'How far the landing date can move before the power or radio rating changes.'],
+                  ['Moon vs Earth', 'The selected site next to the same latitude on Earth.'],
                   ['Detailed analysis', 'Calendar, all figures and the mission plan for the selected site.']].map(([h, c]) => (
                   <div className="instrument" key={h}>
                     <header className="pnl-h"><h3>{h}</h3><p>{c}</p></header>
@@ -462,15 +495,16 @@ export default function App() {
       </footer>
       </div>
       {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} onPlanLaunch={(id) => { setMissionsOpen(false); setSiteId(id); setMode('launch'); window.scrollTo({ top: 0 }); }} />}
-      <AssistantChat sites={allSites} onAction={onHelpAction} />
+      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} />
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       <div className="action-bar">
+        {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} /> : (
         <span className="ab-ctx">
           <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
-          <span className="num muted">{when(t)} UTC</span>
-        </span>
+        </span>)}
+        <span className="ab-time num muted">{when(t)} UTC</span>
       </div>
     </div>
   );

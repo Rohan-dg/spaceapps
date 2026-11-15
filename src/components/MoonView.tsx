@@ -102,8 +102,8 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0 }: {
-  sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void;
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null }: {
+  sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
 }) {
@@ -800,7 +800,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     st.markers = siteList.map((s) => {
       const b = document.createElement('button');
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
-      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}`;
+      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id === secondId ? ' pair' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
@@ -820,7 +820,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief + 30)) };
     });
     st.request();
-  }, [siteList, selectedId, onSelect, relief]);
+  }, [siteList, selectedId, onSelect, relief, secondId]);
 
   /* ---------- camera flights ---------- */
   const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6, fov = SCALE_FOV) => {
