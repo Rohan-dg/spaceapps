@@ -591,7 +591,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         const toCam = camera.position.clone().sub(m.pos);
         const facing = toCam.dot(m.pos) / (toCam.length() * m.pos.length());
         const sx = ((tmp.x + 1) / 2) * w, sy = ((1 - tmp.y) / 2) * h;
-        const show = tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
+        // your own points are hidden only when they are on the far side of the Moon (or behind the camera);
+        // listed sites also fade at the very edge of the disc, off screen or right under the camera
+        const mine = m.el.classList.contains('mine');
+        const show = mine ? tmp.z < 1 && facing > 0
+          : tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
         m.el.style.opacity = show ? '1' : '0';
         m.el.style.pointerEvents = show ? 'auto' : 'none';
         m.el.style.transform = `translate(${sx}px, ${sy}px)`;
