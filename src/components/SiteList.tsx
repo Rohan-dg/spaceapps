@@ -8,7 +8,7 @@ import { LevelIcon } from './Metrics';
 const REGION: Record<string, string> = { 'south-pole': 'pole', 'high-latitude': 'high lat.', 'mid-latitude': 'mid lat.', equatorial: 'equator', 'far-side': 'far side' };
 /** Site-list groups, in display order. Custom points go last. */
 const GROUPS: { id: string; label: string }[] = [
-  { id: 'artemis', label: 'Artemis III candidate regions' },
+  { id: 'artemis', label: 'NASA Artemis III candidate regions' },
   { id: 'clps', label: 'NASA CLPS (commercial landers)' },
   { id: 'apollo', label: 'Apollo' },
   { id: 'international', label: 'Other countries' },
@@ -67,8 +67,11 @@ export default function SiteList({ sites, all, t, selected, onSelect }: { sites:
         const rows = sites.map((s, i) => ({ s, i })).filter(({ s }) => (s.approximate ? 'custom' : s.program ?? 'reference') === g.id);
         if (!rows.length) return null;
         return (
-          <section key={g.id} className="site-group" aria-label={g.label}>
-            <h3 className="site-group-h">{g.label}<span className="num">{rows.length}</span></h3>
+          <section key={g.id} className={`site-group${g.id === 'artemis' ? ' featured' : ''}`} aria-label={g.label}>
+            <h3 className="site-group-h">
+              <span>{g.label}{g.id === 'artemis' && <small>NASA's challenge sites: evaluate these first</small>}</span>
+              <span className="num">{rows.length}</span>
+            </h3>
             <ul className="site-list">
               {rows.map(({ s, i }) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={onSelect} />)}
             </ul>
