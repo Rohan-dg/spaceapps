@@ -26,7 +26,7 @@ export const isAttempt = (s: SiteInfo) => s.status === 'crashed' || s.status ===
 const groupOf = (s: SiteInfo) => (s.approximate ? 'custom' : isAttempt(s) ? 'attempts' : s.program ?? 'reference');
 const WORD = { green: 'good', amber: 'marginal', red: 'poor' } as const;
 
-const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect }: { info: SiteInfo; data: SiteData | null; t: number; selected: boolean; onSelect: (id: string) => void }) {
+const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect, onRemove }: { info: SiteInfo; data: SiteData | null; t: number; selected: boolean; onSelect: (id: string) => void; onRemove?: (id: string) => void }) {
   const own = useSiteData(preloaded ? null : info.id); // sites that aren't preloaded load when their row is shown
   const data = preloaded ?? own;
   const year = yearOf(info);
@@ -61,11 +61,12 @@ const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect }: 
           </>
         ) : <><span className="cell-status muted">…</span><span /></>}
       </button>
+      {onRemove && info.id.startsWith('custom') && <button className="site-remove" onClick={() => onRemove(info.id)} aria-label={`Remove ${info.short}`} title={`Remove ${info.short}`}>×</button>}
     </li>
   );
 });
 
-export default function SiteList({ sites, all, t, selected, onSelect }: { sites: SiteInfo[]; all: (SiteData | null)[]; t: number; selected: string; onSelect: (id: string) => void }) {
+export default function SiteList({ sites, all, t, selected, onSelect, onRemove }: { sites: SiteInfo[]; all: (SiteData | null)[]; t: number; selected: string; onSelect: (id: string) => void; onRemove?: (id: string) => void }) {
   const tq = Math.floor(t / 3600000) * 3600000; // hourly is plenty for the index; keeps playback smooth
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState('');
@@ -110,7 +111,7 @@ export default function SiteList({ sites, all, t, selected, onSelect }: { sites:
             </h3>
             {expanded && (
               <ul className="site-list" id={listId}>
-                {rows.map(({ s, i }) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={onSelect} />)}
+                {rows.map(({ s, i }) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={onSelect} onRemove={onRemove} />)}
               </ul>
             )}
           </section>

@@ -1113,7 +1113,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const g = st.terrainM(lat, lon);
       const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, lat, lon, g.h, g.resM);
       const distKm = sel ? v3(dirOf(sel.lat, sel.lon)).angleTo(v3(dirOf(lat, lon))) * R_KM : null;
-      st.probePos = v3(posOf(lat, lon, g.h * st.exag));
+      // a click that becomes one of your points is marked by its orange diamond alone, not the probe ring
+      st.probePos = pointRef.current ? null : v3(posOf(lat, lon, g.h * st.exag));
       setPeriod(null);
       setProbeMin(false); setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
