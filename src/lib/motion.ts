@@ -5,12 +5,12 @@
  * The highlight is the container's ::before, positioned through CSS variables, so React's DOM is never
  * touched. Controls inside the 3D views (.moon, .tv) are left alone.
  */
-const SEL = '.seg, .tabs';
+const SEL = '.seg, .tabs, .dash-dock, .ct-tabs';
 const SKIP = '.moon, .tv';
 
 function place(el: HTMLElement) {
-  const on = el.querySelector<HTMLElement>(':scope > [aria-checked="true"], :scope > [aria-selected="true"]');
-  if (!on) { el.classList.remove('ind-on'); return; }
+  const on = el.querySelector<HTMLElement>(':scope > [aria-checked="true"], :scope > [aria-selected="true"], :scope > [aria-pressed="true"]');
+  if (!on) { el.classList.remove('ind-on', 'ind-anim'); return; }
   el.style.setProperty('--ix', `${on.offsetLeft}px`);
   el.style.setProperty('--iy', `${on.offsetTop}px`);
   el.style.setProperty('--iw', `${on.offsetWidth}px`);
@@ -35,7 +35,7 @@ export function installMotion() {
   };
   let pending = false;
   const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; scan(); }); };
-  new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-checked', 'aria-selected'] });
+  new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-checked', 'aria-selected', 'aria-pressed'] });
   document.fonts?.ready.then(schedule);
   schedule();
 }
