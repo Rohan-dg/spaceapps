@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Level } from '../config/thresholds';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { formatDuration, type Event, type Metrics } from '../lib/metrics';
@@ -212,7 +212,19 @@ export default function Dashboard(p: DashProps) {
   const sunE = m ? (m.sunUp ? m.nextSunset : m.nextSunrise) : null;
   const earthE = m ? (m.earthUp ? m.nextEarthset : m.nextEarthrise) : null;
   const tabs = DASH_TABS.filter((x) => x.id !== 'compare' || p.partnerName);
-  const cur = p.sheet ? DASH_TABS.find((x) => x.id === p.sheet) : null;
+  // the sheet stays mounted for its closing animation, showing the last section until it has slid away
+  const open = p.sheet ? DASH_TABS.find((x) => x.id === p.sheet) ?? null : null;
+  const [last, setLast] = useState(open);
+  if (open && open !== last) setLast(open);
+  const cur = open ?? last;
+  const closing = !open && !!last;
+  const lastBody = useRef<ReactNode>(null);
+  if (open) lastBody.current = p.sheetBody;
+  useEffect(() => {
+    if (!closing) return;
+    const k = window.setTimeout(() => setLast(null), 260);
+    return () => window.clearTimeout(k);
+  }, [closing]);
   // Earth contact card: how much of the current contact (or blackout) stretch is left
   const eStart = data && m ? stretchStart(data.series.earthUp, data.series, tl) : null;
   const eFrac = earthE?.t != null && eStart != null ? Math.max(0, Math.min(1, (earthE.t - t) / (earthE.t - eStart))) : null;
@@ -320,17 +332,16 @@ export default function Dashboard(p: DashProps) {
       <TimeBar s={data?.series ?? null} t={t} t0={p.t0} t1={p.t1} onT={p.onT} playing={p.playing} onPlaying={p.onPlaying} speed={p.speed} onSpeed={p.onSpeed} onOpen={() => p.onSheet('conditions')} />
 
       {cur && (
-        <section className="dash-sheet glass" role="dialog" aria-label={cur.label}>
+        <section className={`dash-sheet glass${closing ? ' closing' : ''}`} role="dialog" aria-label={cur.label}>
           <header className="sh-head">
-            <div className="sh-tabs" role="tablist" aria-label="Panels">
-              {tabs.map((x) => (
-                <button key={x.id} role="tab" aria-selected={p.sheet === x.id} disabled={!data && x.id !== 'sites'} onClick={() => p.onSheet(x.id)}>{x.label}</button>
-              ))}
+            <span className="sh-ico" aria-hidden>{cur.icon}</span>
+            <div className="sh-title">
+              <h2>{cur.label}</h2>
+              <p className="sh-desc">{cur.desc}</p>
             </div>
             <button className="sh-close" onClick={() => p.onSheet(null)} aria-label="Close panel" title="Close (Esc)"><X size={16} /></button>
           </header>
-          <p className="sh-desc">{cur.desc}</p>
-          <div className="sh-body">{p.sheetBody}</div>
+          <div className="sh-body" key={cur.id}>{open ? p.sheetBody : lastBody.current}</div>
         </section>
       )}
     </>
