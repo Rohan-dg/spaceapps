@@ -964,7 +964,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const escRef = useRef<() => void>(() => {});
   escRef.current = () => {
     if (menuOpen) setMenuOpen(false);
-    else if (probe) clearProbe();
+    else if (probe && !probeMin) setProbeMin(true);
     else if (rangeOpen) setRangeOpen(false);
   };
   // the Display menu closes on any click outside it
@@ -1018,7 +1018,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const distKm = sel ? v3(dirOf(sel.lat, sel.lon)).angleTo(v3(dirOf(lat, lon))) * R_KM : null;
       st.probePos = v3(posOf(lat, lon, g.h * st.exag));
       setPeriod(null);
-      setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
+      setProbeMin(false); setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
       if (rangeOpen) {
         const next = { ...rangeIn, lat: lat.toFixed(4), lon: (((lon % 360) + 360) % 360).toFixed(4) };
@@ -1149,7 +1149,6 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     }
   };
 
-  const clearProbe = () => { const st = S.current; if (st) { st.probePos = null; st.request(); } setProbe(null); setPeriod(null); };
   // next-lunar-cycle shares: recomputed (debounced) when the point or the time changes
   useEffect(() => {
     if (!probe) return;
@@ -1210,9 +1209,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         {probe && (
           <div className={`hud-probe${probeMin ? ' min' : ''}`} aria-live="polite">
             <div className="hud-probe-head">
-              <button className="hud-collapse" aria-expanded={!probeMin} onClick={() => setProbeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Probed point</button>
-              <button onClick={clearProbe} aria-label="Clear probed point">×</button>
+              <button className="hud-collapse" aria-expanded={!probeMin} onClick={() => setProbeMin((x) => !x)}>
+                <span className="chev" aria-hidden>▾</span>Probed point
+                <span className="hud-probe-sum num">{probeMin ? fmtLatLon(probe.lat, probe.lon) : 'Hide'}</span>
+              </button>
             </div>
+            {/* collapses into its header bar instead of closing, so the result is always one click away */}
+            <div className="hud-probe-body"><div>
             <dl>
               <dt>Coordinates</dt><dd className="num">{fmtLatLon(probe.lat, probe.lon)}</dd>
               <dt>Elevation</dt><dd className="num">{probe.groundM >= 0 ? '+' : ''}{probe.groundM.toFixed(0)} m{probe.distKm !== null && <span className="dim"> · {probe.distKm < 10 ? probe.distKm.toFixed(2) : probe.distKm.toFixed(0)} km from {sel?.short || sel?.name}</span>}</dd>
@@ -1229,6 +1232,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
             {earthLineOn && now && <p className="hud-probe-note"><span className={`los-swatch${now.earthUp ? '' : ' blocked'}`} aria-hidden />Dotted line to Earth: {now.earthUp ? 'clear line of sight' : 'blocked by terrain or the Moon itself'}</p>}
             {onPlanLaunch && <button className="hud-probe-launch" onClick={() => onPlanLaunch(probe.lat, probe.lon)}>Plan a launch to here</button>}
             <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
+            </div></div>
           </div>
         )}
         {rangeOpen && (
