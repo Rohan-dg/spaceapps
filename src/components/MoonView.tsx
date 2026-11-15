@@ -115,6 +115,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   const earthPtr = useRef<HTMLDivElement>(null);
   const [pointers, setPointers] = useState(true);
   const [earthLineOn, setEarthLineOn] = useState(true);
+  const [sunLineOn, setSunLineOn] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [probeMin, setProbeMin] = useState(false);
@@ -133,7 +134,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
     request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[]; meta: TexMeta | null;
-    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line;
+    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
   } | null>(null);
@@ -195,12 +196,18 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     const rangeGroup = new THREE.Group();
     // dotted line of sight from the probed point to Earth (positions set by the probe effect); the depth test
     // hides it inside any terrain that blocks the view, so a blocked line visibly runs into the ridge
-    const earthLine = new THREE.Line(
-      new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)),
-      new THREE.LineDashedMaterial({ color: 0x6cb6ff, dashSize: 1, gapSize: 1, toneMapped: false, transparent: true, opacity: 0.95 }),
-    );
-    earthLine.frustumCulled = false; earthLine.renderOrder = 4; earthLine.visible = false;
-    scene.add(earthLine);
+    const sightLine = (color: number) => {
+      const l = new THREE.Line(
+        new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)),
+        new THREE.LineDashedMaterial({ color, dashSize: 1, gapSize: 1, toneMapped: false, transparent: true, opacity: 0.95 }),
+      );
+      l.frustumCulled = false; l.renderOrder = 4; l.visible = false;
+      scene.add(l);
+      return l;
+    };
+    const earthLine = sightLine(0x6cb6ff);
+    // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
+    const sunLine = sightLine(0xffd166);
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
@@ -257,7 +264,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
       flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[], meta: null as TexMeta | null,
-      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine,
+      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine, sunLine,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
     };
     const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000 }));
@@ -376,8 +383,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         }
       }
       // line to Earth: dot length follows the camera's distance to the probed point, so it reads as dotted at any zoom
-      if (st.earthLine.visible && st.probePos) {
-        const m = st.earthLine.material as THREE.LineDashedMaterial, dd = camera.position.distanceTo(st.probePos);
+      for (const l of [st.earthLine, st.sunLine]) {
+        if (!l.visible || !st.probePos) continue;
+        const m = l.material as THREE.LineDashedMaterial, dd = camera.position.distanceTo(st.probePos);
         m.dashSize = dd * 0.012; m.gapSize = dd * 0.012;
       }
       // probe and rover-range pins
@@ -885,22 +893,26 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   }, [g, sel]);
 
   const now = useMemo(() => (probe ? probeNow(probe.lat, probe.lon, probe.groundM, probe.hz, t) : null), [probe, t]);
-  // the line to Earth follows the probed point, Earth's position at time t, and the relief setting
+  // lines of sight from the probed point to Earth and toward the Sun follow the point, the time and the relief setting
   useEffect(() => {
     const st = S.current; if (!st) return;
-    const line = st.earthLine;
-    line.visible = !!(probe && now && earthLineOn);
-    if (line.visible && probe && now) {
+    const show = !!(probe && now);
+    st.earthLine.visible = show && earthLineOn;
+    st.sunLine.visible = show && sunLineOn;
+    if (show && probe && now) {
       const gg = st.terrainM(probe.lat, probe.lon);
-      const a = posOf(probe.lat, probe.lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag) + 2);
-      const e = new THREE.Vector3().setFromMatrixPosition(st.earth.matrix);
-      const pos = line.geometry.getAttribute('position') as THREE.BufferAttribute;
-      pos.setXYZ(0, a[0], a[1], a[2]); pos.setXYZ(1, e.x, e.y, e.z); pos.needsUpdate = true;
-      line.computeLineDistances();
-      (line.material as THREE.LineDashedMaterial).color.set(now.earthUp ? 0x6cb6ff : 0xef6a5f);
+      const a = v3(posOf(probe.lat, probe.lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag) + 2));
+      const set = (l: THREE.Line, end: THREE.Vector3, color: number) => {
+        const pos = l.geometry.getAttribute('position') as THREE.BufferAttribute;
+        pos.setXYZ(0, a.x, a.y, a.z); pos.setXYZ(1, end.x, end.y, end.z); pos.needsUpdate = true;
+        l.computeLineDistances();
+        (l.material as THREE.LineDashedMaterial).color.set(color);
+      };
+      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x6cb6ff : 0xef6a5f);
+      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xffd166 : now.sunPct > 0.5 ? 0xff9f43 : 0xef6a5f);
     }
     st.request();
-  }, [probe, now, earthLineOn, relief, hiInfo]);
+  }, [probe, now, earthLineOn, sunLineOn, relief, hiInfo]);
 
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
@@ -937,6 +949,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
               <dt>Next 29.5 days</dt>
               <dd>{period ? <>Sunlit <b>{fmtPct(period.sunPct)}</b> · Earth in view <b>{fmtPct(period.earthPct)}</b><br /><span className="dim">longest dark {period.longestDarkH >= 708 ? 'whole cycle' : `${period.longestDarkH.toFixed(1)} h`} · longest without Earth {period.longestNoEarthH >= 708 ? 'whole cycle' : `${period.longestNoEarthH.toFixed(1)} h`}</span></> : <span className="dim">Computing…</span>}</dd>
             </dl>
+            {sunLineOn && now && <p className="hud-probe-note"><span className={`los-swatch sun${now.sunPct >= 99.5 ? '' : now.sunPct > 0.5 ? ' partial' : ' blocked'}`} aria-hidden />Dotted line to the Sun: {now.sunPct >= 99.5 ? 'whole disc in view' : now.sunPct > 0.5 ? 'partly behind the skyline' : 'blocked by terrain or the Moon itself'}</p>}
             {earthLineOn && now && <p className="hud-probe-note"><span className={`los-swatch${now.earthUp ? '' : ' blocked'}`} aria-hidden />Dotted line to Earth: {now.earthUp ? 'clear line of sight' : 'blocked by terrain or the Moon itself'}</p>}
             {onPlanLaunch && <button className="hud-probe-launch" onClick={() => onPlanLaunch(probe.lat, probe.lon)}>Plan a launch to here</button>}
             <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
@@ -1013,6 +1026,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
                   ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],
                   ['sparkle', 'Fine detail', detail, () => setDetail((x) => !x), 'Procedural craters and rocks below the resolution of the real data. Illustrative only.'],
                   ['compass', 'Line to Earth', earthLineOn, () => setEarthLineOn((x) => !x), 'Dotted line from the probed point to Earth: blue when Earth is in view, red when terrain blocks it'],
+                  ['lamp', 'Line to Sun', sunLineOn, () => setSunLineOn((x) => !x), 'Dotted line from the probed point toward the Sun: yellow when the whole disc is visible, orange when partly blocked, red when blocked'],
                 ] as const).map(([icon, label, on, toggle, title]) => (
                   <button key={label} role="menuitemcheckbox" aria-checked={on} className="hud-menu-item" onClick={toggle} title={title}>
                     <Icon name={icon} /><span>{label}</span><span className={`hud-switch${on ? ' on' : ''}`} aria-hidden />
