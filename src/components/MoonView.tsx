@@ -19,6 +19,8 @@ import { type EqGrid, type PolarGrid, R_KM, type V3, dirOf, enu, posOf, sampleEq
 import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V } from '../lib/moon/shaders';
 import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moon/probe';
 import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSurfaceSampler } from '../lib/moon/surface';
+import { roverRange, validateRover } from '../lib/moon/rover';
+import { DEFAULT_PLAN } from '../lib/mission';
 import { Icon } from './Icons';
 const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
@@ -83,6 +85,9 @@ const fmtLatLon = (lat: number, lon: number) => {
 };
 const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFixed(1)}%`;
 const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
+/** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
+const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
+interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null }
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
@@ -104,6 +109,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   const [probe, setProbe] = useState<Probe | null>(null);
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
+  const rangePin = useRef<HTMLDivElement>(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
+  const [rangeErr, setRangeErr] = useState<string | null>(null);
+  const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
 
   // everything three.js lives here so React re-renders never rebuild the scene
@@ -112,7 +122,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
     request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[]; meta: TexMeta | null;
-    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null;
+    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
   } | null>(null);
@@ -170,6 +180,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     core.scale.setScalar(R_KM - CORE_DEPTH_KM);
     core.renderOrder = 1;
     scene.add(core);
+    // rover range rings (filled in by the range effect)
+    const rangeGroup = new THREE.Group();
+    scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
     const cap = new THREE.Mesh(cGeo, mat(CAP_V, CAP_F));
@@ -225,7 +238,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
       flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[], meta: null as TexMeta | null,
-      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM,
+      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
     };
     const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000 }));
@@ -311,10 +324,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         m.el.style.pointerEvents = show ? 'auto' : 'none';
         m.el.style.transform = `translate(${sx}px, ${sy}px)`;
       }
-      // probe pin
-      const pin = probePin.current;
-      if (pin) {
-        const pp = st.probePos;
+      // probe and rover-range pins
+      for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos]] as const) {
+        if (!pin) continue;
         let show = false;
         if (pp) {
           tmp.copy(pp).project(camera);
@@ -650,8 +662,81 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       setPeriod(null);
       setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
+      if (rangeOpen) {
+        const next = { ...rangeIn, lat: lat.toFixed(4), lon: (((lon % 360) + 360) % 360).toFixed(4) };
+        setRangeIn(next);
+        applyRangeRef.current(next, false);
+      }
     };
-  }, [sel]);
+  }, [sel, rangeOpen, rangeIn]);
+  /* ---------- rover range on battery ---------- */
+  const groundAt = (lat: number, lon: number) => {
+    const st = S.current!; const gg = st.terrainM(lat, lon);
+    return { true: gg.h, drawn: gg.h * (gg.src.includes('site patch') ? 1 : st.exag) };
+  };
+  const applyRange = (inp: typeof rangeIn, flyThere: boolean) => {
+    const st = S.current; if (!st) return;
+    const q = { lat: Number(inp.lat), lon: Number(inp.lon), batteryH: Number(inp.hours), speedKmH: Number(inp.speed) };
+    const err = validateRover(q);
+    setRangeErr(err);
+    if (err) return;
+    const r = roverRange(q, 4);
+    const h0 = groundAt(q.lat, q.lon).true;
+    // can the battery carry the rover through the longest dark stretch here in the next lunar cycle?
+    let longestDarkH: number | null = null;
+    try {
+      const gg = st.terrainM(q.lat, q.lon);
+      const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, h0, gg.resM);
+      longestDarkH = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000).longestDarkH;
+    } catch { longestDarkH = null; }
+    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH });
+    if (flyThere) {
+      const { e, n, u } = enu(q.lat, q.lon);
+      const target = v3(posOf(q.lat, q.lon, groundAt(q.lat, q.lon).drawn)), U = v3(u);
+      const off = v3(n).multiplyScalar(-Math.cos(1.0)).add(v3(e).multiplyScalar(0.25)).add(U.clone().multiplyScalar(Math.sin(1.0))); // look down at ~57° from the south-east
+      fly(target.clone().addScaledVector(off.normalize(), Math.min(6000, Math.max(3, r.oneWayKm * 3.4))), target, U, 'site');
+    }
+  };
+  const applyRangeRef = useRef(applyRange);
+  useEffect(() => { applyRangeRef.current = applyRange; });
+  // draw the rings on the terrain; redrawn when the relief or the loaded heights change
+  useEffect(() => {
+    const st = S.current; if (!st) return;
+    const grp = st.rangeGroup;
+    grp.children.forEach((o) => { const l = o as THREE.Line; l.geometry.dispose(); (l.material as THREE.Material).dispose(); });
+    grp.clear();
+    st.rangePos = null;
+    if (rangeShown) {
+      const r = roverRange(rangeShown, 512);
+      const lift = Math.max(25, rangeShown.oneWayKm * 3); // metres above the ground so the ring is not buried in the surface
+      const ringLine = (pts: { lat: number; lon: number }[], color: number, dashed: boolean) => {
+        const arr = new Float32Array(pts.length * 3);
+        pts.forEach((p, i) => { const q = posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift); arr.set(q, i * 3); });
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+        const m = dashed
+          ? new THREE.LineDashedMaterial({ color, dashSize: Math.max(0.02, rangeShown.returnKm * 0.06), gapSize: Math.max(0.015, rangeShown.returnKm * 0.04), toneMapped: false })
+          : new THREE.LineBasicMaterial({ color, toneMapped: false });
+        const line = new THREE.LineLoop(g, m);
+        if (dashed) line.computeLineDistances();
+        line.frustumCulled = false; line.renderOrder = 3;
+        grp.add(line);
+      };
+      ringLine(r.ring, 0x7cc4ff, false);
+      ringLine(r.returnRing, 0x7cc4ff, true);
+      st.rangePos = v3(posOf(rangeShown.lat, rangeShown.lon, groundAt(rangeShown.lat, rangeShown.lon).drawn));
+    }
+    st.request();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeShown, relief, hiInfo]);
+  const openRange = () => {
+    if (rangeOpen) { setRangeOpen(false); return; }
+    setRangeOpen(true);
+    if (!rangeIn.lat) {
+      const c = probe ?? sel;
+      if (c) setRangeIn((x) => ({ ...x, lat: c.lat.toFixed(4), lon: (((c.lon % 360) + 360) % 360).toFixed(4) }));
+    }
+  };
+
   const clearProbe = () => { const st = S.current; if (st) { st.probePos = null; st.request(); } setProbe(null); setPeriod(null); };
   // next-lunar-cycle shares: recomputed (debounced) when the point or the time changes
   useEffect(() => {
@@ -678,7 +763,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     <section className="moon" aria-label="3D Moon">
       <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point." />
       <div ref={labels} className="moon-markers" />
-      <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div></div>
+      <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div></div>
       <div ref={hud} className="moon-hud">
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
@@ -720,7 +805,40 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
           </div>
           {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
         </div>
+        {rangeOpen && (
+          <form className="hud-range" onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
+            <div className="hud-probe-head">
+              <span>Rover range on battery</span>
+              <button type="button" onClick={() => setRangeOpen(false)} aria-label="Close rover range">×</button>
+            </div>
+            <div className="range-grid">
+              <label>Latitude °<input id="range-lat" inputMode="decimal" value={rangeIn.lat} onChange={(e) => setRangeIn({ ...rangeIn, lat: e.target.value })} placeholder="-89.45" /></label>
+              <label>Longitude ° E<input id="range-lon" inputMode="decimal" value={rangeIn.lon} onChange={(e) => setRangeIn({ ...rangeIn, lon: e.target.value })} placeholder="222.69" /></label>
+              <label>Battery life without sun (h)<input id="range-hours" inputMode="decimal" value={rangeIn.hours} onChange={(e) => setRangeIn({ ...rangeIn, hours: e.target.value })} /></label>
+              <label>Driving speed (km/h)<input id="range-speed" inputMode="decimal" value={rangeIn.speed} onChange={(e) => setRangeIn({ ...rangeIn, speed: e.target.value })} /></label>
+            </div>
+            <div className="range-actions">
+              <button type="submit" className="range-go">Show range</button>
+              <span className="dim">or click the Moon to set the start</span>
+            </div>
+            {rangeErr && <p className="range-err" role="alert">{rangeErr}</p>}
+            {rangeShown && !rangeErr && (
+              <dl aria-live="polite">
+                <dt>Start</dt><dd className="num">{fmtLatLon(rangeShown.lat, rangeShown.lon)}</dd>
+                <dt>Distance on battery</dt><dd><b>{rangeShown.oneWayKm < 10 ? rangeShown.oneWayKm.toFixed(2) : rangeShown.oneWayKm.toFixed(1)} km</b> one way <span className="swatch solid" /><br /><span className="dim">{rangeShown.batteryH} h × {rangeShown.speedKmH} km/h</span></dd>
+                <dt>Out and back</dt><dd><b>{rangeShown.returnKm < 10 ? rangeShown.returnKm.toFixed(2) : rangeShown.returnKm.toFixed(1)} km</b> radius <span className="swatch dashed" /></dd>
+                {rangeShown.longestDarkH !== null && <>
+                  <dt>Longest dark here</dt>
+                  <dd>{rangeShown.longestDarkH >= 708 ? 'whole next cycle' : `${rangeShown.longestDarkH.toFixed(1)} h`} in the next 29.5 days<br />
+                    <b className={rangeShown.batteryH >= rangeShown.longestDarkH ? 'ok' : 'no'}>{rangeShown.batteryH >= rangeShown.longestDarkH ? 'Battery outlasts it' : `Battery runs out ${(Math.min(rangeShown.longestDarkH, 708) - rangeShown.batteryH).toFixed(1)} h early`}</b></dd>
+                </>}
+              </dl>
+            )}
+            <p className="hud-probe-note">Straight-line reach on flat ground at constant speed. Slopes and detours shorten it; the mission planner routes around them.</p>
+          </form>
+        )}
         <div className="hud-br hud-anim">
+          <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
           <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)} title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
           <button className={`hud-toggle${shadows ? ' on' : ''}`} aria-pressed={shadows} onClick={() => setShadows((x) => !x)} title="Cast shadows, ray-traced on the LOLA heights"><Icon name="shadow" /> Shadows</button>
           <button className={`hud-toggle${relief > 1 ? ' on' : ''}`} aria-pressed={relief > 1} onClick={() => setRelief((x) => (x > 1 ? 1 : 3))} title="Exaggerate the relief 3×"><Icon name="mountain" /> Relief ×3</button>
