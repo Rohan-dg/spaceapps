@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Opening sting, on black: a laptop rises and flips up, its lid swings open and the screen lights, the camera
- * dives into the screen, then the wordmark slams in ("Sol" whips in from the left, the orange "Teris" box drops,
- * squashes and bounces) and shakes before the overlay fades to reveal the app, which loads underneath throughout.
- * Silent, about 4 s, skipped by any click or key, and not shown at all when the OS asks for reduced motion.
+ * Opening sting, on black: an orange laptop rises and flips up, its lid swings open and the screen lights, the camera
+ * dives into the screen, then the wordmark builds ("Sol" slides in, the orange "Teris" box pops in) before the
+ * overlay fades to reveal the app, which loads underneath throughout. Silent, about 3.9 s, skipped by any click
+ * or key, and not shown at all when the OS asks for reduced motion.
  * The timings live in the CSS (index.css, "opening sting"); LEAVE_MS is when the fade-out starts.
  */
-const LEAVE_MS = 3700;
+const LEAVE_MS = 3500;
 
 export default function Intro() {
   const [show, setShow] = useState(() => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
