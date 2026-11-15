@@ -851,3 +851,47 @@ kbd {
   .hud-tr { top: 84px; }
   .moon-hud > .hud-panels { top: 124px; }
 }
+
+/* ---------- Explore: mission-document styling (scoped to the panels under the 3D view) ---------- */
+.explore .work { counter-reset: step; gap: 22px; }
+.explore .work-head { padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+.explore .work-head h2 { font-size: 20px; letter-spacing: -0.01em; }
+.explore .work-head .when { font: 12px var(--font-mono); color: var(--ink-2); }
+.explore .overline { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); }
+.explore .sec-h.step { counter-increment: step; font: 600 11.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); }
+.explore .sec-h.step::before { content: counter(step, decimal-leading-zero); color: var(--accent); padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--line); }
+.explore .instrument, .explore .deep { gap: 10px; padding-top: 0; }
+.explore .view-head { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.explore .instrument > .sec-h.step { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+/* status board: flat cells with a status rule on top */
+.explore .answer { gap: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.explore .answer-now, .explore .answer-card { border: 0; border-radius: 0; background: transparent; border-top: 3px solid var(--line); padding: 10px 14px 12px; }
+.explore .answer-card { border-left: 1px solid var(--line); }
+.explore .answer-card.good { border-top-color: var(--good); }
+.explore .answer-card.warn { border-top-color: var(--warn); }
+.explore .answer-card.poor { border-top-color: var(--poor); }
+.explore .answer-kind { font: 600 10.5px var(--font-mono); letter-spacing: 0.1em; }
+.explore .answer-word { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
+.explore .answer-foot { padding: 6px 14px; border-top: 1px solid var(--line); font: 11.5px var(--font-mono); }
+@media (max-width: 720px) { .explore .answer-card { border-left: 0; } }
+
+/* rail facts */
+.explore .site-info, .explore .plan { border-radius: 4px; }
+.explore .facts th { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* tables: hairline engineering tables */
+.explore .readout, .explore .mv-table, .explore .compare-table { border-top: 1px solid var(--ink-2); }
+.explore .mv-table .mv-group th { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); padding-top: 16px; }
+.explore .mv-n { font: 11px var(--font-mono); width: 40px; }
+.explore .mv-name { font-weight: 500; }
+.explore .mv-val small { margin-top: 2px; }
+.explore .prio, .explore .src { background: none; border-radius: 0; padding: 0; margin: 0; font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+.explore .prio::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px; background: var(--ink-2); }
+.explore .prio-crit { color: var(--ink); } .explore .prio-crit::before { background: var(--accent); }
+.explore .prio-high::before { background: var(--warn); }
+.explore .prio-extra::before { background: transparent; box-shadow: inset 0 0 0 1px var(--ink-2); }
+.explore .src-live { color: var(--ink); } .explore .src-input { color: var(--accent); }
+.explore .mv-tags { text-align: left !important; padding-right: 12px !important; }
+.explore .mchart, .explore .readout-box { border-radius: 4px; }
+.explore .seg { border-radius: 4px; } .explore .seg button { border-radius: 3px; }
