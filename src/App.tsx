@@ -1,7 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
@@ -24,7 +24,6 @@ import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
 import { simSnapshot, useMission } from './lib/useMission';
 import { useScenario } from './lib/useScenario';
-import { computeMetrics } from './lib/metrics';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
 const PLAN_KEY = 'lsc-mission-plan';
@@ -53,6 +52,16 @@ function readHash() {
     scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
   };
 }
+
+// Panels below the 3D view are memoised and fed a deferred time, so time playback and the 3D view stay smooth:
+// React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
+const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
+const TimelineM = memo(Timeline), SummaryM = memo(Summary), ReadoutM = memo(Readout), ExportM = memo(Export);
+/** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search). */
+const upAt = (a: ArrayLike<number | boolean>, s: { t0: number; stepMs: number; n: number }, t: number) => {
+  const i = Math.round((t - s.t0) / s.stepMs);
+  return i >= 0 && i < s.n && !!a[i];
+};
 
 const fmtLon = (lon: number) => { const l = ((lon % 360) + 360) % 360; return l > 180 ? `${(360 - l).toFixed(3)}° W` : `${l.toFixed(3)}° E`; };
 const fmtLat = (lat: number) => `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}`;
@@ -87,22 +96,22 @@ export default function App() {
   const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
   const all = useAllSites(ids);
   const data = useSiteData(siteId);
-  const res = useScenario(data, t);
+  const tl = useDeferredValue(t);
+  const res = useScenario(data, tl);
   const info = allSites.find((s) => s.id === siteId);
-  // summary strip: how many tracked sites are sunlit / see Earth at the current time (hourly is plenty)
-  const tq = Math.floor(t / 3600000) * 3600000;
+  // summary strip: how many tracked sites are sunlit / see Earth now, read from each site's precomputed series
+  const tq = Math.floor(tl / 3600000) * 3600000;
   const kpi = useMemo(() => {
     let n = 0, sun = 0, earth = 0;
     for (const d of all) {
       if (!d) continue;
-      const m = computeMetrics({ lat: d.horizon.lat, lon: d.horizon.lon, heightM: d.horizon.siteHeightM + d.horizon.observerHeightM }, d.horizon.horizonDeg, d.series, tq);
-      n++; if (m.sunUp) sun++; if (m.earthUp) earth++;
+      n++; if (upAt(d.series.sunUp, d.series, tq)) sun++; if (upAt(d.series.earthUp, d.series, tq)) earth++;
     }
     return { n, sun, earth };
   }, [all, tq]);
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
-  const mission = useMission(data, res, plan, t);
+  const mission = useMission(data, res, plan, tl);
   const [calc, setCalc] = useState<CalcState>(initialCalc);
 
   useEffect(() => {
@@ -114,6 +123,7 @@ export default function App() {
   }, [siteId, t, mode, scenarios, playing]);
 
   const onT = useCallback((x: number) => setT(x), []);
+  const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
   const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
   const [homeSignal, setHomeSignal] = useState(0);
@@ -243,7 +253,7 @@ export default function App() {
           <aside className="ct-side">
             <section className="ct-panel">
               <header className="ct-panel-h"><span className="ct-badge">A</span><h2>Landing sites</h2><span className="ct-chip num">{allSites.length} sites</span></header>
-              <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
+              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={setSiteId} />
               <CustomSite doc={doc} onReady={addCustom} />
             </section>
             <section className="ct-panel">
@@ -289,7 +299,7 @@ export default function App() {
                 </div>
                 <div className="instrument">
                   <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
-                  <Summary r={res} />
+                  <SummaryM r={res} />
                 </div>
 
                 <div className="instrument">
@@ -301,8 +311,8 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  {view === 'panorama' ? <Panorama data={data} t={t} height={300} />
-                    : <SkyPlot data={data} t={t} />}
+                  {view === 'panorama' ? <PanoramaM data={data} t={tl} height={300} />
+                    : <SkyPlotM data={data} t={tl} />}
                 </div>
 
                 <div className="instrument">
@@ -314,7 +324,7 @@ export default function App() {
                       <li><span className="swatch swatch-line" aria-hidden /> Now</li>
                     </ul>
                   </div>
-                  <Timeline data={data} t={t} onSeek={onT} />
+                  <TimelineM data={data} t={tl} onSeek={onT} />
                 </div>
 
                 <section className="deep" aria-label="Detail">
@@ -327,7 +337,7 @@ export default function App() {
                     </div>
                   </div>
                   {deep === 'calendar' ? (
-                    <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }} />
+                    <HeatmapM data={data} t={tl} onPick={pickDay} />
                   ) : deep === 'mission' ? (
                     mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
                       onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
@@ -335,8 +345,8 @@ export default function App() {
                       onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
                   ) : (
                     <div className="numbers">
-                      <Readout r={res} />
-                      <Export d={data} r={res} />
+                      <ReadoutM r={res} />
+                      <ExportM d={data} r={res} />
                     </div>
                   )}
                 </section>
