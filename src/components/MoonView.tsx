@@ -1610,7 +1610,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
           {/* a direct switch in both modes, not tucked in the Display menu */}
           <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
-            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
+            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (

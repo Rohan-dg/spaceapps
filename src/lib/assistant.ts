@@ -68,7 +68,7 @@ export const TOPICS: Topic[] = [
     answer: 'Drag to rotate, scroll or pinch to zoom. Click a point to glide to a top-down view over it and see its light and Earth contact; double-click for a near-horizontal view of the terrain. The Moon button (or H) returns to the whole Moon, Esc closes panels, and Expand makes the Moon fill the window.',
     actions: [{ type: 'home', label: 'Back to the whole Moon' }] },
   { id: 'display', examples: ['shadows', 'light up dark areas', 'see the night side', 'relief exaggeration', 'display menu', 'turn off shadows', 'floodlight'],
-    answer: 'The Display menu on the 3D Moon has switches for Light dark areas (a floodlight so night-side and shadowed ground are visible), Sun & Earth pointers, lines to Earth and the Sun, Shadows, Relief ×3 and Fine detail. They change the picture only, not the numbers.' },
+    answer: 'The Display menu on the 3D Moon has switches for Remove shadows (a floodlight so night-side and shadowed ground are visible), Sun & Earth pointers, lines to Earth and the Sun, Shadows, Relief ×3 and Fine detail. They change the picture only, not the numbers.' },
   { id: 'probe', examples: ['what happens when i click a point', 'probe a point', 'light at any point', 'is earth visible from this point', 'probed point panel', 'line to earth'],
     answer: 'Clicking any point opens the Probed point panel: coordinates, elevation, how much of the Sun is visible now, whether Earth is in view, and the shares over the next 29.5 days. Dotted lines run to Earth and toward the Sun, blue or yellow when clear and red when blocked.' },
   { id: 'rover', examples: ['rover range', 'how far can a rover drive', 'battery range', 'can the rover reach sunlight', 'rover distance on battery'],
