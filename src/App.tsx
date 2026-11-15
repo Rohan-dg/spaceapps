@@ -117,6 +117,12 @@ const COPY = {
   },
 };
 const NO_SITES: SiteInfo[] = [];
+/** One line under the workspace name on the Scientific dashboard. */
+const TOOL_DESC = {
+  compare: 'Up to four site and date scenarios side by side. The best value in each row is marked.',
+  calc: 'Every equation behind the numbers. Pick one, choose the unknown, and solve; Fill from sim copies in the live values.',
+  launch: 'Departure times from US launch sites that land at the chosen site in good light and with Earth in view.',
+};
 /** The Analysis panel's tabs (Scientific mode), in reading order; Compare is added when two sites are picked. */
 const ANALYSIS_TABS: [Deep, string][] = [
   ['horizon', 'Horizon'], ['month', 'Next 30 days'], ['slip', 'Date slip'], ['earth', 'Moon vs Earth'],
@@ -208,7 +214,10 @@ export default function App() {
   const [deep, setDeep] = useState<Deep>('horizon');
   // Scientific Explore is a dashboard over the Moon; its panels open one sheet at a time
   const [sheet, setSheet] = useState<DashTab | null>(null);
-  const dash = expert && mode === 'explore';
+  // every Scientific workspace uses the dashboard layout; Explore has the full set of floating panels,
+  // Compare, Calculator and Launch put their tool in a widened right-hand glass panel
+  const dash = expert;
+  const dashExplore = dash && mode === 'explore';
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -635,14 +644,14 @@ export default function App() {
           )}
         </div>
       </section>}
-      <div className={dash ? 'dash' : mode === 'explore' ? 'ct-split' : 'hero'}>
+      <div className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} />
           </Suspense>
         </div>
-        {dash && (
+        {dashExplore && (
           <Dashboard data={data} res={res} info={info} updating={updating} t={t} tl={tl} t0={range[0]} t1={range[1]} onT={onT}
             playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed}
             goodSites={goodSites} activeCount={active.length} onPickSite={chooseSite}
@@ -651,6 +660,19 @@ export default function App() {
             sheet={sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
             utils={[]} />
         )}
+        {dash && !dashExplore && (<>
+          <header className="dash-hero dash-mode-hero">
+            <p className="dh-k"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b></p>
+            <p className="dmh-d">{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</p>
+          </header>
+          <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
+            <div className="dw-body" key={mode}>
+              {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
+                : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
+                : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
+            </div>
+          </section>
+        </>)}
         {mode === 'explore' && !dash && (
           <aside className="ct-side">
             <section className="ct-panel">

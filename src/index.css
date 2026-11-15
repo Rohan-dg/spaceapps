@@ -2413,3 +2413,32 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 }
 .dash .moon-hud > .hud-panels { justify-content: flex-start; }
 .dash .hud-panels > :first-child { margin-top: 0; }
+
+/* Compare, Calculator and Launch on the dashboard: the same scene, the right-hand glass panel widened to hold the tool */
+.dash:not(.dash-explore) { --sideW: min(900px, 60vw); --L: var(--gap); }
+.dash-wide { right: var(--gap); top: var(--T); bottom: var(--gap); width: var(--sideW); display: flex; flex-direction: column; overflow: hidden;
+  background: rgba(10, 11, 14, 0.78) !important; --surface: rgba(255, 255, 255, 0.025); --surface-2: rgba(255, 255, 255, 0.06); --line: rgba(255, 255, 255, 0.08);
+  animation: wide-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes wide-in { from { opacity: 0; transform: translateX(24px); } }
+.dw-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 20px 24px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
+.dw-body > * { max-width: none; }
+.dash-mode-hero { max-width: calc(100% - var(--R) - var(--gap) * 2) !important; }
+.dash-mode-hero .dh-k b { font-size: 34px; font-weight: 300; letter-spacing: -0.03em; display: block; line-height: 1.1; }
+.dmh-d { margin: 0; max-width: 340px; font-size: 13px; line-height: 1.5; color: var(--dim); }
+.dash:not(.dash-explore) .hud-tr { display: none; }
+.dash:not(.dash-explore) .hud-bl { left: var(--gap); bottom: var(--gap); }
+.dash:not(.dash-explore) .hud-br { right: var(--R); bottom: var(--gap); max-width: calc(100% - var(--R) - 260px); }
+.dash:not(.dash-explore) .moon-hud > .hud-panels { left: var(--gap); top: 190px; bottom: 120px; }
+.dash-wide .seg, .dash-wide .tabs { border-radius: 999px; }
+.dash-wide input, .dash-wide select { border-radius: 10px; }
+.dash-wide button { border-radius: 999px; }
+@media (max-width: 1100px) { .dash:not(.dash-explore) { --sideW: min(640px, 64vw); } }
+@media (max-width: 900px) {
+  .dash-wide { order: 1; animation: none; }
+  .dash-mode-hero { max-width: calc(100% - 32px) !important; }
+  .dw-body { overflow: visible; padding: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .dash-wide { animation: none; } }
+.dash:not(.dash-explore) .hud-bl { left: 84px; }
+.dash { --r: 12px; --r-lg: 16px; --success: #ffffff; }
+.dash-wide .table-scroll, .dash-wide .lp-table-wrap { overflow-x: auto; }
