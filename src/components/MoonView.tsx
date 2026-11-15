@@ -103,8 +103,10 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0 }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void;
+  /** bumped by the app logo: fly back to the home view, as the H key does */
+  homeSignal?: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -266,9 +268,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       scene.add(l);
       return l;
     };
-    const earthLine = sightLine(0xffffff);
+    const earthLine = sightLine(0x4c90f0);
     // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
-    const sunLine = sightLine(0xff9000);
+    const sunLine = sightLine(0xffffff);
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
@@ -989,6 +991,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     return () => window.removeEventListener('keydown', k);
   }, []);
 
+  // the app logo asks for the home view by bumping homeSignal (0 on mount, so the opening drift-in is untouched)
+  useEffect(() => { if (homeSignal > 0) goToRef.current('moon'); }, [homeSignal]);
+
   // first visit: drift in from deep space (runs once per mount; the ref keeps the latest goTo)
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
@@ -1130,7 +1135,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         const arr = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => arr.set(posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift), i * 3));
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xff9000, toneMapped: false }));
+        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff, toneMapped: false }));
         line.frustumCulled = false; line.renderOrder = 3;
         grp.add(line);
         st.sunPos = v3(posOf(b.lat, b.lon, groundAt(b.lat, b.lon).drawn));
@@ -1183,8 +1188,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         l.computeLineDistances();
         (l.material as THREE.LineDashedMaterial).color.set(color);
       };
-      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0xffffff : 0x6b6b72);
-      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xff9000 : now.sunPct > 0.5 ? 0xff9000 : 0x6b6b72);
+      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x4c90f0 : 0x6b6b72);
+      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct > 0.5 ? 0xffffff : 0x6b6b72);
     }
     st.request();
   }, [probe, now, earthLineOn, sunLineOn, relief, hiInfo]);
