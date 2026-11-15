@@ -371,7 +371,7 @@ export class Game {
   }
 
   private async buildRover() {
-    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${this.o.base}models/rassor.glb`);
+    const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${this.o.base}models/rassor.gltf.json`);
     const releaseSource = () => gltf.scene.traverse((x) => {
       const m = x as THREE.Mesh; m.geometry?.dispose();
       for (const mat of ([] as THREE.Material[]).concat(m.material ?? [])) mat.dispose();
