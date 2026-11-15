@@ -1048,13 +1048,61 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
   .ct-tabs button { padding: 0 10px; }
 }
 
-/* ---------- opening sting (src/components/Intro.tsx) ---------- */
-.intro { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: #000; cursor: pointer; }
-.intro.out { animation: intro-out 380ms var(--ease-out) forwards; }
-.intro-mark { display: inline-flex; align-items: center; gap: 12px; font: 700 clamp(34px, 7vw, 76px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; }
-.intro-word { opacity: 0; animation: intro-word 520ms var(--ease-out) 120ms forwards; }
-.intro-box { display: inline-flex; align-items: center; padding: 0.12em 0.22em; border-radius: 0.2em; background: var(--accent-fill); color: #000;
-  opacity: 0; transform: scale(0.6); animation: intro-box 460ms var(--ease-spring) 560ms forwards; }
-@keyframes intro-word { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
-@keyframes intro-box { 0% { opacity: 0; transform: scale(0.6); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
+/* ---------- opening sting (src/components/Intro.tsx) ----------
+ * 0.00 laptop rises and flips up   0.85 lid swings open   1.35 screen lights   1.80 camera dives into the screen
+ * 2.05 "Sol" whips in   2.35 "Teris" drops, squashes, bounces   3.05 the mark shakes   3.70 fade out (set in Intro.tsx)
+ * Lid hinge maths: inside .lt-tilt, rotateX(-89deg) lays the lid on the base (closed), rotateX(12deg) leans it back (open).
+ */
+.intro { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #000; cursor: pointer; }
+.intro.out { animation: intro-out 420ms var(--ease-out) forwards; }
+.intro > * { grid-area: 1 / 1; }
+
+.lt-stage { --w: min(360px, 66vw); --h: calc(var(--w) * 0.64); --d: calc(var(--w) * 0.62);
+  perspective: 1100px; animation: lt-dive 520ms cubic-bezier(0.55, 0, 0.9, 0.4) 1.8s forwards; }
+.lt-rig { transform-style: preserve-3d; animation: lt-rise 900ms cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.lt-tilt { position: relative; width: var(--w); height: 0; transform-style: preserve-3d; animation: lt-flip 900ms cubic-bezier(0.25, 1.25, 0.4, 1) both; }
+.lt-lid { position: absolute; left: 0; bottom: 0; width: var(--w); height: var(--h); transform-origin: 50% 100%; transform-style: preserve-3d;
+  transform: rotateX(-89deg); animation: lt-open 650ms cubic-bezier(0.3, 1.6, 0.5, 1) 0.85s forwards; }
+.lt-screen, .lt-shell { position: absolute; inset: 0; border-radius: 12px 12px 3px 3px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.lt-screen { border: 10px solid #1d1d1d; border-bottom-width: 16px; background: #000; animation: lt-light 420ms ease-out 1.35s forwards; }
+.lt-screen i { position: absolute; left: 50%; top: 50%; width: 26%; aspect-ratio: 1; border-radius: 18%; background: #ff9000; transform: translate(-50%, -50%) scale(0); opacity: 0;
+  animation: lt-logo 420ms cubic-bezier(0.3, 1.8, 0.5, 1) 1.45s forwards; }
+.lt-shell { background: #262626; border: 1px solid #333; transform: rotateY(180deg); }
+.lt-shell i { position: absolute; left: 50%; top: 50%; width: 16%; aspect-ratio: 1; border-radius: 18%; background: #ff9000; transform: translate(-50%, -50%); }
+.lt-base { position: absolute; left: calc(var(--w) * -0.04); top: 0; width: calc(var(--w) * 1.08); height: var(--d); transform-origin: 50% 0; transform: rotateX(90deg);
+  transform-style: preserve-3d; border-radius: 3px 3px 14px 14px; background: #2b2b2b; border: 1px solid #3a3a3a; }
+.lt-keys { position: absolute; left: 8%; right: 8%; top: 9%; height: 46%; border-radius: 6px; background: #161616; }
+.lt-pad { position: absolute; left: 34%; right: 34%; top: 62%; height: 30%; border-radius: 6px; background: #333; }
+.lt-edge { position: absolute; left: 0; right: 0; top: 100%; height: 12px; border-radius: 0 0 10px 10px; background: #1a1a1a; transform-origin: 50% 0; transform: rotateX(-90deg); }
+
+@keyframes lt-rise { from { transform: translateY(75vh) scale(0.35); } to { transform: none; } }
+@keyframes lt-flip { from { transform: rotateX(-215deg) rotateZ(-28deg); } to { transform: rotateX(-24deg); } }
+@keyframes lt-open { from { transform: rotateX(-89deg); } to { transform: rotateX(12deg); } }
+@keyframes lt-light { to { background: #141414; } }
+@keyframes lt-logo { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+@keyframes lt-dive { to { transform: scale(7); opacity: 0; } }
+
+.intro-mark { display: inline-flex; align-items: center; gap: 0.18em; font: 800 clamp(48px, 12vw, 136px)/1 var(--font-display); letter-spacing: -0.03em; color: #fff;
+  animation: intro-shake 460ms ease-out 3.05s both; }
+.intro-word { display: inline-block; opacity: 0; animation: intro-whip 620ms cubic-bezier(0.2, 1.4, 0.4, 1) 2.05s forwards; }
+.intro-box { display: inline-flex; align-items: center; padding: 0.1em 0.2em; border-radius: 0.14em; background: var(--accent-fill); color: #000;
+  opacity: 0; transform-origin: 50% 100%; animation: intro-drop 760ms linear 2.35s forwards; }
+@keyframes intro-whip {
+  0% { opacity: 1; transform: translateX(-130vw) rotate(-38deg) scale(1.8); }
+  65% { opacity: 1; transform: translateX(7%) rotate(6deg) scale(0.92); }
+  82% { transform: translateX(-2%) rotate(-2deg) scale(1.03); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes intro-drop {
+  0% { opacity: 1; transform: translateY(-120vh) scale(0.8, 1.5) rotate(14deg); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  42% { transform: translateY(0) scale(1.38, 0.58) rotate(-3deg); animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1); }
+  62% { transform: translateY(-34%) scale(0.9, 1.16) rotate(2deg); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  78% { transform: translateY(0) scale(1.14, 0.86); }
+  90% { transform: translateY(-6%) scale(0.97, 1.04); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes intro-shake {
+  0% { transform: none; } 18% { transform: scale(1.16) rotate(-3deg); } 36% { transform: scale(1.1) rotate(3deg); }
+  54% { transform: scale(1.13) rotate(-2deg); } 72% { transform: scale(0.97) rotate(1deg); } 100% { transform: none; }
+}
 @keyframes intro-out { to { opacity: 0; visibility: hidden; } }
