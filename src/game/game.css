@@ -249,8 +249,11 @@
 .rg-preview:active { cursor: grabbing; }
 .rg-preview canvas { width: 100%; height: 100%; display: block; }
 .rg-preview-wait { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px; border: 3px solid #fff3; border-top-color: var(--rg-coral); border-radius: 50%; animation: rg-spin 0.9s linear infinite; }
-.rg .rg-step { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-size: 26px; line-height: 1; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.rg .rg-step { position: absolute; top: calc(50% - 22px); z-index: 2; width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; font-size: 26px; line-height: 1; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .rg .rg-step:hover:not(:disabled) { background: var(--rg-coral); }
+/* press feedback that never moves the button's hit area, so a click can't slip off it */
+.rg .rg-step:active:not(:disabled) { transform: none; background: #ff4f4f; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35); }
+.rg .rg-rovers button:active:not(:disabled) { transform: translateY(-2px); }
 .rg-step.prev { left: 12px; } .rg-step.next { right: 12px; }
 .rg-nick { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--rg-coral); color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 6px 18px rgba(255, 99, 99, 0.45); }
 .rg-rc-body { display: grid; gap: 12px; padding: 16px 18px 18px; animation: rg-card-in 280ms cubic-bezier(0.22, 1, 0.36, 1); }
