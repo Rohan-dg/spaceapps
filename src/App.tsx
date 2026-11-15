@@ -1,4 +1,4 @@
-import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
 import CommandPalette, { type Command, ModKey } from './components/CommandPalette';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import About from './components/About';
@@ -23,6 +23,7 @@ import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
 import { simSnapshot, useMission } from './lib/useMission';
 import { useScenario } from './lib/useScenario';
+import { computeMetrics } from './lib/metrics';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
 const PLAN_KEY = 'lsc-mission-plan';
@@ -86,6 +87,17 @@ export default function App() {
   const data = useSiteData(siteId);
   const res = useScenario(data, t);
   const info = allSites.find((s) => s.id === siteId);
+  // summary strip: how many tracked sites are sunlit / see Earth at the current time (hourly is plenty)
+  const tq = Math.floor(t / 3600000) * 3600000;
+  const kpi = useMemo(() => {
+    let n = 0, sun = 0, earth = 0;
+    for (const d of all) {
+      if (!d) continue;
+      const m = computeMetrics({ lat: d.horizon.lat, lon: d.horizon.lon, heightM: d.horizon.siteHeightM + d.horizon.observerHeightM }, d.horizon.horizonDeg, d.series, tq);
+      n++; if (m.sunUp) sun++; if (m.earthUp) earth++;
+    }
+    return { n, sun, earth };
+  }, [all, tq]);
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, t);
@@ -123,7 +135,7 @@ export default function App() {
       if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
-        document.querySelectorAll<HTMLButtonElement>('.masthead .tabs button')[Number(e.key) - 1]?.click();
+        document.querySelectorAll<HTMLButtonElement>('.ct-tabs button')[Number(e.key) - 1]?.click();
       }
     };
     window.addEventListener('keydown', k);
@@ -176,18 +188,22 @@ export default function App() {
   return (
     <div className="app">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
-      <header className="masthead wrap">
-        <h1 className="brand"><span className="brand-mark" aria-hidden />Lunar Site Compare</h1>
-        <nav className="tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore <kbd>1</kbd></button>
-          <button role="tab" aria-selected={mode === 'compare'}
-            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare <kbd>2</kbd></button>
-          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator <kbd>3</kbd></button>
-          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch <kbd>4</kbd></button>
-        </nav>
-        <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
-          <Search size={15} /><span>Search sites and actions…</span><span className="keys"><ModKey /><kbd>K</kbd></span>
-        </button>
+      <nav className="ct-rail" aria-label="Sections">
+        <span className="ct-rail-mark" aria-hidden />
+        <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
+        <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
+        <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
+        <button className={mode === 'launch' ? 'on' : ''} aria-label="Launch" title="Launch" onClick={() => setMode('launch')}><CalendarSync size={18} /></button>
+        <span className="ct-rail-gap" />
+        <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
+        <button aria-label="Data and method" title="Data and method" onClick={() => setAbout(true)}><Info size={18} /></button>
+        <button aria-label="Help" title="Help" onClick={() => setGuide(true)}><CircleHelp size={18} /></button>
+        <button aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark" onClick={theme.toggle}><Contrast size={18} /></button>
+      </nav>
+      <div className="ct-main">
+      <header className="ct-bar">
+        <span className="ct-bar-icon" aria-hidden><Globe size={18} /></span>
+        <h1 className="ct-title">Lunar Site Compare</h1>
         <label className="preset-pick">
           <span>Preset</span>
           <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
@@ -195,39 +211,60 @@ export default function App() {
             {PRESETS.map((p) => <option key={p.id} value={p.id} title={p.blurb}>{p.title}</option>)}
           </select>
         </label>
-        <div className="mast-tools">
-          <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={15} /><span className="sr-only">Theme</span></button>
-          <button onClick={() => setAbout(true)} aria-label="Data and method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
-          <button onClick={() => setGuide(true)} aria-label="Help"><CircleHelp size={15} /> <span className="mast-label">Help</span></button>
-        </div>
+        <nav className="ct-tabs" role="tablist" aria-label="Mode">
+          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> Explore</button>
+          <button role="tab" aria-selected={mode === 'compare'}
+            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}><Columns2 size={15} /> Compare</button>
+          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}><CalcIcon size={15} /> Calculator</button>
+          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> Launch</button>
+        </nav>
       </header>
-      <div className="hero wrap">
-        <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
-        </Suspense>
+      <div className="ct-kpis" aria-label="Summary at the selected time">
+        <div className="ct-kpi"><span className="ct-kpi-ico"><Globe size={18} /></span><b className="num">{kpi.n}</b><span>Sites tracked</span></div>
+        <div className="ct-kpi"><span className="ct-kpi-ico sun"><Sun size={18} /></span><b className="num">{kpi.sun}</b><span>Sunlit now</span></div>
+        <div className="ct-kpi"><span className="ct-kpi-ico earth"><Earth size={18} /></span><b className="num">{kpi.earth}</b><span>Earth in view now</span></div>
+        <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
+      </div>
+      <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
+        <div className="ct-map">
+          <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
+          </Suspense>
+        </div>
+        {mode === 'explore' && (
+          <aside className="ct-side">
+            <section className="ct-panel">
+              <header className="ct-panel-h"><span className="ct-badge">A</span><h2>Landing sites</h2><span className="ct-chip num">{allSites.length} sites</span></header>
+              <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
+              <CustomSite doc={doc} onReady={addCustom} />
+            </section>
+            <section className="ct-panel">
+              <header className="ct-panel-h"><span className="ct-badge">B</span><h2>Review site</h2></header>
+              {info && <div className="ct-actions">
+                <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> Plan launch</button>
+                <button onClick={() => { setScenarios([{ siteId, t }, ...scenarios.slice(1)]); setMode('compare'); }}><Columns2 size={14} /> Compare</button>
+                <button onClick={() => setAbout(true)}><Info size={14} /> Explain</button>
+                <button className="ct-logic" onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> Show logic</button>
+              </div>}
+              {info ? (
+                <div className="ct-review">
+                  <p className="ct-from"><span className="ct-from-ico"><Sparkles size={16} /></span><span><b>{info.name}</b>{info.approximate && <span className="flag flag-approx">approximate</span>}<small>{info.mission ?? 'Landing site'}</small></span></p>
+                  <div className="ct-fields">
+                    <div><b className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</b><small>Position</small></div>
+                    <div><b className="num">{info.siteHeightM.toFixed(0)} m</b><small>Elevation</small></div>
+                    <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>Terrain model</small></div>
+                    <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '—'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '—'}</b><small>Now</small></div>
+                  </div>
+                  <p className="ct-src"><small>Source</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
+                </div>
+              ) : <p className="ct-empty">Select a site in the table or on the Moon.</p>}
+            </section>
+          </aside>
+        )}
       </div>
 
       {mode === 'explore' ? (
         <main key="explore" className="explore wrap view-in">
-          <aside className="rail">
-            <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
-            {info && (
-              <section className="site-info" aria-labelledby="site-info-h">
-                <h3 id="site-info-h" className="sec-h">{info.name}{info.approximate && <span className="flag flag-approx">approximate</span>}</h3>
-                <table className="facts">
-                  <tbody>
-                    <tr><th scope="row">Position</th><td className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</td></tr>
-                    <tr><th scope="row">Elevation</th><td className="num">{info.siteHeightM.toFixed(0)} m</td></tr>
-                    {info.snappedM > 0 && <tr><th scope="row">Snapped</th><td className="num">{info.snappedM} m from cited point</td></tr>}
-                    <tr><th scope="row">DEM</th><td>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</td></tr>
-                    <tr><th scope="row">Source</th><td>{info.source}</td></tr>
-                    {info.verify && <tr><th scope="row">Status</th><td><span className="flag flag-verify">verify</span> coordinate unchecked</td></tr>}
-                  </tbody>
-                </table>
-              </section>
-            )}
-            <CustomSite doc={doc} onReady={addCustom} />
-          </aside>
 
           <section className="work" aria-label="Selected site">
             {data && res ? (
@@ -344,6 +381,7 @@ export default function App() {
         <span>Terrain: NASA LRO LOLA (PDS Geosciences). Ephemeris: astronomy-engine, validated against JPL Horizons.</span>
         <span className="num">{doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC</span>
       </footer>
+      </div>
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
