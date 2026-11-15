@@ -2,8 +2,9 @@ import { Ray, Vector3 } from 'three';
 import { type EqGrid, type PolarGrid, R_KM, dirOf, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from './frames';
 
 export const CAMERA_CLEARANCE_KM = 0.001;
-export const CAP_SEGMENTS = 767;
-export const GLOBE_SEGMENTS = 720;
+// mesh density only sets the silhouette; slopes, colour and shadows are per pixel from the height maps
+export const CAP_SEGMENTS = 383;
+export const GLOBE_SEGMENTS = 360;
 export const CORE_DEPTH_KM = 9.6;
 
 export interface MoonSurface {

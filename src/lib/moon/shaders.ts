@@ -45,6 +45,7 @@ uniform float uHiN;
 uniform float uRelief;
 uniform float uShadows;
 uniform float uDetail;                // 0..1, procedural detail below the data resolution
+uniform float uMarch;                 // 0..1, share of the full shadow-march steps (lowered on slow GPUs)
 uniform vec3 uAnchorIdx;              // anchor, Moon-fixed, in whole units of ANCHOR_M
 uniform vec3 uAnchorKm;               // the same anchor in km, rounded to float32
 uniform vec3 uAnchorCorr;             // metres: (float32 anchor) minus (exact anchor)
@@ -109,9 +110,11 @@ float sunVisPolar(vec2 xy, float lon, float h0, vec3 s, float d0, float fp) {
   vec2 hd = normalize(s.xy + 1e-9);
   float cl = cos(lon), sl = sin(lon);
   vec2 g = vec2(hd.x * cl + hd.y * sl, -hd.x * sl + hd.y * cl);   // east/north -> grid x/y
-  float k = exp(max(log(180000.0 / d0), 0.0) / 72.0);
+  int steps = max(12, int(72.0 * uMarch));
+  float k = exp(max(log(180000.0 / d0), 0.0) / float(steps));
   float d = d0, vis = 1.0;
   for (int i = 0; i < 72; i++) {
+    if (i >= steps) break;
     float h = hPolar(xy + g * d, max(fp, 0.5 * d * (k - 1.0)));
     vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
     if (vis < 0.002) return 0.0;
@@ -126,9 +129,11 @@ float sunVisEq(float lat, float lon, float h0, vec3 s, float d0, float fp) {
   if (el < -0.06) return 0.0;
   if (uShadows < 0.5) return smoothstep(-SUN_R, SUN_R, el);
   vec2 hd = normalize(s.xy + 1e-9);
-  float k = exp(max(log(220000.0 / d0), 0.0) / 48.0);
+  int steps = max(12, int(48.0 * uMarch));
+  float k = exp(max(log(220000.0 / d0), 0.0) / float(steps));
   float d = d0, vis = 1.0, cl = max(cos(lat), 0.02);
   for (int i = 0; i < 48; i++) {
+    if (i >= steps) break;
     float la = lat + hd.y * d / R_M, lo = lon + hd.x * d / (R_M * cl);
     float h = hAt(la, lo, max(fp, 0.5 * d * (k - 1.0)));
     vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
@@ -419,9 +424,11 @@ float sunVisTile(float lat, float lon, float h0, vec3 s, float d0, float fp) {
   if (el < -0.06) return 0.0;
   if (uShadows < 0.5) return smoothstep(-SUN_R, SUN_R, el);
   vec2 hd = normalize(s.xy + 1e-9);
-  float k = exp(max(log(220000.0 / d0), 0.0) / 56.0);
+  int steps = max(12, int(56.0 * uMarch));
+  float k = exp(max(log(220000.0 / d0), 0.0) / float(steps));
   float d = d0, vis = 1.0, cl = max(cos(lat), 0.02);
   for (int i = 0; i < 56; i++) {
+    if (i >= steps) break;
     float la = lat + hd.y * d / R_M, lo = lon + hd.x * d / (R_M * cl);
     float h = hAny(la, lo, max(fp, 0.5 * d * (k - 1.0)));
     vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
