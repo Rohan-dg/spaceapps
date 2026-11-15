@@ -65,7 +65,7 @@ export const TOPICS: Topic[] = [
     answer: 'The Calculator tab solves the mission equations (travel time, slopes, power, battery, visibility) for any one variable, and can fill values from the current simulation.',
     actions: [{ type: 'mode', mode: 'calc', label: 'Open Calculator' }, { type: 'deep', deep: 'mission', label: 'Mission variables table' }] },
   { id: 'moon-controls', examples: ['how do i use the 3d moon', 'rotate the moon', 'zoom in on the moon', 'move the camera', 'click on the moon', 'double click moon', 'pan the view', 'camera controls'],
-    answer: 'Drag to rotate, scroll or pinch to zoom. Click a point to glide to a top-down view over it and see its light and Earth contact; double-click for a close-up. H returns to the whole Moon, Esc closes panels, and Expand makes the Moon fill the window.',
+    answer: 'Drag to rotate, scroll or pinch to zoom. Click a point to glide to a top-down view over it and see its light and Earth contact; double-click for a near-horizontal view of the terrain. The Moon button (or H) returns to the whole Moon, Esc closes panels, and Expand makes the Moon fill the window.',
     actions: [{ type: 'home', label: 'Back to the whole Moon' }] },
   { id: 'display', examples: ['shadows', 'light up dark areas', 'see the night side', 'relief exaggeration', 'display menu', 'turn off shadows', 'floodlight'],
     answer: 'The Display menu on the 3D Moon has switches for Light dark areas (a floodlight so night-side and shadowed ground are visible), Sun & Earth pointers, lines to Earth and the Sun, Shadows, Relief ×3 and Fine detail. They change the picture only, not the numbers.' },

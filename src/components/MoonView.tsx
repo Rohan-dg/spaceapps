@@ -1593,10 +1593,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         </dl>
         <div className="hud-bl hud-anim">
           <div className="hud-home-row">
-          <button className="hud-toggle" onClick={() => homeRef.current()} title="Home view: the whole Moon, nothing selected, turning about its centre (H)"><Icon name="home" /> Home</button>
           <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
             {SCALES.map((s) => (
-              <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>
+              // Moon is the home view (it was a separate Home button): the whole Moon, nothing selected (H)
+              <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel}
+                onClick={() => (s.id === 'moon' ? homeRef.current() : goTo(s.id))}
+                title={s.id === 'moon' ? 'The whole Moon, nothing selected (H)' : undefined}>{s.label}</button>
             ))}
           </div>
           </div>

@@ -149,6 +149,8 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
           <p>{s.body}</p>
           {s.how && <ul className="tour-how">{s.how.map((h) => <li key={h}>{h}</li>)}</ul>}
           {s.keys && <dl className="tour-keys">{s.keys.map(([k, v]) => <div key={k}><dt><kbd>{k}</kbd></dt><dd>{v}</dd></div>)}</dl>}
+          {s.learn && <p className="tour-learn"><b>{ui === 'expert' ? 'Method' : 'Why it matters'}</b> {s.learn}</p>}
+          {s.think && <p className="tour-think"><b>Think about it</b> {s.think}</p>}
           {s.tryIt && <p className="tour-try"><b>Try it</b> {s.tryIt}</p>}
         </div>
         <div className="tour-bar" aria-hidden><i style={{ transform: `scaleX(${i / last})` }} /></div>
