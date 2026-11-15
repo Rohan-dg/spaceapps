@@ -165,7 +165,7 @@ export default function ShadowMap({ data, t, mastPct, plain = false }: { data: S
     const cell = w / n, toPx = (i: number) => [((i % n) + 0.5) * cell, (Math.floor(i / n) + 0.5) * cell];
     // site
     const c = w / 2;
-    ctx.strokeStyle = '#4c90f0'; ctx.lineWidth = 2;
+    ctx.strokeStyle = '#63a1ff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(c, c, 7, 0, 2 * Math.PI); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(c - 12, c); ctx.lineTo(c - 4, c); ctx.moveTo(c + 4, c); ctx.lineTo(c + 12, c); ctx.moveTo(c, c - 12); ctx.lineTo(c, c - 4); ctx.moveTo(c, c + 4); ctx.lineTo(c, c + 12); ctx.stroke();
     // best-lit point and the search radius
@@ -174,7 +174,7 @@ export default function ShadowMap({ data, t, mastPct, plain = false }: { data: S
       ctx.beginPath(); ctx.arc(c, c, (best.rKm / (2 * T.halfKm)) * w, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
       const [bx, by] = toPx(best.i);
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by, 6, 0, 2 * Math.PI); ctx.stroke();
-      ctx.fillStyle = '#4c90f0'; ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = '#63a1ff'; ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, 2 * Math.PI); ctx.fill();
     }
     // Sun direction on the edge
     if (mode === 'now' && sun.el > -1) {
@@ -241,7 +241,7 @@ export default function ShadowMap({ data, t, mastPct, plain = false }: { data: S
               <ul className="chart-legend sm-legend">
                 <li><span className="swatch" style={{ background: '#ece8de' }} aria-hidden /> Sunlit</li>
                 <li><span className="swatch" style={{ background: '#1a1e2c', outline: '1px solid var(--line)' }} aria-hidden /> Shadow</li>
-                <li><span className="swatch" style={{ background: '#4c90f0' }} aria-hidden /> Site</li>
+                <li><span className="swatch" style={{ background: '#63a1ff' }} aria-hidden /> Site</li>
               </ul>
             </>
           ) : (
