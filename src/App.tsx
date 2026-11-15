@@ -10,6 +10,7 @@ import Export from './components/Export';
 import Guide from './components/Guide';
 import { Loading } from './components/Help';
 import Heatmap from './components/Heatmap';
+import KpiStrip from './components/KpiStrip';
 import MissionPanel from './components/MissionPanel';
 import { Readout, Summary } from './components/Metrics';
 import Panorama from './components/Panorama';
@@ -172,156 +173,167 @@ export default function App() {
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
 
+  const scenarioSite = mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId;
+  const scenarioT = mode === 'compare' ? scenarios[0]?.t ?? t : t;
+  const clampT = (x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); };
+
   return (
-    <div className="app">
+    <div className="app shell">
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
-      <header className="masthead wrap">
-        <h1 className="brand"><span className="brand-mark" aria-hidden />Lunar Site Compare</h1>
-        <nav className="tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
-          <button role="tab" aria-selected={mode === 'compare'}
-            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
-          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
-          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch</button>
-        </nav>
-        <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
-          <Search size={15} /><span>Search sites, presets, actions</span><span className="keys"><ModKey /><kbd>K</kbd></span>
-        </button>
-        <div className="mast-tools">
-          <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={15} /><span className="sr-only">Theme</span></button>
-          <button onClick={() => setAbout(true)} aria-label="Data & method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
-          <button onClick={() => setGuide(true)} aria-label="Help"><CircleHelp size={15} /> <span className="mast-label">Help</span></button>
-        </div>
-      </header>
-      <div className="hero wrap">
-        <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
-        </Suspense>
-      </div>
+      {/* Utility rail: global actions that are the same in every mode */}
+      <nav className="util-rail" aria-label="Utilities">
+        <span className="brand-mark" aria-hidden />
+        <button onClick={() => setPalette(true)} aria-label="Search sites, presets and actions" title="Search (Ctrl/⌘ K)"><Search size={16} /></button>
+        <span className="util-spacer" aria-hidden />
+        <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={16} /></button>
+        <button onClick={() => setAbout(true)} aria-label="Data & method" title="Data & method"><Info size={16} /></button>
+        <button onClick={() => setGuide(true)} aria-label="Help" title="Help (?)"><CircleHelp size={16} /></button>
+      </nav>
 
-      {mode === 'explore' ? (
-        <main key="explore" className="explore wrap view-in">
-          <aside className="rail">
-            <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={setSiteId} />
-            {info && (
-              <section className="site-info" aria-labelledby="site-info-h">
-                <h3 id="site-info-h" className="sec-h">{info.name}{info.approximate && <span className="flag flag-approx">approximate</span>}</h3>
-                <table className="facts">
-                  <tbody>
-                    <tr><th scope="row">Position</th><td className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</td></tr>
-                    <tr><th scope="row">Elevation</th><td className="num">{info.siteHeightM.toFixed(0)} m</td></tr>
-                    {info.snappedM > 0 && <tr><th scope="row">Snapped</th><td className="num">{info.snappedM} m from cited point</td></tr>}
-                    <tr><th scope="row">DEM</th><td>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</td></tr>
-                    <tr><th scope="row">Source</th><td>{info.source}</td></tr>
-                    {info.verify && <tr><th scope="row">Status</th><td><span className="flag flag-verify">verify</span> coordinate unchecked</td></tr>}
-                  </tbody>
-                </table>
+      <div className="workspace">
+        <header className="masthead topbar">
+          <h1 className="brand">Lunar Site Compare</h1>
+          <span className="topbar-ctx num">{info?.short ?? ''} · {when(scenarioT)} UTC</span>
+          <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
+            <Search size={15} /><span>Search</span><span className="keys"><ModKey /><kbd>K</kbd></span>
+          </button>
+          <nav className="tabs" role="tablist" aria-label="Mode">
+            <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
+            <button role="tab" aria-selected={mode === 'compare'}
+              onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
+            <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
+            <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch</button>
+          </nav>
+        </header>
+
+        <div className="ws-body">
+          <KpiStrip sites={allSites} all={all} t={t} />
+
+          {/* Workspace: the 3D Moon on the left (mounted once, in every mode), sites and the selected site on the right */}
+          <div className="split">
+            <section className="map-pane" aria-label="3D Moon">
+              <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
+                <MoonView sites={allSites} selectedId={scenarioSite} t={scenarioT} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
+              </Suspense>
+            </section>
+            <aside className="detail-pane" aria-label="Landing sites and selected site">
+              <section className="pane-card sites-card" aria-labelledby="sites-h">
+                <header className="pane-h"><h2 id="sites-h">Landing sites</h2><span className="pane-count num">{allSites.length}</span></header>
+                <SiteList sites={allSites} all={all} t={t} selected={siteId} onSelect={(id) => { setSiteId(id); }} />
+                <CustomSite doc={doc} onReady={addCustom} />
               </section>
-            )}
-            <CustomSite doc={doc} onReady={addCustom} />
-          </aside>
+              <section className="pane-card review-card" aria-labelledby="review-h">
+                {data && res && info ? (
+                  <>
+                    <header className="pane-h review-h">
+                      <div className="review-title">
+                        <h2 id="review-h">{data.info.name}</h2>
+                        <p className="when"><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
+                      </div>
+                      <div className="review-actions">
+                        <button onClick={() => goMode('compare')}><Columns2 size={14} /> Compare</button>
+                        <button onClick={() => planLaunchTo(data.info.lat, data.info.lon)}><CalendarSync size={14} /> Plan launch</button>
+                      </div>
+                    </header>
+                    <Summary r={res} />
+                    <dl className="tiles">
+                      <div><dt>Elevation</dt><dd className="num">{info.siteHeightM.toFixed(0)} m</dd></div>
+                      <div><dt>Terrain model</dt><dd>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</dd></div>
+                      {info.snappedM > 0 && <div><dt>Snapped</dt><dd className="num">{info.snappedM} m from cited point</dd></div>}
+                      <div className="tile-wide"><dt>Source</dt><dd>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}{info.approximate && <> <span className="flag flag-approx">approximate</span></>}</dd></div>
+                    </dl>
+                  </>
+                ) : <Loading label="Loading site" />}
+              </section>
+            </aside>
+          </div>
 
-          <section className="work" aria-label="Selected site">
-            {data && res ? (
-              <>
-                <div className="work-head">
-                  <h2>{data.info.name}</h2>
-                  <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
-                </div>
-
-                <div className="instrument">
-                  <header className="pnl-h"><h3>Time</h3></header>
-                  <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
-                </div>
-                <div className="instrument">
-                  <header className="pnl-h"><h3>Conditions</h3></header>
-                  <Summary r={res} />
-                </div>
-
-                <div className="instrument">
-                  <div className="view-head pnl-h">
-                    <div><h3>Horizon</h3></div>
-                    <div className="seg" role="radiogroup" aria-label="View">
-                      {VIEWS.map((v) => (
-                        <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
-                      ))}
+          {mode === 'explore' ? (
+            <main key="explore" className="explore view-in">
+              <section className="work" aria-label="Analysis of the selected site">
+                {data && res ? (
+                  <>
+                    <div className="instrument">
+                      <header className="pnl-h"><h3>Time</h3></header>
+                      <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
                     </div>
-                  </div>
-                  {view === 'panorama' ? <Panorama data={data} t={t} height={300} />
-                    : <SkyPlot data={data} t={t} />}
-                </div>
 
-                <div className="instrument">
-                  <div className="view-head pnl-h">
-                    <div><h3>Next 30 days</h3></div>
-                    <ul className="chart-legend" aria-label="Legend">
-                      <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
-                      <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
-                      <li><span className="swatch swatch-line" aria-hidden /> Now</li>
-                    </ul>
-                  </div>
-                  <Timeline data={data} t={t} onSeek={onT} />
-                </div>
+                    <div className="analysis-grid">
+                      <div className="instrument">
+                        <div className="view-head pnl-h">
+                          <div><h3>Horizon</h3></div>
+                          <div className="seg" role="radiogroup" aria-label="View">
+                            {VIEWS.map((v) => (
+                              <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {view === 'panorama' ? <Panorama data={data} t={t} height={300} />
+                          : <SkyPlot data={data} t={t} />}
+                      </div>
 
-                <section className="deep" aria-label="Detail">
-                  <div className="view-head pnl-h">
-                    <div><h3>Detailed analysis</h3></div>
-                    <div className="seg" role="tablist" aria-label="Detail panels">
-                      <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
-                      <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
-                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
+                      <div className="instrument">
+                        <div className="view-head pnl-h">
+                          <div><h3>Next 30 days</h3></div>
+                          <ul className="chart-legend" aria-label="Legend">
+                            <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
+                            <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
+                            <li><span className="swatch swatch-line" aria-hidden /> Now</li>
+                          </ul>
+                        </div>
+                        <Timeline data={data} t={t} onSeek={onT} />
+                      </div>
                     </div>
-                  </div>
-                  {deep === 'calendar' ? (
-                    <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }} />
-                  ) : deep === 'mission' ? (
-                    mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
-                      onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
-                      onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
-                      onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
-                  ) : (
-                    <div className="numbers">
-                      <Readout r={res} />
-                      <Export d={data} r={res} />
-                    </div>
-                  )}
-                </section>
-              </>
-            ) : <Loading label="Loading site" />}
-          </section>
-        </main>
-      ) : mode === 'launch' ? (
-        <main key="m1" className="compare-main wrap view-in">
-          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
-        </main>
-      ) : mode === 'calc' ? (
-        <main key="m2" className="compare-main wrap view-in">
-          <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
-        </main>
-      ) : (
-        <main key="m3" className="compare-main wrap view-in">
-          <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />
-        </main>
-      )}
-      <footer className="footer wrap">
-        <span>Terrain: NASA LRO LOLA (PDS Geosciences). Ephemeris: astronomy-engine, validated against JPL Horizons.</span>
-        <span className="num">{doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC</span>
-      </footer>
+
+                    <section className="deep" aria-label="Detail">
+                      <div className="view-head pnl-h">
+                        <div><h3>Detailed analysis</h3></div>
+                        <div className="seg" role="tablist" aria-label="Detail panels">
+                          <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
+                          <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
+                          <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
+                        </div>
+                      </div>
+                      {deep === 'calendar' ? (
+                        <Heatmap data={data} t={t} onPick={clampT} />
+                      ) : deep === 'mission' ? (
+                        mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
+                          onSeek={clampT}
+                          onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
+                          onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
+                      ) : (
+                        <div className="numbers">
+                          <Readout r={res} />
+                          <Export d={data} r={res} />
+                        </div>
+                      )}
+                    </section>
+                  </>
+                ) : <Loading label="Loading site" />}
+              </section>
+            </main>
+          ) : mode === 'launch' ? (
+            <main key="m1" className="compare-main view-in">
+              <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
+            </main>
+          ) : mode === 'calc' ? (
+            <main key="m2" className="compare-main view-in">
+              <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
+            </main>
+          ) : (
+            <main key="m3" className="compare-main view-in">
+              <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />
+            </main>
+          )}
+          <footer className="footer">
+            <span>Terrain: NASA LRO LOLA (PDS Geosciences). Ephemeris: astronomy-engine, validated against JPL Horizons.</span>
+            <span className="num">{doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC</span>
+          </footer>
+        </div>
+      </div>
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      <div className="action-bar" role="toolbar" aria-label="Quick actions">
-        <span className="ab-ctx">
-          <span className="brand-mark" aria-hidden />
-          <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
-          <span className="num muted">{when(t)} UTC</span>
-        </span>
-        <span className="ab-actions">
-          <button className="ab-btn" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'}</button>
-          <span className="ab-sep" aria-hidden />
-          <button className="ab-btn" onClick={() => setPalette(true)}>Actions</button>
-        </span>
-      </div>
     </div>
   );
 }
