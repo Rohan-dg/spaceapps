@@ -143,7 +143,13 @@ export default function App() {
 
   const onT = useCallback((x: number) => setT(x), []);
   const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
-  const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
+  // "Compare with another site": the next site picked (3D Moon or list) becomes the second column in Compare
+  const [cmpFrom, setCmpFrom] = useState<string | null>(null);
+  const chooseSite = useCallback((id: string) => {
+    if (cmpFrom && id !== cmpFrom) { setScenarios([{ siteId: cmpFrom, t }, { siteId: id, t }]); setCmpFrom(null); setMode('compare'); window.scrollTo({ top: 0 }); return; }
+    setSiteId(id);
+  }, [cmpFrom, t]);
+  const pickSite = useCallback((id: string) => { chooseSite(id); if (!cmpFrom && mode !== 'explore') setMode('explore'); }, [chooseSite, cmpFrom, mode]);
   // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
   const onMoonSelect = useCallback((id: string) => {
     if (missionsOpen) setPair((p) => (p.active === 'a' ? { a: id, b: p.b, active: 'b' } : { a: p.a, b: id, active: 'a' }));
@@ -174,7 +180,7 @@ export default function App() {
         const h = (e.shiftKey ? 24 : 1) * (e.key === 'ArrowRight' ? 1 : -1);
         setT((x) => Math.max(range[0], Math.min(range[1], x + h * 3600000)));
       }
-      if (e.key === 'Escape') { setAbout(false); closeGuide(); }
+      if (e.key === 'Escape') { setAbout(false); closeGuide(); setCmpFrom(null); }
       if (e.key === '?') setGuide(true);
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'm' || e.key === 'M')) toggleMissions();
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
@@ -287,7 +293,8 @@ export default function App() {
         <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
       </div>
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
-        <div className="ct-map">
+        <div className={`ct-map${cmpFrom ? ' picking' : ''}`}>
+          {cmpFrom && <div className="ct-pick-banner" role="status"><Columns2 size={15} /> Click a second site to compare with <b>{allSites.find((s) => s.id === cmpFrom)?.short}</b><button onClick={() => setCmpFrom(null)}>Cancel</button></div>}
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} />
           </Suspense>
@@ -295,18 +302,25 @@ export default function App() {
         {mode === 'explore' && (
           <aside className="ct-side">
             <section className="ct-panel">
-              <header className="ct-panel-h"><span className="ct-badge">A</span><h2>Landing sites</h2><span className="ct-chip num">{allSites.length} sites</span></header>
-              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={setSiteId} />
+              <header className="ct-panel-h"><h2>Landing sites</h2><span className="ct-chip num">{allSites.length} sites</span></header>
+              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} />
               <CustomSite doc={doc} onReady={addCustom} />
             </section>
             <section className="ct-panel">
-              <header className="ct-panel-h"><span className="ct-badge">B</span><h2>Review site</h2></header>
-              {info && <div className="ct-actions">
-                <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> Plan launch</button>
-                <button onClick={() => { setScenarios([{ siteId, t }, ...scenarios.slice(1)]); setMode('compare'); }}><Columns2 size={14} /> Compare</button>
-                <button onClick={() => setAbout(true)}><Info size={14} /> Explain</button>
-                <button className="ct-logic" onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> Show logic</button>
-              </div>}
+              <header className="ct-panel-h"><h2>Review site</h2></header>
+              {info && (cmpFrom ? (
+                <div className="ct-picking" role="status">
+                  <span><b>Pick a second site</b> on the 3D Moon or in the list to compare with {info.short || info.name}.</span>
+                  <button onClick={() => setCmpFrom(null)}>Cancel</button>
+                </div>
+              ) : (
+                <div className="ct-actions">
+                  <button className="ct-primary" onClick={() => setCmpFrom(siteId)}><Columns2 size={15} /> Compare with another site</button>
+                  <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> Plan launch</button>
+                  <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> Show logic</button>
+                  <button onClick={() => setAbout(true)}><Info size={14} /> Explain</button>
+                </div>
+              ))}
               {info ? (
                 <div className="ct-review">
                   <p className="ct-from"><span className="ct-from-ico"><Sparkles size={16} /></span><span><b>{info.name}</b>{info.approximate && <span className="flag flag-approx">approximate</span>}<small>{info.mission ?? 'Landing site'}</small></span></p>
