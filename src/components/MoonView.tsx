@@ -674,20 +674,24 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     // recenter only touches refs and the stable fly()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, rangeOpen, rangeIn]);
-  /** Turn the globe (or pan, when zoomed in) so a point sits at the centre of the view, keeping the zoom. */
+  /**
+   * Make a clicked point the pivot of the camera: it glides to the centre of the view, and from then on
+   * dragging orbits around that point (about its local vertical) and scrolling zooms toward it.
+   */
   const recenter = (lat: number, lon: number) => {
     const st = S.current; if (!st || st.flying) return;
     const gg = st.terrainM(lat, lon);
     const P = v3(posOf(lat, lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag)));
-    const cam = st.camera.position.clone(), tgt = st.controls.target.clone();
-    if (st.mode === 'globe') {
-      const dir = P.clone().normalize();
-      const up = st.camera.up.clone().projectOnPlane(dir);
-      if (up.lengthSq() < 1e-6) up.copy(new THREE.Vector3(0, 1, 0).projectOnPlane(dir));
-      fly(dir.multiplyScalar(cam.length()), new THREE.Vector3(), up.normalize(), 'globe', 1.3);
-    } else {
-      fly(P.clone().add(cam.sub(tgt)), P, st.camera.up.clone(), 'site', 1.1);
-    }
+    const U = P.clone().normalize();
+    const cam = st.camera.position.clone();
+    // keep the viewing distance: from the old pivot when zoomed in, from the surface point on the globe view
+    const dist = Math.min(8500, st.mode === 'globe' ? cam.distanceTo(P) : cam.distanceTo(st.controls.target));
+    // keep the viewing direction, but never from below ~15° elevation or from exactly overhead
+    const dir = cam.sub(P).normalize();
+    const elev = dir.dot(U);
+    if (elev < 0.26) dir.addScaledVector(U, 0.26 - elev).normalize();
+    if (dir.dot(U) > 0.985) dir.addScaledVector(v3(enu(lat, lon).n), -0.18).normalize();
+    fly(P.clone().addScaledVector(dir, dist), P, U, 'site', 1.3);
   };
 
   /* ---------- rover range on battery ---------- */
