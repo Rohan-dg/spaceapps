@@ -840,7 +840,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     controls.enabled = false;
     const p0 = camera.position.clone(), t0 = controls.target.clone(), up0 = camera.up.clone(), fov0 = camera.fov;
     const r0 = p0.length(), r1 = toPos.length();
-    const a0 = Math.max(r0 - st.surfaceRadius(p0), 0.001), a1 = Math.max(r1 - st.surfaceRadius(toPos), 0.001);
+    const sr0 = st.surfaceRadius(p0), sr1 = st.surfaceRadius(toPos);
+    const a0 = Math.max(r0 - sr0, 0.001), a1 = Math.max(r1 - sr1, 0.001);
     const d0 = p0.clone().normalize(), d1 = toPos.clone().normalize();
     const ang = d0.angleTo(d1);
     const hop = Math.min(2600, Math.max(0, ang * R_KM * 0.5));
@@ -854,7 +855,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         if (ang > 1e-4) { const q = new THREE.Quaternion().setFromUnitVectors(d0, d1); dir.copy(d0).applyQuaternion(new THREE.Quaternion().slerp(q, k)); }
         // Interpolate clearance above the actual terrain, including destinations below the reference sphere.
         const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + hop * Math.sin(Math.PI * k);
-        camera.position.copy(dir.multiplyScalar(st.surfaceRadius(dir) + alt));
+        // ground radius: the take-off and landing values blended along the way, easing onto the live terrain only in
+        // the last stretch, so detail that loads mid-flight (site patch, tiles) cannot make the camera jump
+        const w = k < 0.8 ? 0 : (k - 0.8) / 0.2, ws = w * w * (3 - 2 * w);
+        const srPath = sr0 + (sr1 - sr0) * k;
+        const sr = ws > 0 ? srPath + (st.surfaceRadius(dir) - srPath) * ws : srPath;
+        camera.position.copy(dir.multiplyScalar(sr + alt));
         controls.target.copy(t0).lerp(toTarget, gsap.parseEase('power2.inOut')(k));
         camera.up.copy(up0).applyQuaternion(new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(up0, up), k));
         if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * gsap.parseEase('power2.inOut')(k); camera.updateProjectionMatrix(); }
@@ -933,7 +939,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const quiet = quietPick.current;
     quietPick.current = false;
     const picked = firstSite.current === '\u0000picked' && !quiet;
-    const arrive = (fallback: Scale) => { if (picked) goTo(scale === 'moon' ? fallback : scale); };
+    let arrived = false;
+    const arrive = (fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo(scale === 'moon' ? fallback : scale); } };
+    // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
+    // never waits for a download and then lurches
+    if (sel.lat < -80.5 && !sel.id.startsWith('custom') && pendingClose.current !== sel.id) arrive('site');
     (async () => {
       let meta: HiMeta | null = null;
       if (sel.lat < -80.5 && !sel.id.startsWith('custom')) {
