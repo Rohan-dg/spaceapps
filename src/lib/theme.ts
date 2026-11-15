@@ -30,7 +30,7 @@ function read(): { name: ThemeName; c: Palette } {
     c: {
       bg: v('--bg'), surface: v('--surface'), surface2: v('--surface-2'), line: v('--line'), ink: v('--ink'), ink2: v('--ink-2'), ink3: v('--ink-3'),
       accent: v('--accent'), sun: v('--sun'), sunDisk: v('--sun-disk'), earth: v('--earth'), terrain: v('--terrain'), terrainEdge: v('--terrain-edge'),
-      sky: v('--sky'), good: v('--good'), warn: v('--warn'), poor: v('--poor'), font: v('--font-body'), mono: v('--font-mono'),
+      sky: v('--sky'), good: v('--good'), warn: v('--warn'), poor: v('--poor'), font: v('--font-body'), mono: v('--font-num'), // no monospace in the app: chart numerals use the body face
     },
   };
 }
