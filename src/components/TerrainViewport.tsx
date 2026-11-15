@@ -45,7 +45,7 @@ function axisLabel(text: string, color: string) {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d')!;
   g.fillStyle = color; g.beginPath(); g.arc(32, 32, 26, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#111'; g.font = '600 34px "IBM Plex Sans Variable", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#111'; g.font = '600 34px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(text, 32, 34);
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
   s.scale.setScalar(0.42);
