@@ -98,11 +98,12 @@ const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFix
 const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
 /** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
 const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
-interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null }
+interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null;
+  missionKm: number; startSunPct: number | null; startEarthUp: boolean | null; earthPct: number | null; longestNoEarthH: number | null }
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -112,6 +113,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   onComparePoint?: (lat: number, lon: number) => void;
   /** Any click on the ground (not a site marker): the app makes the point a comparable site. */
   onPointClick?: (lat: number, lon: number) => void;
+  /** Expert mode: rover range and other engineering tools appear. */
+  expert?: boolean;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
 }) {
@@ -150,7 +153,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const menuRef = useRef<HTMLDivElement>(null);
   const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
+  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH), mission: '5' });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
   const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
@@ -1236,13 +1239,17 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const r = roverRange(q, 4);
     const h0 = groundAt(q.lat, q.lon).true;
     // can the battery carry the rover through the longest dark stretch here in the next lunar cycle?
-    let longestDarkH: number | null = null;
+    let longestDarkH: number | null = null, startSunPct: number | null = null, startEarthUp: boolean | null = null, earthPct: number | null = null, longestNoEarthH: number | null = null;
     try {
       const gg = st.terrainM(q.lat, q.lon);
       const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, h0, gg.resM);
-      longestDarkH = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000).longestDarkH;
+      const per = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000);
+      longestDarkH = per.longestDarkH; earthPct = per.earthPct; longestNoEarthH = per.longestNoEarthH;
+      const nowStart = probeNow(q.lat, q.lon, h0, hz, t);
+      startSunPct = nowStart.sunPct; startEarthUp = nowStart.earthUp;
     } catch { longestDarkH = null; }
-    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH });
+    const missionKm = Math.max(0, Number(inp.mission) || 0);
+    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH, missionKm, startSunPct, startEarthUp, earthPct, longestNoEarthH });
     // nearest sunlight the rover can drive to (or wait for) on this charge; deferred so the rings draw first
     setSunPlan('busy');
     const t0 = t;
@@ -1397,7 +1404,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             </div></div>
           </div>
         )}
-        {rangeOpen && (
+        {expert && rangeOpen && (
           <form className={`hud-range${rangeMin ? ' min' : ''}`} onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
             <div className="hud-probe-head">
               <button type="button" className="hud-collapse" aria-expanded={!rangeMin} onClick={() => setRangeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Rover range on battery</button>
@@ -1408,6 +1415,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               <label>Longitude ° E<input id="range-lon" inputMode="decimal" value={rangeIn.lon} onChange={(e) => setRangeIn({ ...rangeIn, lon: e.target.value })} placeholder="222.69" /></label>
               <label>Battery life without sun (h)<input id="range-hours" inputMode="decimal" value={rangeIn.hours} onChange={(e) => setRangeIn({ ...rangeIn, hours: e.target.value })} /></label>
               <label>Driving speed (km/h)<input id="range-speed" inputMode="decimal" value={rangeIn.speed} onChange={(e) => setRangeIn({ ...rangeIn, speed: e.target.value })} /></label>
+              <label>Mission drive, one way (km)<input id="range-mission" inputMode="decimal" value={rangeIn.mission} onChange={(e) => setRangeIn({ ...rangeIn, mission: e.target.value })} /></label>
             </div>
             <div className="range-actions">
               <button type="submit" className="range-go">Show range</button>
@@ -1425,6 +1433,23 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
                   : sunPlan.kind === 'drive' ? <><b className="ok">Yes, {sunPlan.km < 10 ? sunPlan.km.toFixed(2) : sunPlan.km.toFixed(1)} km away</b> <span className="swatch sun" /><br /><span className="dim">{sunPlan.hours.toFixed(1)} h of driving, {sunPlan.spareH.toFixed(1)} h of battery left on arrival · {fmtLatLon(sunPlan.target.lat, sunPlan.target.lon)}</span></>
                   : sunPlan.kind === 'wait' ? <><b className="part">Only by waiting</b><br /><span className="dim">No sunlit ground within {rangeShown.oneWayKm.toFixed(1)} km, but the Sun rises over the start in {sunPlan.hours.toFixed(1)} h, inside the battery life</span></>
                   : <><b className="no">No</b><br /><span className="dim">No sunlit ground within {sunPlan.searchedKm.toFixed(1)} km, and no sunrise at the start within {rangeShown.batteryH} h</span></>}</dd>
+                {rangeShown.missionKm > 0 && (() => {
+                  // the mission: drive missionKm out and back. Driving time against battery time, with the Sun and Earth at the start
+                  const driveH = (2 * rangeShown.missionKm) / rangeShown.speedKmH;
+                  const share = driveH / rangeShown.batteryH;
+                  const sunNow = (rangeShown.startSunPct ?? 0) > 50;
+                  return <>
+                    <dt>Mission ({rangeShown.missionKm} km out and back)</dt>
+                    <dd><b className={share <= 1 ? 'ok' : sunNow ? 'part' : 'no'}>
+                      {share <= 1 ? `Completes on battery: ${driveH.toFixed(1)} h of ${rangeShown.batteryH} h (${Math.round(share * 100)} %)`
+                        : sunNow ? `Needs sunlight: ${driveH.toFixed(1)} h of driving, ${(driveH - rangeShown.batteryH).toFixed(1)} h more than the battery`
+                        : `Not possible now: ${driveH.toFixed(1)} h of driving, the battery lasts ${rangeShown.batteryH} h and the start is dark`}</b>
+                      <br /><span className="dim">Sun at the start: {rangeShown.startSunPct === null ? 'unknown' : rangeShown.startSunPct >= 99.5 ? 'fully up, so the panels recharge while driving' : rangeShown.startSunPct > 0.5 ? `${rangeShown.startSunPct.toFixed(0)} % of the disc visible` : 'below the skyline'}</span></dd>
+                    <dt>Earth contact</dt>
+                    <dd><b className={rangeShown.startEarthUp ? 'ok' : 'no'}>{rangeShown.startEarthUp === null ? 'unknown' : rangeShown.startEarthUp ? 'Direct link to Earth now' : 'No direct link now: drive autonomously or via a relay'}</b>
+                      {rangeShown.earthPct !== null && <><br /><span className="dim">Earth in view {rangeShown.earthPct.toFixed(0)} % of the next 29.5 days{rangeShown.longestNoEarthH !== null ? `, longest blackout ${rangeShown.longestNoEarthH >= 708 ? 'the whole cycle' : `${rangeShown.longestNoEarthH.toFixed(0)} h`}` : ''}</span></>}</dd>
+                  </>;
+                })()}
                 <dt>Out and back</dt><dd><b>{rangeShown.returnKm < 10 ? rangeShown.returnKm.toFixed(2) : rangeShown.returnKm.toFixed(1)} km</b> radius <span className="swatch dashed" /></dd>
                 {rangeShown.longestDarkH !== null && <>
                   <dt>Longest dark here</dt>
@@ -1455,7 +1480,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           {status && <p className="hud-status">{!status.startsWith('Some') && <span className="hud-spin" aria-hidden />}{status}</p>}
         </div>
         <div className="hud-br hud-anim">
-          <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>
+          {expert && <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>}
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
           {/* a direct switch in both modes, not tucked in the Display menu */}
           <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
