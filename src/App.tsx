@@ -204,7 +204,7 @@ export default function App() {
       <div className="ct-main">
       <header className="ct-bar">
         <span className="ct-bar-icon" aria-hidden><Globe size={18} /></span>
-        <h1 className="ct-title brand">Lunar Site <span className="brand-box">Compare</span></h1>
+        <h1 className="ct-title brand">Sol <span className="brand-box">Teris</span></h1>
         <label className="preset-pick">
           <span>Preset</span>
           <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
