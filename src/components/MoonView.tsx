@@ -334,7 +334,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       return tileHeight(tIdx, t.heights, lat, lon, drawn ? t.stride : 1);
     }
     function tileGeometry(idx: TileIndex, h: TileHeights, stride: number) {
-      const md = buildTileMesh(idx, h, stride, 2);
+      // skirts reach 6 km down so a ×3 relief step to the coarser globe beside a tile never opens a crack
+      const md = buildTileMesh(idx, h, stride, 6);
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(md.position, 3));
       geo.setAttribute('aUp', new THREE.BufferAttribute(md.up, 3));
@@ -457,11 +458,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       if (st.eq) return { h: sampleEq(st.eq, lat, lon), resM: (Math.PI * R_KM * 1000) / st.eq.hgt, src: `LOLA global ${((Math.PI * R_KM) / st.eq.hgt).toFixed(1)} km` };
       return { h: 0, resM: 5000, src: 'reference sphere (heights still loading)' };
     }
-    /** Radius (km) of the rendered ground under a point: the site patch is true scale, globe and cap carry the relief exaggeration. */
+    /** Radius (km) of the rendered ground under a point; every layer carries the relief exaggeration. */
     function groundKm(p: THREE.Vector3) {
       const r = p.length(), lat = Math.asin(p.z / r) * 180 / Math.PI, lon = Math.atan2(p.y, p.x) * 180 / Math.PI;
       const g = terrainM(lat, lon);
-      return R_KM + (g.h * (g.src.includes('site patch') ? 1 : st.exag)) / 1000;
+      return R_KM + (g.h * st.exag) / 1000;
     }
     /** First hit of a screen ray with the rendered ground (sphere-traced on the height grids), or null. */
     function pickGround(ndcX: number, ndcY: number) {
@@ -725,10 +726,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
         else { pendingClose.current = s.id; if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } }
       };
       layer.appendChild(b);
-      return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) + 30)) };
+      return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief + 30)) };
     });
     st.request();
-  }, [siteList, selectedId, onSelect]);
+  }, [siteList, selectedId, onSelect, relief]);
 
   /* ---------- camera flights ---------- */
   const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6, fov = SCALE_FOV) => {
@@ -854,12 +855,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const hSite = sampleGrid(st.hi, xs, ys);
       const origin = posOf(sel.lat, sel.lon, hSite);
       const pos = new Float32Array(m * m * 3), xy = new Float32Array(m * m * 2), loc = new Float32Array(m * m * 2);
+      const up = new Float32Array(m * m * 3), hv = new Float32Array(m * m);
       for (let r = 0, k = 0; r < m; r++) for (let c = 0; c < m; c++, k++) {
         const rr = r * step, cc = c * step;
         const x = x0 + cc * res, y = y0 - rr * res;
         const [la, lo] = stereoLatLon(x, y);
-        const p = posOf(la, lo, dec.data[rr * n + cc]);
+        const p = posOf(la, lo, dec.data[rr * n + cc]), dd = dirOf(la, lo);
         pos[k * 3] = p[0] - origin[0]; pos[k * 3 + 1] = p[1] - origin[1]; pos[k * 3 + 2] = p[2] - origin[2];
+        up[k * 3] = dd[0]; up[k * 3 + 1] = dd[1]; up[k * 3 + 2] = dd[2]; hv[k] = dec.data[rr * n + cc];
         xy[k * 2] = x; xy[k * 2 + 1] = y; loc[k * 2] = x - xs; loc[k * 2 + 1] = y - ys;
       }
       // skirt: a wall hanging 3 km down from every edge vertex, shaded like the ground at the edge,
@@ -871,12 +874,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       for (let r = m - 1; r > 0; r--) ring.push(r * m);
       const nv = m * m, ns = ring.length, SKIRT_KM = 3;
       const P = new Float32Array((nv + ns) * 3), XY = new Float32Array((nv + ns) * 2), LOC = new Float32Array((nv + ns) * 2);
-      P.set(pos); XY.set(xy); LOC.set(loc);
+      const UP = new Float32Array((nv + ns) * 3), HV = new Float32Array(nv + ns);
+      P.set(pos); XY.set(xy); LOC.set(loc); UP.set(up); HV.set(hv);
       ring.forEach((v, i) => {
         const ax = pos[v * 3] + origin[0], ay = pos[v * 3 + 1] + origin[1], az = pos[v * 3 + 2] + origin[2];
         const k = 1 - SKIRT_KM / Math.hypot(ax, ay, az), j = nv + i;
         P[j * 3] = ax * k - origin[0]; P[j * 3 + 1] = ay * k - origin[1]; P[j * 3 + 2] = az * k - origin[2];
         XY[j * 2] = xy[v * 2]; XY[j * 2 + 1] = xy[v * 2 + 1]; LOC[j * 2] = loc[v * 2]; LOC[j * 2 + 1] = loc[v * 2 + 1];
+        UP[j * 3] = up[v * 3]; UP[j * 3 + 1] = up[v * 3 + 1]; UP[j * 3 + 2] = up[v * 3 + 2]; HV[j] = hv[v];
       });
       const idx = new Uint32Array((m - 1) * (m - 1) * 6 + ns * 12);
       let k = 0;
@@ -892,6 +897,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
       geo.setAttribute('aXY', new THREE.BufferAttribute(XY, 2));
       geo.setAttribute('aLocal', new THREE.BufferAttribute(LOC, 2));
+      geo.setAttribute('aUp', new THREE.BufferAttribute(UP, 3));
+      geo.setAttribute('aH', new THREE.BufferAttribute(HV, 1));
       geo.setIndex(new THREE.BufferAttribute(idx, 1));
       const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({ vertexShader: PATCH_V, fragmentShader: PATCH_F, uniforms: u }));
       mesh.position.set(origin[0], origin[1], origin[2]);
@@ -945,7 +952,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const g = st.terrainM(lat, lon);
       const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, lat, lon, g.h, g.resM);
       const distKm = sel ? v3(dirOf(sel.lat, sel.lon)).angleTo(v3(dirOf(lat, lon))) * R_KM : null;
-      st.probePos = v3(posOf(lat, lon, g.h * (g.src.includes('site patch') ? 1 : st.exag)));
+      st.probePos = v3(posOf(lat, lon, g.h * st.exag));
       setPeriod(null);
       setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
@@ -993,7 +1000,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
   /* ---------- rover range on battery ---------- */
   const groundAt = (lat: number, lon: number) => {
     const st = S.current!; const gg = st.terrainM(lat, lon);
-    return { true: gg.h, drawn: gg.h * (gg.src.includes('site patch') ? 1 : st.exag) };
+    return { true: gg.h, drawn: gg.h * st.exag };
   };
   const applyRange = (inp: typeof rangeIn, flyThere: boolean) => {
     const st = S.current; if (!st) return;

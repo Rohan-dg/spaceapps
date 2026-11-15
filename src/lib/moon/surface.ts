@@ -80,7 +80,7 @@ export function createSurfaceSampler(state: () => MoonSurface) {
       if (s.cap && !patchCoversCap) radius = Math.max(radius, polar(s.cap, x, y, 2 * s.capHalfM / CAP_SEGMENTS, -s.capHalfM, s.capHalfM, CAP_SEGMENTS, s.exag));
       if (g) {
         const step = g.n > 1100 ? 2 : 1;
-        radius = Math.max(radius, polar(g, x, y, step * g.resM, g.x0, g.y0, Math.floor((g.n - 1) / step), 1));
+        radius = Math.max(radius, polar(g, x, y, step * g.resM, g.x0, g.y0, Math.floor((g.n - 1) / step), s.exag));
       }
     }
     return radius;
