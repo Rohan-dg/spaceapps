@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { SiteInfo } from '../lib/data';
 import { Game, type Hud, type Stats } from './engine';
 import { PHASES, RATE } from './sim';
-import { ROVERS, roverById, type RoverDef } from './rovers';
+import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
+import RoverPreview from './RoverPreview';
 import './game.css';
 
 type Stage = 'loading' | 'brief' | 'play' | 'pause' | 'done' | 'frozen' | 'power' | 'time' | 'unavailable' | 'error';
@@ -75,7 +76,8 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
   const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null), map = useRef<HTMLCanvasElement>(null);
   const engine = useRef<Game | null>(null), serial = useRef(0);
-  const pickRover = (id: string) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
+  const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
+  const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
   const stageRef = useRef(stage);
   useEffect(() => { stageRef.current = stage; }, [stage]);
   const send = useCallback((key: string, down: boolean) => engine.current?.press(key, down), []);
@@ -209,19 +211,19 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       {stage === 'loading' ? <><div className="rg-loader" aria-hidden="true" /><h2 id="rg-dialog-title">Preparing your rover</h2><p role="status">{loading}.</p><p>The route needs reachable sunlight, Earth contact and shadowed ground.</p><button onClick={onClose}>Cancel</button></>
         : stage === 'unavailable' || stage === 'error' ? <><h2 id="rg-dialog-title">{stage === 'error' ? 'The mission could not load' : 'No playable route here'}</h2><p role={stage === 'error' ? 'alert' : undefined}>{stage === 'error' ? error : 'This site and the next 30 days do not contain a reachable combination of sunlight, Earth contact and shadow. Try another site, or return to the map to choose an earlier date.'}</p><SiteSelect siteId={siteId} sites={available} onChange={setSite} /><div className="rg-dialog-actions"><button className="rg-primary" onClick={restart}>Try again</button><button onClick={onClose}>Return to map</button></div></>
           : stage === 'brief' ? <>
-            <span className="rg-mission-no">Polar survey · choose your rover</span>
-            <h2 id="rg-dialog-title">Who's driving today?</h2>
+            <span className="rg-mission-no">Rover garage</span>
+            <h2 id="rg-dialog-title">Pick your rover!</h2>
+            <p className="rg-pick-lead">Every rover here is based on a real Moon rover. Each one is good at something different.</p>
+            <RoverCard r={rover} base={modelBase} onStep={(d) => pickRover(ROVERS[(ROVERS.findIndex((x) => x.id === roverId) + d + ROVERS.length) % ROVERS.length].id)} />
             <div className="rg-rovers" role="radiogroup" aria-label="Rover">
               {ROVERS.map((r) => <button key={r.id} role="radio" aria-checked={r.id === roverId} className={r.id === roverId ? 'on' : ''} onClick={() => pickRover(r.id)}>
-                <b>{r.callsign}</b><small>{r.basis}</small>{Number(stored(bestKey(r.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id))))}</em>}
+                <i aria-hidden="true">{r.callsign[0]}</i><b>{r.callsign}</b><small>{r.tag}</small>{Number(stored(bestKey(r.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id))))}</em>}
               </button>)}
             </div>
-            <RoverCard r={rover} />
             <SiteSelect siteId={siteId} sites={available} onChange={setSite} />
-            <div className="rg-brief-facts"><span>Score <b>objectives, ice, targets, speed</b></span><span>Clock <b>60× / 1800× waiting</b></span><span>Start <b>{utc(ready?.t ?? t)} UTC</b></span></div>
-            {!!ready?.movedDays && <p className="rg-date-note">The mission starts {ready.movedDays.toFixed(1)} days after your selected date, at a playable lighting window.</p>}
-            <p className="rg-input-note"><kbd>W A S D</kbd> Drive · Drag to look · Scroll to zoom</p>
-            <div className="rg-dialog-actions"><button className="rg-primary" onClick={() => { engine.current?.begin(); setStage('play'); root.current?.focus(); }}><RoverGlyph kind="play" /> Launch {rover.callsign}</button><button onClick={onClose}>Return to map</button></div>
+            {!!ready?.movedDays && <p className="rg-date-note">The mission starts {ready.movedDays.toFixed(1)} days after your selected date, when the Sun is up.</p>}
+            <p className="rg-input-note"><kbd>W A S D</kbd> or arrow keys to drive · drag to look around</p>
+            <div className="rg-dialog-actions"><button className="rg-primary rg-launch" onClick={() => { engine.current?.begin(); setStage('play'); root.current?.focus(); }}><RoverGlyph kind="play" /> Launch {rover.callsign}!</button><button onClick={onClose}>Back to the map</button></div>
             <ScienceNote />
           </>
             : stage === 'pause' ? <><h2 id="rg-dialog-title">{confirmExit ? 'Leave this mission?' : help ? 'Rover controls' : log ? 'Mission log' : 'Mission paused'}</h2>{confirmExit ? <p>Your current mission progress will be lost. You can stay here and resume from this position.</p> : help ? <Controls /> : log ? <ol className="rg-log">{messages.map((m) => <li key={m.id}><b>{m.from}</b><p>{m.text}</p></li>)}</ol> : <p>The rover and simulation clock are stopped. Completed objectives are saved as checkpoints for this mission.</p>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={resume}><RoverGlyph kind="play" /> Resume mission</button>{confirmExit ? <button onClick={onClose}>Leave mission</button> : <button onClick={retry}>Retry checkpoint</button>}{log && <button onClick={downloadLog}>Download log</button>}</div>{!confirmExit && <ScienceNote />}</>
@@ -235,14 +237,22 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   </div>;
 }
 
-function RoverCard({ r }: { r: RoverDef }) {
-  const bars: [string, number][] = [['Speed', r.bars.speed], ['Battery', r.bars.battery], ['Solar', r.bars.solar], ['Cold', r.bars.cold], ['Science', r.bars.science]];
-  return <div className="rg-rover-card" key={r.id}>
-    <div className="rg-rc-head"><b>{r.callsign}</b><span>based on <i>{r.basis}</i></span><small>{r.origin}</small></div>
-    <p>{r.blurb}</p>
-    <div className="rg-bars">{bars.map(([k, v]) => <div key={k}><span>{k}</span><i>{[0, 1, 2, 3, 4].map((n) => <u key={n} className={n < v ? 'on' : ''} />)}</i></div>)}</div>
-    <ul className="rg-perks"><li className="up">{r.perk}</li><li className="down">{r.drawback}</li></ul>
-    <dl className="rg-facts">{r.facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+function RoverCard({ r, base, onStep }: { r: RoverDef; base: string; onStep: (d: number) => void }) {
+  const bars: [string, number][] = [['Speed', r.bars.speed], ['Battery', r.bars.battery], ['Sun power', r.bars.solar], ['Stays warm', r.bars.cold], ['Science', r.bars.science]];
+  return <div className="rg-rover-card">
+    <div className="rg-stage">
+      <RoverPreview id={r.id} base={base} />
+      <button className="rg-step prev" onClick={() => onStep(-1)} aria-label="Previous rover">‹</button>
+      <button className="rg-step next" onClick={() => onStep(1)} aria-label="Next rover">›</button>
+      <span className="rg-nick">{r.tag}</span>
+    </div>
+    <div className="rg-rc-body" key={r.id}>
+      <div className="rg-rc-head"><b>{r.callsign}</b><span>Real rover: <i>{r.basis}</i></span></div>
+      <p>{r.kid}</p>
+      <div className="rg-bars">{bars.map(([k, v]) => <div key={k}><span>{k}</span><i>{[0, 1, 2, 3, 4].map((n) => <u key={n} className={n < v ? 'on' : ''} />)}</i></div>)}</div>
+      <div className="rg-perks"><div className="up"><b>Super power</b><span>{r.power}</span></div><div className="down"><b>Watch out</b><span>{r.watch}</span></div></div>
+      <details className="rg-facts"><summary>Real facts about {r.basis}</summary><small>{r.origin}</small><dl>{r.facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl><p>{r.blurb}</p></details>
+    </div>
   </div>;
 }
 function SiteSelect({ siteId, sites, onChange }: { siteId: string; sites: SiteInfo[]; onChange: (id: string) => void }) {
