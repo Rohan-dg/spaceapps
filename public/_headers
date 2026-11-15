@@ -18,3 +18,5 @@
   Cache-Control: public, max-age=604800
 /hires/*
   Cache-Control: public, max-age=604800
+/tiles/*
+  Cache-Control: public, max-age=604800

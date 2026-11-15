@@ -64,12 +64,21 @@ pip install numpy
 python scripts/build_horizons.py
 ```
 
+The 3D view's real-terrain tiles (about 180 MB, gitignored) are cut from the CGI Moon Kit files. Download `ldem_64_uint.tif` and `lroc_color_poles_16k.tif` from https://svs.gsfc.nasa.gov/4720 into `data/moonkit/`, then run this before building for deployment (without the tiles the 3D view falls back to the global maps):
+
+```bash
+pip install numpy pillow
+python scripts/build_terrain_tiles.py
+```
+
 ## Data
 
 | Data | Source |
 |---|---|
 | Polar terrain | LRO LOLA `LDEM_80S_40M`, 40 m/px |
 | Global terrain | LRO LOLA `LDEM_16`, about 1.9 km/px |
+| 3D Moon terrain | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720): LOLA `ldem_64` (64 px/deg, about 474 m) streamed as 5° mesh tiles, LROC WAC colour 16k |
+| 3D polar terrain | LOLA `LDEM_80S_80M` (148 m cap) and 5, 10, 20 m windows around each polar site |
 | Sun and Earth positions | [astronomy-engine](https://github.com/cosinekitty/astronomy) |
 | Validation | JPL Horizons (DE441) |
 
@@ -83,6 +92,7 @@ Sun and Earth positions match JPL Horizons to within 0.004° at 20 test points (
 - "Sunlit" and "visible" mean the centre of the Sun or Earth is above the terrain.
 - Antenna patterns, link budgets and relay satellites are not modelled.
 - Some site coordinates are approximate. This is not a mission-planning tool of record.
+- In the 3D view, terrain is the LOLA data at its native resolution (474 m globally, 148 m to 5 m near the south pole). Optional procedural detail below that is off by default and labelled when on.
 
 ## Credits
 

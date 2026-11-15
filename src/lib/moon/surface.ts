@@ -2,8 +2,9 @@ import { Ray, Vector3 } from 'three';
 import { type EqGrid, type PolarGrid, R_KM, dirOf, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from './frames';
 
 export const CAMERA_CLEARANCE_KM = 0.001;
-export const CAP_SEGMENTS = 767;
-export const GLOBE_SEGMENTS = 720;
+// mesh density only sets the silhouette; slopes, colour and shadows are per pixel from the height maps
+export const CAP_SEGMENTS = 383;
+export const GLOBE_SEGMENTS = 360;
 export const CORE_DEPTH_KM = 9.6;
 
 export interface MoonSurface {
@@ -12,6 +13,8 @@ export interface MoonSurface {
   hi: PolarGrid | null;
   exag: number;
   capHalfM: number;
+  /** Height (m) of a drawn real-terrain tile at a point, NaN where none is drawn (the globe is hidden there). */
+  tileH?: (lat: number, lon: number) => number;
 }
 
 /** Match the rendered triangles, rather than the finer DEM used for lighting and science. */
@@ -54,6 +57,10 @@ export function createSurfaceSampler(state: () => MoonSurface) {
     const lat = Math.asin(Math.max(-1, Math.min(1, ray.direction.z))) * 180 / Math.PI;
     const lon = Math.atan2(ray.direction.y, ray.direction.x) * 180 / Math.PI;
     let radius = R_KM - CORE_DEPTH_KM * s.exag;
+    if (s.tileH && lat > -80) {
+      const th = s.tileH(lat, lon);
+      if (!isNaN(th)) return Math.max(radius, R_KM + (th * s.exag) / 1000);
+    }
     if (!s.cap || lat >= -80.05) {
       const step = 360 / GLOBE_SEGMENTS;
       const col = Math.min(GLOBE_SEGMENTS - 1, Math.floor((lon + 180) / step));
@@ -73,7 +80,7 @@ export function createSurfaceSampler(state: () => MoonSurface) {
       if (s.cap && !patchCoversCap) radius = Math.max(radius, polar(s.cap, x, y, 2 * s.capHalfM / CAP_SEGMENTS, -s.capHalfM, s.capHalfM, CAP_SEGMENTS, s.exag));
       if (g) {
         const step = g.n > 1100 ? 2 : 1;
-        radius = Math.max(radius, polar(g, x, y, step * g.resM, g.x0, g.y0, Math.floor((g.n - 1) / step), 1));
+        radius = Math.max(radius, polar(g, x, y, step * g.resM, g.x0, g.y0, Math.floor((g.n - 1) / step), s.exag));
       }
     }
     return radius;
