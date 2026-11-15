@@ -2,7 +2,7 @@
  * Pull every variable for every site in the dataset and test which ones explain the two outcomes the app
  * rates: sunlight (power) and Earth visibility (radio).
  *
- *   npx tsx scripts/site_analysis.ts
+ *   npx tsx scripts/site_analysis.ts [--ids connecting-ridge,shackleton-rim,...]
  *
  * Writes data/analysis/{sites_all.csv, horizons.csv, daily_ratings.csv, summary.json} and prints the findings.
  */
@@ -16,6 +16,9 @@ import { commsVerdict, powerVerdict } from '../src/lib/verdict';
 const OUT = 'data/analysis';
 mkdirSync(OUT, { recursive: true });
 const doc = JSON.parse(readFileSync('public/sites.json', 'utf8'));
+// --ids a,b,c limits the analysis to those sites (docs/ANALYSIS.md covers the original 12)
+const ids = process.argv.includes('--ids') ? new Set(process.argv[process.argv.indexOf('--ids') + 1].split(',')) : null;
+if (ids) doc.sites = doc.sites.filter((s: { id: string }) => ids.has(s.id));
 const STEP = 4; // sample every 2 h for the az-dependent statistics (52 608 → 13 152 points per site)
 
 const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
