@@ -230,3 +230,75 @@
 @media (prefers-reduced-motion: reduce) {
   .rg *, .rg *::before, .rg *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- rover picker: the briefing sits on the left so the chosen rover stays in view, slowly orbited ---------- */
+.rg[data-stage='brief'] .rg-scrim { justify-items: start; align-items: stretch; background: linear-gradient(90deg, #050608e6 0%, #05060899 38%, #05060800 62%); }
+.rg[data-stage='brief'] .rg-dialog { width: min(500px, 100%); max-height: 100%; background: #171a1fe8; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.rg-rovers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.rg .rg-rovers button { display: grid; justify-items: start; align-content: start; gap: 2px; min-height: 64px; padding: 10px 8px; text-align: left; background: #262a31; border-bottom: 2px solid transparent; transition: background-color 140ms, border-color 140ms, transform 140ms; }
+.rg .rg-rovers button b { font-size: 13px; line-height: 1.15; }
+.rg .rg-rovers button small { font-size: 10px; color: #fffa; font-weight: 500; line-height: 1.25; }
+.rg .rg-rovers button em { font-style: normal; font-size: 10px; color: var(--rg-sun); margin-top: 2px; }
+.rg .rg-rovers button:hover:not(:disabled) { background: #343941; transform: translateY(-1px); }
+.rg .rg-rovers button.on, .rg .rg-rovers button.on:hover:not(:disabled) { background: #fff; color: #11151a; border-bottom-color: #63a1ff; }
+.rg .rg-rovers button.on small { color: #11151aaa; }
+.rg-rover-card { display: grid; gap: 12px; padding: 16px; background: #0f1216; border-left: 3px solid #63a1ff; animation: rg-card-in 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes rg-card-in { from { opacity: 0; transform: translateY(6px); } }
+.rg-rc-head { display: grid; gap: 2px; }
+.rg-rc-head b { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.rg-rc-head span { font-size: 12px; color: #fffc; }
+.rg-rc-head i { font-style: normal; color: #fff; font-weight: 600; }
+.rg-rc-head small { font-size: 11px; color: #fff9; }
+.rg-rover-card > p { font-size: 12.5px; line-height: 1.55; color: #fffd; }
+.rg-bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.rg-bars > div { display: grid; gap: 5px; font-size: 10.5px; color: #fffb; }
+.rg-bars i { display: flex; gap: 2px; }
+.rg-bars u { flex: 1; height: 5px; background: #fff2; text-decoration: none; }
+.rg-bars u.on { background: #63a1ff; }
+.rg-perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 12px; }
+.rg-perks li { padding-left: 18px; position: relative; line-height: 1.45; }
+.rg-perks li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.rg-perks .up::before { content: '+'; color: #63a1ff; }
+.rg-perks .down::before { content: '−'; color: #ff6363; }
+.rg-facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; padding-top: 10px; border-top: 1px solid var(--rg-line); }
+.rg-facts div { display: grid; gap: 1px; }
+.rg-facts dt { font-size: 10px; color: #fff9; }
+.rg-facts dd { margin: 0; font-size: 12px; }
+
+/* ---------- live score, gains, combo ---------- */
+.rg-score { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: baseline; padding-left: 16px; border-left: 1px solid var(--rg-line); }
+.rg-score > span { font-size: 11px; color: #fffa; }
+.rg-score strong { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.rg-score em { grid-column: 1 / -1; font-style: normal; font-size: 11px; color: var(--rg-sun); font-weight: 700; animation: rg-pulse 900ms ease-in-out infinite alternate; }
+.rg-score small { grid-column: 1 / -1; font-size: 10.5px; color: #fffa; }
+@keyframes rg-pulse { to { opacity: 0.55; } }
+.rg-gain { position: absolute; left: 50%; top: 168px; transform: translateX(-50%); z-index: 3; display: grid; justify-items: center; gap: 2px; pointer-events: none; text-shadow: 0 2px 12px #000; animation: rg-gain 1.9s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.rg-gain b { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; color: #fff; }
+.rg-gain span { font-size: 13px; font-weight: 600; color: #8cbcff; }
+@keyframes rg-gain { 0% { opacity: 0; transform: translate(-50%, 14px) scale(0.85); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1.06); } 22% { transform: translate(-50%, 0) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -26px); } }
+.rg-near { position: absolute; left: 50%; top: 168px; transform: translateX(-50%); z-index: 2; padding: 5px 10px; background: #63a1ffd9; color: #04101f; font-size: 12px; font-weight: 700; pointer-events: none; }
+
+/* ---------- scorecard ---------- */
+.rg-scorecard { display: grid; gap: 12px; padding: 16px; background: #0f1216; border-left: 3px solid #63a1ff; }
+.rg-stars { display: flex; gap: 6px; font-size: 34px; line-height: 1; }
+.rg-stars span { color: #ffffff22; transform: scale(0.6); animation: rg-star 420ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.rg-stars span:nth-child(2) { animation-delay: 160ms; } .rg-stars span:nth-child(3) { animation-delay: 320ms; }
+.rg-stars span.on { color: var(--rg-sun); text-shadow: 0 0 18px #ffd23f88; }
+@keyframes rg-star { to { transform: scale(1); } }
+.rg-total { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rg-total span { font-size: 12px; color: #fffb; }
+.rg-total strong { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.rg-total em { font-style: normal; font-size: 12px; font-weight: 700; color: #11151a; background: var(--rg-sun); padding: 3px 8px; }
+.rg-total small { font-size: 11px; color: #fffa; }
+.rg-scorecard ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 190px; overflow-y: auto; }
+.rg-scorecard li { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #ffffff12; opacity: 0; animation: rg-card-in 300ms ease forwards; }
+.rg-scorecard li b { color: #8cbcff; }
+
+@media (max-width: 640px) {
+  .rg[data-stage='brief'] .rg-scrim { background: #050608cc; }
+  .rg-rovers { grid-template-columns: repeat(3, 1fr); }
+  .rg-bars { grid-template-columns: repeat(3, 1fr); }
+  .rg-score { padding-left: 10px; }
+  .rg-score small { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .rg-gain, .rg-rover-card, .rg-stars span, .rg-scorecard li, .rg-score em { animation: none; opacity: 1; transform: none; } .rg-gain { display: none; } }
