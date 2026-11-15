@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { advance, CHARGE_PCT, distance, iceSignal, newQuest, newVitals, planMission, SPEC, stepVitals, type Maps, type MissionPlan, type Quest, type QuestCtx } from '../sim';
 
 const light = { sunFrac: 1, drive: 0, dig: false, tx: false, lamp: false };
-const plan: MissionPlan = { start: { e: 0, n: 0 }, charge: { e: 100, n: 0 }, phone: { e: 120, n: 0 }, zone: { c: { e: 200, n: 100 }, r: 60 }, ice: [{ e: 200, n: 100 }, { e: 240, n: 100 }, { e: 200, n: 140 }], haven: { e: 80, n: 0 } };
+const plan: MissionPlan = { start: { e: 0, n: 0 }, charge: { e: 100, n: 0 }, phone: { e: 120, n: 0 }, zone: { c: { e: 200, n: 100 }, r: 60 }, ice: [{ e: 200, n: 100 }, { e: 240, n: 100 }, { e: 200, n: 140 }], haven: { e: 80, n: 0 }, bonus: [] };
 const ctx: QuestCtx = { pos: plan.charge, battPct: CHARGE_PCT, earthUp: true, sunFrac: 1, parked: true };
 
 describe('rover energy and heat', () => {
@@ -113,6 +113,17 @@ describe('mission placement', () => {
     const m = terrain();
     for (let j = 11; j <= 24; j++) for (let i = 32; i <= 45; i++) if (j === 11 || j === 24 || i === 32 || i === 45) m.slope[j * m.n + i] = 45;
     expect(planMission(m)).toBeNull();
+  });
+  it('places spaced bonus science targets away from the objectives', () => {
+    const p = planMission(terrain(), 7)!;
+    expect(p.bonus.length).toBeGreaterThan(3);
+    for (const a of p.bonus) for (const b of [...p.bonus, p.start, p.charge, p.phone, p.haven, ...p.ice]) if (a !== b) expect(distance(a, b)).toBeGreaterThanOrEqual(70);
+  });
+  it('runs a radioisotope heater for free and lets a rover without panels skip the charging target', () => {
+    const cold = { ...newVitals(), tempC: -30 };
+    const plain = stepVitals(cold, 0.2, { ...light, sunFrac: 0 }), rtg = stepVitals(cold, 0.2, { ...light, sunFrac: 0 }, { ...SPEC, isotopeW: 90 });
+    expect(rtg.tempC).toBeGreaterThan(plain.tempC);
+    expect(advance(newQuest(plan), plan, { ...ctx, battPct: 5, chargePct: 0 }, { type: 'tick' }).q.phase).toBe('phone');
   });
   it('rejects incomplete grids', () => { expect(planMission({ ...terrain(), sun: new Uint8Array(2) })).toBeNull(); });
 });

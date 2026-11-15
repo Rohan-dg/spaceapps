@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { SiteInfo } from '../lib/data';
 import { Game, type Hud, type Stats } from './engine';
 import { PHASES, RATE } from './sim';
+import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
+import RoverPreview from './RoverPreview';
 import './game.css';
 
 type Stage = 'loading' | 'brief' | 'play' | 'pause' | 'done' | 'frozen' | 'power' | 'time' | 'unavailable' | 'error';
@@ -12,6 +14,10 @@ const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', '
 const deg = (v: number) => `${v.toFixed(1)}°`;
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}`;
 const phaseNames = ['Charge', 'Contact', 'Sample', 'Uplink', 'Park'];
+const PICK_KEY = 'rover-pick', bestKey = (id: string) => `rover-best-${id}`;
+const stored = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
+const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
 /** A small set of original control glyphs, shared by mouse, keyboard, and touch controls. */
 export function RoverGlyph({ kind = 'rover' }: { kind?: 'rover' | 'pause' | 'close' | 'play' | 'camera' | 'sun' | 'earth' | 'reset' }) {
@@ -50,6 +56,10 @@ function Hold({ label, control, send, children, disabled = false, className = ''
 
 export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props) {
   const available = sites.filter((s) => SITES.includes(s.id) && !s.synthetic);
+  const [roverId, setRoverId] = useState(() => roverById(stored(PICK_KEY) ?? 'badger').id);
+  const rover = roverById(roverId);
+  const roverRef = useRef(roverId);
+  const [best, setBest] = useState<number | null>(null);
   const [siteId, setSite] = useState(() => available.some((s) => s.id === selectedId) ? selectedId : 'mons-mouton');
   const site = available.find((s) => s.id === siteId) ?? available[0];
   const [run, setRun] = useState(0);
@@ -66,6 +76,8 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
   const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null), map = useRef<HTMLCanvasElement>(null);
   const engine = useRef<Game | null>(null), serial = useRef(0);
+  const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
+  const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
   const stageRef = useRef(stage);
   useEffect(() => { stageRef.current = stage; }, [stage]);
   const send = useCallback((key: string, down: boolean) => engine.current?.press(key, down), []);
@@ -77,12 +89,18 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     if (!host.current || !site) { setError('No supported terrain is available. Return to the map and reload the site data.'); setStage('error'); return; }
     let live = true;
     setStage('loading'); setHud(null); setReady(null); setStats(null); setMessages([]); setError(''); setHelp(false); setLog(false);
-    const game = new Game({ host: host.current, base: new URL(import.meta.env.BASE_URL, location.href).href, siteId: site.id, lat: site.lat, lon: site.lon, t, tMax, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches }, {
+    const game = new Game({ host: host.current, base: new URL(import.meta.env.BASE_URL, location.href).href, siteId: site.id, lat: site.lat, lon: site.lon, t, tMax, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches, roverId: roverRef.current }, {
       onStage: (s) => { if (live) setLoading(s); },
       onReady: (r) => { if (live) { setReady(r); setStage(r ? 'brief' : 'unavailable'); } },
       onHud: (h) => { if (live) setHud(h); },
       onMessage: (m) => { if (live) setMessages((a) => [...a.slice(-39), { ...m, id: ++serial.current }]); },
-      onEnd: (kind, s) => { if (live) { setStats(s); setStage(kind); } },
+      onEnd: (kind, s) => {
+        if (!live) return;
+        setStats(s); setStage(kind);
+        const prev = Number(stored(bestKey(roverRef.current)) ?? 0);
+        setBest(prev);
+        if (kind === 'done' && s.score > prev) store(bestKey(roverRef.current), String(s.score));
+      },
       onError: (e) => { if (live) { setError(e); setStage('error'); } },
     });
     engine.current = game;
@@ -121,7 +139,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const complete = hud?.phase === 'done';
 
   function downloadLog() {
-    const data = { mission: 'RASSOR education scenario', site: site?.name, latitude: site?.lat, longitude: site?.lon, startedUTC: ready ? new Date(ready.t).toISOString() : null, timeUTC: hud ? new Date(hud.t).toISOString() : null, stats, phase: hud?.phase, batteryPct: hud?.battPct, temperatureC: hud?.tempC, messages: messages.map(({ from, text }) => ({ from, text })), note: 'NASA terrain and ephemeris; fictional ice deposits, solar equipment, power, thermal and motion model.' };
+    const data = { mission: 'Rover education scenario', rover: `${rover.callsign} (${rover.basis})`, score: stats?.score ?? hud?.score, site: site?.name, latitude: site?.lat, longitude: site?.lon, startedUTC: ready ? new Date(ready.t).toISOString() : null, timeUTC: hud ? new Date(hud.t).toISOString() : null, stats, phase: hud?.phase, batteryPct: hud?.battPct, temperatureC: hud?.tempC, messages: messages.map(({ from, text }) => ({ from, text })), note: 'NASA terrain and ephemeris; fictional ice deposits, solar equipment, power, thermal and motion model.' };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `rover-mission-${siteId}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -129,7 +147,8 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   return <div className="rg" ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="rg-title" data-stage={stage}>
     <div className="rg-world" ref={host} aria-label="Interactive lunar terrain. Drag to orbit the camera and scroll to zoom." />
     <header className="rg-bar">
-      <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">Rover mission</h1><span>{site?.short || site?.name} · RASSOR</span></div></div>
+      <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">Rover mission</h1><span>{rover.callsign} · {rover.basis} · {site?.short || site?.name}</span></div></div>
+      {hud && stage !== 'brief' && <div className="rg-score" aria-live="polite"><span>Score</span><strong>{fmt(hud.score)}</strong>{hud.combo > 1 && <em>×{hud.combo} combo</em>}<small>Targets {hud.bonus}/{hud.bonusTotal}</small></div>}
       <div className="rg-clock"><strong>{utc(hud?.t ?? ready?.t ?? t)} UTC</strong><span>{hud?.rate ?? RATE}× simulation time{stage === 'pause' ? ' · Paused' : ''}</span></div>
       <div className="rg-bar-actions"><button onClick={() => { pause(); setHelp(true); }} disabled={stage !== 'play' && stage !== 'pause'}>Controls</button><button onClick={playing ? pause : resume} disabled={stage !== 'play' && stage !== 'pause'} aria-label={playing ? 'Pause mission' : 'Resume mission'}><RoverGlyph kind={playing ? 'pause' : 'play'} /></button><button onClick={close} aria-label="Exit rover mission"><RoverGlyph kind="close" /></button></div>
     </header>
@@ -158,6 +177,8 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
         <div ref={goalTag} className="rg-tag goal"><span><b>◇ {hud?.phase === 'ice' ? 'Survey area' : 'Objective'}</b><small>{hud?.objDist?.toFixed(0)} m</small></span></div>
       </div>
 
+      {hud?.gain && <div className="rg-gain" key={hud.gain.id}><b>+{fmt(hud.gain.pts)}</b><span>{hud.gain.label}</span></div>}
+      {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}
       <div className="rg-drive-data"><span>{hud?.view === 'mast' ? 'Mast camera' : 'Chase camera'}</span><strong>{Math.abs(hud?.speed ?? 0).toFixed(1)}<small> m/s</small></strong><span>View {(hud?.camAz ?? 0).toFixed(0).padStart(3, '0')}°</span></div>
 
@@ -189,18 +210,56 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     {blocked && <div className="rg-scrim"><section className="rg-dialog" aria-labelledby="rg-dialog-title">
       {stage === 'loading' ? <><div className="rg-loader" aria-hidden="true" /><h2 id="rg-dialog-title">Preparing your rover</h2><p role="status">{loading}.</p><p>The route needs reachable sunlight, Earth contact and shadowed ground.</p><button onClick={onClose}>Cancel</button></>
         : stage === 'unavailable' || stage === 'error' ? <><h2 id="rg-dialog-title">{stage === 'error' ? 'The mission could not load' : 'No playable route here'}</h2><p role={stage === 'error' ? 'alert' : undefined}>{stage === 'error' ? error : 'This site and the next 30 days do not contain a reachable combination of sunlight, Earth contact and shadow. Try another site, or return to the map to choose an earlier date.'}</p><SiteSelect siteId={siteId} sites={available} onChange={setSite} /><div className="rg-dialog-actions"><button className="rg-primary" onClick={restart}>Try again</button><button onClick={onClose}>Return to map</button></div></>
-          : stage === 'brief' ? <><span className="rg-mission-no">RASSOR / Polar survey</span><h2 id="rg-dialog-title">Bring the samples home.</h2><p>Drive into the light, establish contact with Earth, and investigate fictional ice deposits in the shadow. Keep the rover warm and charged, then find a safe place to park.</p><SiteSelect siteId={siteId} sites={available} onChange={setSite} /><div className="rg-brief-facts"><span>Route <b>1.4 km area</b></span><span>Clock <b>60× / 1800× waiting</b></span><span>Start <b>{utc(ready?.t ?? t)} UTC</b></span></div>{!!ready?.movedDays && <p className="rg-date-note">The mission starts {ready.movedDays.toFixed(1)} days after your selected date, at a playable lighting window.</p>}<p className="rg-input-note"><kbd>W A S D</kbd> Drive · Drag to look · Scroll to zoom</p><div className="rg-dialog-actions"><button className="rg-primary" onClick={() => { engine.current?.begin(); setStage('play'); root.current?.focus(); }}><RoverGlyph kind="play" /> Begin mission</button><button onClick={onClose}>Return to map</button></div><ScienceNote /></>
+          : stage === 'brief' ? <>
+            <span className="rg-mission-no">Rover garage</span>
+            <h2 id="rg-dialog-title">Pick your rover!</h2>
+            <p className="rg-pick-lead">Every rover here is based on a real Moon rover. Each one is good at something different.</p>
+            <RoverCard r={rover} base={modelBase} onStep={(d) => pickRover(ROVERS[(ROVERS.findIndex((x) => x.id === roverId) + d + ROVERS.length) % ROVERS.length].id)} />
+            <div className="rg-rovers" role="radiogroup" aria-label="Rover">
+              {ROVERS.map((r) => <button key={r.id} role="radio" aria-checked={r.id === roverId} className={r.id === roverId ? 'on' : ''} onClick={() => pickRover(r.id)}>
+                <i aria-hidden="true">{r.callsign[0]}</i><b>{r.callsign}</b><small>{r.tag}</small>{Number(stored(bestKey(r.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id))))}</em>}
+              </button>)}
+            </div>
+            <SiteSelect siteId={siteId} sites={available} onChange={setSite} />
+            {!!ready?.movedDays && <p className="rg-date-note">The mission starts {ready.movedDays.toFixed(1)} days after your selected date, when the Sun is up.</p>}
+            <p className="rg-input-note"><kbd>W A S D</kbd> or arrow keys to drive · drag to look around</p>
+            <div className="rg-dialog-actions"><button className="rg-primary rg-launch" onClick={() => { engine.current?.begin(); setStage('play'); root.current?.focus(); }}><RoverGlyph kind="play" /> Launch {rover.callsign}!</button><button onClick={onClose}>Back to the map</button></div>
+            <ScienceNote />
+          </>
             : stage === 'pause' ? <><h2 id="rg-dialog-title">{confirmExit ? 'Leave this mission?' : help ? 'Rover controls' : log ? 'Mission log' : 'Mission paused'}</h2>{confirmExit ? <p>Your current mission progress will be lost. You can stay here and resume from this position.</p> : help ? <Controls /> : log ? <ol className="rg-log">{messages.map((m) => <li key={m.id}><b>{m.from}</b><p>{m.text}</p></li>)}</ol> : <p>The rover and simulation clock are stopped. Completed objectives are saved as checkpoints for this mission.</p>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={resume}><RoverGlyph kind="play" /> Resume mission</button>{confirmExit ? <button onClick={onClose}>Leave mission</button> : <button onClick={retry}>Retry checkpoint</button>}{log && <button onClick={downloadLog}>Download log</button>}</div>{!confirmExit && <ScienceNote />}</>
-              : <><span className="rg-mission-no">{stage === 'done' ? 'Survey complete' : 'Mission interrupted'}</span><h2 id="rg-dialog-title">{stage === 'done' ? 'Samples returned. Rover safe.' : stage === 'frozen' ? 'The electronics froze.' : stage === 'power' ? 'The battery is depleted.' : 'The simulation window ended.'}</h2><p>{stage === 'done' ? 'You found the ice, delivered the data and parked with sunlight and Earth in view. Those same constraints shape real lunar landing decisions.' : stage === 'frozen' ? 'The temperature fell below −40 °C. Spend less time in shadow and keep enough charge for the heaters.' : stage === 'power' ? 'The rover ran out of energy in shadow. Return to your last checkpoint and charge before going farther.' : 'Return to a checkpoint or choose an earlier date on the map.'}</p>{stats && <div className="rg-results"><span>Distance <b>{stats.odo.toFixed(0)} m</b></span><span>Samples <b>{stats.found}</b></span><span>Battery <b>{stats.battPct.toFixed(0)}%</b></span><span>Coldest <b>{stats.minTempC.toFixed(0)} °C</b></span></div>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={stage === 'done' ? resume : retry}>{stage === 'done' ? 'Keep exploring' : 'Retry checkpoint'}</button><button onClick={downloadLog}>Download log</button><button onClick={onClose}>Return to map</button></div><ScienceNote /></>}
+              : <><span className="rg-mission-no">{stage === 'done' ? 'Survey complete' : 'Mission interrupted'}</span><h2 id="rg-dialog-title">{stage === 'done' ? 'Samples returned. Rover safe.' : stage === 'frozen' ? 'The electronics froze.' : stage === 'power' ? 'The battery is depleted.' : 'The simulation window ended.'}</h2><p>{stage === 'done' ? 'You found the ice, delivered the data and parked with sunlight and Earth in view. Those same constraints shape real lunar landing decisions.' : stage === 'frozen' ? 'The temperature fell below −40 °C. Spend less time in shadow and keep enough charge for the heaters.' : stage === 'power' ? 'The rover ran out of energy in shadow. Return to your last checkpoint and charge before going farther.' : 'Return to a checkpoint or choose an earlier date on the map.'}</p>{stats && stage === 'done' && <div className="rg-scorecard">
+                <div className="rg-stars" aria-label={`${stats.stars} of 3 stars`}>{[1, 2, 3].map((i) => <span key={i} className={i <= stats.stars ? 'on' : ''}>★</span>)}</div>
+                <div className="rg-total"><span>{rover.callsign} scored</span><strong>{fmt(stats.score)}</strong>{best !== null && stats.score > best ? <em>New best!</em> : best ? <small>Best {fmt(best)}</small> : null}</div>
+                <ol>{stats.parts.map(([k, v], i) => <li key={i} style={{ animationDelay: `${i * 70}ms` }}><span>{k}</span><b>+{fmt(v)}</b></li>)}</ol>
+              </div>}
+              {stats && <div className="rg-results"><span>Distance <b>{stats.odo.toFixed(0)} m</b></span><span>Samples <b>{stats.found}</b></span><span>Targets <b>{stats.bonus}/{stats.bonusTotal}</b></span><span>Coldest <b>{stats.minTempC.toFixed(0)} °C</b></span></div>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={stage === 'done' ? resume : retry}>{stage === 'done' ? 'Keep exploring' : 'Retry checkpoint'}</button><button onClick={restart}>Try another rover</button><button onClick={downloadLog}>Download log</button><button onClick={onClose}>Return to map</button></div><ScienceNote /></>}
     </section></div>}
   </div>;
 }
 
+function RoverCard({ r, base, onStep }: { r: RoverDef; base: string; onStep: (d: number) => void }) {
+  const bars: [string, number][] = [['Speed', r.bars.speed], ['Battery', r.bars.battery], ['Sun power', r.bars.solar], ['Stays warm', r.bars.cold], ['Science', r.bars.science]];
+  return <div className="rg-rover-card">
+    <div className="rg-stage">
+      <RoverPreview id={r.id} base={base} />
+      <button className="rg-step prev" onClick={() => onStep(-1)} aria-label="Previous rover">‹</button>
+      <button className="rg-step next" onClick={() => onStep(1)} aria-label="Next rover">›</button>
+      <span className="rg-nick">{r.tag}</span>
+    </div>
+    <div className="rg-rc-body" key={r.id}>
+      <div className="rg-rc-head"><b>{r.callsign}</b><span>Real rover: <i>{r.basis}</i></span></div>
+      <p>{r.kid}</p>
+      <div className="rg-bars">{bars.map(([k, v]) => <div key={k}><span>{k}</span><i>{[0, 1, 2, 3, 4].map((n) => <u key={n} className={n < v ? 'on' : ''} />)}</i></div>)}</div>
+      <div className="rg-perks"><div className="up"><b>Super power</b><span>{r.power}</span></div><div className="down"><b>Watch out</b><span>{r.watch}</span></div></div>
+      <details className="rg-facts"><summary>Real facts about {r.basis}</summary><small>{r.origin}</small><dl>{r.facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl><p>{r.blurb}</p></details>
+    </div>
+  </div>;
+}
 function SiteSelect({ siteId, sites, onChange }: { siteId: string; sites: SiteInfo[]; onChange: (id: string) => void }) {
   return <label className="rg-site-select">Mission site<select value={siteId} onChange={(e) => onChange(e.target.value)}>{sites.map((s) => <option key={s.id} value={s.id}>{s.short || s.name}</option>)}</select></label>;
 }
 function ScienceNote() {
-  return <details className="rg-science"><summary>What is real in this simulation?</summary><p>The surface uses NASA LOLA elevations. Sun and Earth positions follow the app's ephemeris and terrain horizon. The rover mesh comes from NASA's RASSOR model.</p><p>Ice locations, solar equipment, mission story, movement, battery and heat figures are fictional teaching models. Fine surface detail is illustrative. Solar collection assumes a Sun-tracking panel. This is not a flight simulation or a map of confirmed ice.</p><a href="https://github.com/nasa/NASA-3D-Resources" target="_blank" rel="noreferrer">NASA model source ↗</a></details>;
+  return <details className="rg-science"><summary>What is real in this simulation?</summary><p>The surface uses NASA LOLA elevations. Sun and Earth positions follow the app's ephemeris and terrain horizon. Badger uses NASA's RASSOR 3D model; the other rovers are drawn from the published layout and dimensions of VIPER, the Apollo Lunar Roving Vehicle, Lunokhod 1 and Yutu-2.</p><p>Each rover's speed, battery, solar and heater figures keep its real character but are scaled for a short game. Ice locations, science targets, mission story, movement, battery and heat figures are fictional teaching models. Fine surface detail is illustrative. Solar collection assumes a Sun-tracking panel. This is not a flight simulation or a map of confirmed ice.</p><a href="https://github.com/nasa/NASA-3D-Resources" target="_blank" rel="noreferrer">NASA model source ↗</a></details>;
 }
 function Controls() {
   const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A D / ← →', 'Steer, including turning in place'], ['Space', 'Brake'], ['E', 'Dig while stopped near a deposit'], ['T', 'Transmit while stopped with Earth in view'], ['F (hold)', 'Wait faster while parked'], ['L', 'Toggle headlights'], ['C', 'Switch chase / mast camera'], ['Z', 'Perspective zoom'], ['Drag / scroll', 'Orbit / zoom'], ['Esc', 'Pause / resume']];
