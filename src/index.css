@@ -1774,3 +1774,69 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .site-group.featured { background: color-mix(in srgb, var(--ember) 55%, transparent); }
 .chooser-card em { background: var(--ember); }
 .answer-card.good .answer-word, .verdict.good .verdict-word { color: var(--success); }
+
+/* ---------- Mode accents: coral for Normal, blue for Expert ----------
+   --mode marks where you are and what is featured (active tab and rail item, selected site row, featured
+   group, interface switch). The coral logo stays the brand mark in both; data colours are unchanged. */
+.app { --mode: #63a1ff; --mode-tint: #142a4a; --mode-ink: #07080a; }
+.app.ui-normal { --mode: var(--brand); --mode-tint: var(--ember); }
+:root[data-theme='light'] .app { --mode: #2d72d2; --mode-tint: #e3edfb; --mode-ink: #ffffff; }
+:root[data-theme='light'] .app.ui-normal { --mode: var(--brand); --mode-tint: var(--ember); }
+.ct-tabs button::after { background: var(--mode); }
+.ct-tabs button[aria-selected='true'] svg { color: var(--mode); }
+.ct-rail button.on { background: color-mix(in srgb, var(--mode) 16%, transparent); color: var(--mode); }
+.ct-panel .site-row.selected, .site-row.selected { background: color-mix(in srgb, var(--mode-tint) 70%, transparent); box-shadow: inset 2px 0 0 var(--mode); }
+.ui-toggle button[aria-checked='true'] { background: var(--mode); color: var(--mode-ink); }
+.site-group.featured { border-color: color-mix(in srgb, var(--mode) 45%, var(--line)); border-left-color: var(--mode); background: color-mix(in srgb, var(--mode-tint) 55%, transparent); }
+.site-group.featured .site-group-h small { color: color-mix(in srgb, var(--mode) 75%, var(--ink)); }
+.site-group.featured .site-group-h .num { background: var(--mode); color: var(--mode-ink); }
+.simple-tile.on:not(.earth) { background: linear-gradient(180deg, color-mix(in srgb, var(--mode) 6%, transparent), transparent 70%), var(--surface); }
+.slip-cell.zero { outline-color: var(--mode); }
+.tl-row.urgent .tl-head b, .cd-item.urgent .cd-big, .cd-big.urgent { color: var(--mode); }
+/* the chooser previews each mode in its own colour */
+.chooser-card { --mode: var(--brand); --mode-tint: var(--ember); }
+.chooser-card + .chooser-card { --mode: #63a1ff; --mode-tint: #142a4a; }
+.chooser-k { color: var(--mode); }
+.chooser-card.last { border-color: color-mix(in srgb, var(--mode) 55%, transparent); }
+.chooser-card em { background: var(--mode-tint); color: var(--mode); }
+.chooser-card:hover, .chooser-card:focus-visible { border-color: color-mix(in srgb, var(--mode) 60%, transparent); }
+
+.ui-toggle.has-ind.ind-on::before { background: var(--mode); }
+.ui-toggle.has-ind.ind-on > button[aria-checked='true'] { color: var(--mode-ink); }
+
+/* ---------- The chooser's red-blue atmosphere, carried through the app ----------
+   One gradient language (blue radial wash crossed by blurred coral and blue bars) at different strengths:
+   full behind the chooser and the empty "pick a place" screen, a soft glow behind each site's title, a faint
+   fixed backdrop behind the whole workspace, and a coral-to-blue hairline on the top and bottom bars.
+   Normal mode leans coral, Expert mode leans blue. */
+.app { position: relative; isolation: isolate; --atmo-a: #ff6363; --atmo-b: #63a1ff; --atmo-strength: 1; }
+.app.ui-expert { --atmo-a: #63a1ff; --atmo-b: #ff6363; }
+.app::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(55% 40% at 70% -5%, rgba(4, 63, 150, calc(0.35 * var(--atmo-strength))), transparent 70%),
+    radial-gradient(40% 30% at 0% 100%, color-mix(in srgb, var(--atmo-a) 9%, transparent), transparent 70%),
+    linear-gradient(166deg, transparent 0 18%, color-mix(in srgb, var(--atmo-a) 7%, transparent) 24%, transparent 32%, transparent 64%, color-mix(in srgb, var(--atmo-b) 5%, transparent) 70%, transparent 78%); }
+:root[data-theme='light'] .app { --atmo-strength: 0.35; }
+.ct-main, .ct-split, .explore, .compare-main { background: transparent; }
+/* coral-to-blue hairlines on the floating bars */
+.ct-bar { position: sticky; }
+.ct-bar::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--atmo-a) 30%, var(--atmo-b) 70%, transparent); opacity: 0.55; }
+.action-bar::before { content: ''; position: absolute; left: 0; right: 0; top: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--atmo-a) 25%, var(--atmo-b) 75%, transparent); opacity: 0.45; }
+/* a soft glow behind the selected site's title */
+.work-head, .simple-hero { position: relative; }
+.work-head::before, .simple-hero::before { content: ''; position: absolute; z-index: -1; left: -40px; top: -30px; width: min(720px, 90%); height: 170px; pointer-events: none;
+  background: radial-gradient(50% 60% at 30% 50%, color-mix(in srgb, var(--atmo-a) 14%, transparent), transparent 70%),
+    radial-gradient(40% 50% at 75% 40%, color-mix(in srgb, var(--atmo-b) 12%, transparent), transparent 70%);
+  filter: blur(18px); }
+/* the empty "pick a place" screen gets the full treatment */
+.simple-empty { position: relative; padding: 40px 32px; margin-top: 16px; border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--panel-shadow);
+  background: radial-gradient(70% 90% at 50% 0%, rgba(4, 63, 150, 0.5), rgba(6, 18, 37, 0.2) 60%, transparent 85%), var(--surface); }
+.simple-empty::before, .simple-empty::after { content: ''; position: absolute; z-index: 0; left: -10%; width: 120%; height: 60px; border-radius: 9999px; filter: blur(40px); pointer-events: none; transform: rotate(-12deg); }
+.simple-empty::before { top: 20%; background: #ff6363; opacity: 0.35; }
+.simple-empty::after { bottom: 10%; background: #63a1ff; opacity: 0.25; }
+.simple-empty > * { position: relative; z-index: 1; }
+:root[data-theme='light'] .simple-empty { background: radial-gradient(70% 90% at 50% 0%, rgba(99, 161, 255, 0.18), transparent 80%), var(--surface); }
+@media (prefers-reduced-transparency: reduce) { .app::before, .work-head::before, .simple-hero::before { display: none; } }
+.simple-picks button { height: auto; min-height: 64px; white-space: normal; align-items: start; justify-content: start; align-content: start; line-height: 1.35; }

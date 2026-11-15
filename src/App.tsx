@@ -369,7 +369,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app${expert ? '' : ' ui-normal'}`}>
+    <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
