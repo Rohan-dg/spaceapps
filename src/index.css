@@ -614,9 +614,9 @@ kbd {
 .cmdk-foot-mark .brand-mark::after { width: 7px; height: 7px; }
 .cmdk-foot-keys { display: inline-flex; align-items: center; gap: 10px; }
 .cmdk-foot-keys > span { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); }
-.cmdk-foot-keys .sep, .ab-sep { width: 1px; height: 16px; background: var(--field-line); }
+.cmdk-foot-keys .sep { width: 1px; height: 16px; background: var(--field-line); }
 
-/* ---------- bottom action bar ---------- */
+/* ---------- bottom status bar ---------- */
 .action-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 45; height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 0 max(12px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(16px, env(safe-area-inset-left, 0px));
@@ -627,11 +627,6 @@ kbd {
 .ab-ctx .brand-mark { width: 18px; height: 18px; border-radius: 5px; }
 .ab-ctx .brand-mark::after { width: 7px; height: 7px; }
 .ab-ctx b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
-.ab-actions { display: inline-flex; align-items: center; gap: 6px; flex: none; }
-.ab-btn { height: 30px; padding: 0 6px 0 10px; border: 0; background: transparent; font-weight: 500; gap: 8px; }
-.ab-btn:hover { background: var(--btn-hover); }
-.ab-btn kbd { margin-left: -3px; }
-.ab-btn kbd:first-of-type { margin-left: 0; }
 
 /* tab shortcut chips sit inside the segment and fade unless it's selected */
 .tabs button kbd { height: 17px; min-width: 17px; font-size: 10px; padding: 0 4px; opacity: 0.7; }
@@ -642,8 +637,7 @@ kbd {
 }
 @media (max-width: 600px) {
   .ab-ctx .num { display: none; }
-  .ab-btn kbd, .cmdk-trigger .keys { display: none; }
-  .ab-btn { padding: 0 10px; }
+  .cmdk-trigger .keys { display: none; }
   .cmdk-backdrop { padding-top: 8vh; }
 }
 
