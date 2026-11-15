@@ -22,8 +22,9 @@ import { sub, unit } from '../lib/vec';
 import { type World, demAt, groundY, makeWorld, skyline, toLatLon, toStereo } from './terrain';
 import {
   type Maps, type MissionPlan, type Objective, type Phase, type Pt, type Quest, type Vitals,
-  RATE, RATE_FF, SPEC, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M,
+  RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, type Spec,
 } from './sim';
+import { BUILDERS, roverById, type RoverDef } from './rovers';
 import type { Req, Res } from './worker';
 
 const NEAR = 800, MID = 7600, FAR = 152000, BOUND = 700;
@@ -39,8 +40,9 @@ export interface Hud {
   busy: null | { kind: 'dig' | 'tx'; p: number }; obj: Objective; objDist: number | null; objBearing: number | null;
   found: number; total: number; sunAz: number; sunEl: number; earthAz: number; earthEl: number;
   lamp: boolean; view: 'chase' | 'mast'; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number;
+  score: number; combo: number; bonus: number; bonusTotal: number; gain: { id: number; pts: number; label: string } | null; nearBonus: number | null;
 }
-export interface Stats { odo: number; hours: number; found: number; minTempC: number; battPct: number }
+export interface Stats { odo: number; hours: number; found: number; minTempC: number; battPct: number; score: number; bonus: number; bonusTotal: number; parts: [string, number][]; stars: number; playS: number }
 export interface Callbacks {
   onStage: (s: string) => void;
   /** start time actually used (the first good moment at or after the app's), or null when no mission fits this place */
@@ -50,7 +52,7 @@ export interface Callbacks {
   onEnd: (kind: 'done' | 'frozen' | 'power' | 'time', s: Stats) => void;
   onError: (m: string) => void;
 }
-export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean }
+export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean; roverId: string }
 export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map: HTMLCanvasElement }
 
 const TERRAIN_VS = /* glsl */ `
@@ -127,12 +129,17 @@ export class Game {
   private rover = new THREE.Group(); private tilt = new THREE.Group();
   private wheels: THREE.Group[] = []; private armF = new THREE.Group(); private armR = new THREE.Group(); private drumF = new THREE.Group(); private drumR = new THREE.Group();
   private droop0 = { f: 20, r: 56 }; private armNow = -28;
+  private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec; private pose: ((d: number) => void) | null = null; private digNow = 0;
+  private roverParts: THREE.Object3D[] = []; private roverGen = 0;
+  // score
+  private score = 0; private combo = 1; private comboAt = -1e9; private taken: boolean[] = []; private gain: Hud['gain'] = null; private gainN = 0; private parts: [string, number][] = [];
+  private bonusMarks = new THREE.Group(); private playS = 0;
   private e = 0; private n = 0; private psi = 0; private v = 0; private yawRate = 0; private odo = 0;
   private heave = 0; private heaveV = 0; private pitchD = 0; private pitchV = 0; private rollD = 0; private rollV = 0; private lastY = 0;
   private slope = 0;
   // sky
   private sunDisc!: THREE.Mesh; private sunGlow!: THREE.Sprite; private earth!: THREE.Mesh; private sunLightN!: THREE.DirectionalLight; private sunLightF!: THREE.DirectionalLight;
-  private earthLight!: THREE.DirectionalLight; private fill!: THREE.PointLight;
+  private earthLight!: THREE.DirectionalLight; private fill!: THREE.PointLight; private bounce = new THREE.HemisphereLight(0x1a2233, 0xa8a49c, 0.2);
   private sky = { sunAz: 0, sunEl: 0, sunR: 0.266, earthAz: 0, earthEl: 0, sunFrac: 0, earthUp: false, sunHit: 0, earthHit: 0 };
   private skyAt = -1;
   private beamSun!: THREE.Line; private beamEarth!: THREE.Line;
@@ -148,12 +155,12 @@ export class Game {
   private busy: null | { kind: 'dig' | 'tx'; p: number } = null; private ff = false; private lampAuto = true; private lampOn = false;
   private keys = new Set<string>(); private held = 0;
   private queue: { from: string; text: string }[] = []; private flagsSaid = new Set<string>();
-  private check: { e: number; n: number; psi: number; vit: Vitals; simT: number; quest: Quest; odo: number } | null = null;
+  private check: { e: number; n: number; psi: number; vit: Vitals; simT: number; quest: Quest; odo: number; score: number; taken: boolean[]; parts: [string, number][] } | null = null;
   private minTemp = 10; private t0 = 0; private hudAt = 0; private mapAt = 0; private mapBase: HTMLCanvasElement | null = null;
   private tags: Tags | null = null;
   private drag: { x: number; y: number } | null = null;
 
-  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.init().catch((e) => this.fail(e)); }
+  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.def = roverById(o.roverId); this.spec = this.def.spec; this.vit = newVitals(55, this.spec); this.camDist = this.def.geom.cam; this.init().catch((e) => this.fail(e)); }
 
   private fail(e: unknown) {
     if (!this.live) return;
@@ -237,7 +244,7 @@ export class Game {
       if (plan) { t0 = t; break; }
     }
     if (!plan) { cb.onReady(null); this.dispose(); return; }
-    this.plan = plan; this.quest = newQuest(plan); this.simT = this.t0 = t0;
+    this.plan = plan; this.quest = newQuest(plan); this.simT = this.t0 = t0; this.taken = plan.bonus.map(() => false);
     this.e = plan.start.e; this.n = plan.start.n;
     this.psi = Math.atan2(plan.charge.e - plan.start.e, plan.charge.n - plan.start.n);
     this.camAz = this.psi / D2R;
@@ -360,7 +367,7 @@ export class Game {
       const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false })); l.frustumCulled = false; return l;
     };
     this.goal.add(col, circle(1, 0xffffff)); this.near.add(this.goal);
-    this.zoneRing = circle(1, 0x63a1ff); this.near.add(this.zoneRing, this.flags);
+    this.zoneRing = circle(1, 0x63a1ff); this.near.add(this.zoneRing, this.flags, this.bonusMarks, this.bounce);
   }
 
   /** Lay a unit circle on the terrain at a local point with a radius. */
@@ -370,13 +377,42 @@ export class Game {
     p.needsUpdate = true;
   }
 
+  /** Swap the rover while the briefing is open (the ground, plan and clock stay). */
+  async setRover(id: string) {
+    if (this.state !== 'brief' || id === this.def.id) return;
+    this.def = roverById(id); this.spec = this.def.spec; this.vit = newVitals(55, this.spec); this.camDist = this.def.geom.cam;
+    await this.buildRover();
+    this.saveCheck();
+  }
+  private clearRover() {
+    for (const o of this.roverParts) {
+      o.parent?.remove(o);
+      o.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshStandardMaterial).map?.dispose(); mt.dispose(); } });
+    }
+    this.roverParts = []; this.wheels = []; this.pose = null;
+    for (const g of [this.armF, this.armR, this.drumF, this.drumR]) { g.parent?.remove(g); g.clear(); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); }
+  }
   private async buildRover() {
+    const gen = ++this.roverGen;
+    const make = BUILDERS[this.def.id];
+    if (make) {
+      this.clearRover();
+      const b = make();
+      this.tilt.add(b.body); this.roverParts.push(b.body);
+      for (const w of b.wheels) { this.tilt.add(w); this.wheels.push(w); this.roverParts.push(w); }
+      this.drumF = b.spinner; this.pose = b.pose; this.droop0 = { f: 0, r: 0 };
+      this.fill.position.set(0, this.def.geom.mastH * 0.6, 0.2); if (!this.fill.parent) this.tilt.add(this.fill);
+      if (!this.rover.children.includes(this.tilt)) { this.rover.add(this.tilt); this.near.add(this.rover); }
+      return;
+    }
     const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${this.o.base}models/rassor.gltf.json`);
     const releaseSource = () => gltf.scene.traverse((x) => {
       const m = x as THREE.Mesh; m.geometry?.dispose();
       for (const mat of ([] as THREE.Material[]).concat(m.material ?? [])) mat.dispose();
     });
-    if (!this.live) { releaseSource(); return; }
+    if (!this.live || gen !== this.roverGen) { releaseSource(); return; }
+    this.clearRover();
+    this.drumF = new THREE.Group(); this.drumR = new THREE.Group(); this.armF = new THREE.Group(); this.armR = new THREE.Group();
     gltf.scene.updateMatrixWorld(true);
     let ex: { pivots: Record<string, number[]>; armDroopFront: number; armDroopRear: number } | null = null;
     gltf.scene.traverse((x) => { if (x.userData?.pivots) ex = x.userData as typeof ex; });
@@ -402,17 +438,18 @@ export class Game {
       part[nm] = new THREE.Mesh(toCreasedNormals(g, Math.PI / 5), mats[nm.split('_')[0] as keyof typeof mats]);
     });
     const P = meta.pivots, at = (g: THREE.Group, nm: string, rel?: number[]) => { g.position.set(P[nm][0] - (rel?.[0] ?? 0), P[nm][1] - (rel?.[1] ?? 0), P[nm][2] - (rel?.[2] ?? 0)); g.add(part[nm]); return g; };
-    this.tilt.add(part.body);
-    for (const nm of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']) { const g = at(new THREE.Group(), nm); this.wheels.push(g); this.tilt.add(g); }
-    this.tilt.add(at(this.armF, 'arm_f'), at(this.armR, 'arm_r'));
+    this.tilt.add(part.body); this.roverParts.push(part.body);
+    for (const nm of ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']) { const g = at(new THREE.Group(), nm); this.wheels.push(g); this.tilt.add(g); this.roverParts.push(g); }
+    this.tilt.add(at(this.armF, 'arm_f'), at(this.armR, 'arm_r')); this.roverParts.push(this.armF, this.armR);
     this.armF.add(at(this.drumF, 'drum_f', P.arm_f)); this.armR.add(at(this.drumR, 'drum_r', P.arm_r));
-    this.fill.position.set(0, 1.3, 0.2); this.tilt.add(this.fill);
-    this.rover.add(this.tilt); this.near.add(this.rover);
+    this.fill.position.set(0, 1.3, 0.2); if (!this.fill.parent) this.tilt.add(this.fill);
+    if (!this.rover.children.includes(this.tilt)) { this.rover.add(this.tilt); this.near.add(this.rover); }
     releaseSource();
     this.poseArms(0);
   }
   /** Arms at `armNow` degrees below level (negative = raised). */
   private poseArms(dt: number) {
+    if (this.pose) { this.digNow = dt ? lerp(this.digNow, this.busy?.kind === 'dig' ? 1 : 0, k(4, dt)) : 0; this.pose(this.digNow); return; }
     const want = this.busy?.kind === 'dig' ? 9 : -28;
     this.armNow = dt ? lerp(this.armNow, want, k(4, dt)) : want;
     this.armF.rotation.x = (this.armNow - this.droop0.f) * D2R; this.armR.rotation.x = -(this.armNow - this.droop0.r) * D2R;
@@ -433,7 +470,7 @@ export class Game {
     el.addEventListener('wheel', (ev) => {
       ev.preventDefault();
       if (this.view === 'mast') this.mastFov = clamp(this.mastFov * Math.exp(ev.deltaY * 0.0012), 8, 75);
-      else this.camDist = clamp(this.camDist * Math.exp(ev.deltaY * 0.0012), 2.4, 60);
+      else this.camDist = clamp(this.camDist * Math.exp(ev.deltaY * 0.0012), 2.4, 80);
     }, { passive: false });
     window.addEventListener('keydown', this.onKey, true); window.addEventListener('keyup', this.onKey, true);
     window.addEventListener('blur', this.onBlur);
@@ -476,22 +513,61 @@ export class Game {
   /* ---------------- messages, checkpoints ---------------- */
 
   private say(m: { from: string; text: string; link?: boolean }) {
+    const cs = this.def.callsign;
+    m = { ...m, from: m.from === 'RASSOR' ? cs : m.from, text: m.text.replace(/\bRASSOR\b/g, cs) };
     if (m.link && !this.sky.earthUp) this.queue.push(m); else this.cb.onMessage({ from: m.from, text: m.text });
   }
   private once(key: keyof typeof STORY) { if (this.flagsSaid.has(key)) return; this.flagsSaid.add(key); this.say(STORY[key]); }
-  private saveCheck() { this.check = { e: this.e, n: this.n, psi: this.psi, vit: { ...this.vit }, simT: this.simT, quest: { phase: this.quest.phase, found: [...this.quest.found] }, odo: this.odo }; }
+  private saveCheck() { this.check = { e: this.e, n: this.n, psi: this.psi, vit: { ...this.vit }, simT: this.simT, quest: { phase: this.quest.phase, found: [...this.quest.found] }, odo: this.odo, score: this.score, taken: [...this.taken], parts: [...this.parts] }; }
   /** Back to the last completed step, with at least enough charge to try again. */
   retry() {
     const c = this.check; if (!c) return;
     this.e = c.e; this.n = c.n; this.psi = c.psi; this.v = 0; this.simT = c.simT; this.odo = c.odo; this.busy = null;
-    this.vit = { ...c.vit, wh: Math.max(c.vit.wh, SPEC.batteryWh * 0.45), tempC: Math.max(c.vit.tempC, 0) };
-    this.quest = { phase: c.quest.phase, found: [...c.quest.found] }; this.skyAt = -1; this.trackLast = null; this.litU = null;
+    this.vit = { ...c.vit, wh: Math.max(c.vit.wh, this.spec.batteryWh * 0.45), tempC: Math.max(c.vit.tempC, 0) };
+    this.quest = { phase: c.quest.phase, found: [...c.quest.found] }; this.score = c.score; this.taken = [...c.taken]; this.parts = [...c.parts]; this.combo = 1; this.skyAt = -1; this.trackLast = null; this.litU = null;
     this.queue = []; this.flagsSaid.clear(); this.held = 0; this.ff = false; this.keys.clear();
     this.camOff = 0; this.tgt.set(0, 0, 0); this.heave = this.heaveV = this.pitchD = this.pitchV = this.rollD = this.rollV = 0;
-    this.syncMarkers(); this.state = 'play'; this.last = performance.now();
+    this.syncMarkers(); this.syncBonus(); this.state = 'play'; this.last = performance.now();
     cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.frame);
   }
-  begin() { if (this.state !== 'brief') return; this.state = 'play'; this.syncMarkers(); this.say(STORY.intro); }
+  begin() {
+    if (this.state !== 'brief') return;
+    this.state = 'play'; this.syncMarkers(); this.syncBonus(); this.say(STORY.intro);
+    this.say({ from: 'Mission control', text: `${this.plan.bonus.length} science targets are marked in blue. Drive over one to scan it; scan several in a row for a combo.` });
+  }
+  /* ---------------- score ---------------- */
+  private static BONUS_NAMES = ['Fresh crater rim', 'Boulder trail', 'Bright ray material', 'Glassy impact melt', 'Regolith ripple', 'Ancient ejecta block', 'Dark soil swirl', 'Possible meteorite'];
+  private award(pts: number, label: string) {
+    this.score += pts; this.parts.push([label, pts]); this.gain = { id: ++this.gainN, pts, label };
+  }
+  private syncBonus() {
+    this.bonusMarks.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); if (m.isMesh) (m.material as THREE.Material).dispose(); });
+    this.bonusMarks.clear();
+    this.plan.bonus.forEach((p, i) => {
+      if (this.taken[i]) return;
+      const g = new THREE.Group(), y = groundY(this.w, p.e, p.n, true);
+      g.position.set(p.e, y, -p.n); g.userData.i = i;
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.95 }));
+      gem.position.y = 1.6; g.add(gem);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 30, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      beam.position.y = 15; g.add(beam);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9, 48), new THREE.MeshBasicMaterial({ color: 0x63a1ff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.3; g.add(ring);
+      this.bonusMarks.add(g);
+    });
+  }
+  private scanBonus() {
+    const now = this.playS;
+    this.plan.bonus.forEach((p, i) => {
+      if (this.taken[i] || distance(p, { e: this.e, n: this.n }) > 9) return;
+      this.taken[i] = true;
+      this.combo = now - this.comboAt < 40 ? Math.min(4, this.combo + 1) : 1; this.comboAt = now;
+      const name = Game.BONUS_NAMES[i % Game.BONUS_NAMES.length];
+      this.award(150 * this.combo, this.combo > 1 ? `${name} ×${this.combo}` : name);
+      this.say({ from: this.def.callsign, text: `Scanned: ${name.toLowerCase()}.${this.combo > 1 ? ` Combo ×${this.combo}!` : ''}${this.taken.every(Boolean) ? ' Every science target scanned.' : ''}` });
+      this.syncBonus();
+    });
+  }
   pause(on: boolean) {
     if (this.state === 'play' && on) { this.state = 'pause'; this.keys.clear(); this.v = 0; this.ff = false; }
     else if (this.state === 'pause' && !on) { this.state = 'play'; this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); }
@@ -503,13 +579,13 @@ export class Game {
   }
   zoom(amount: number) {
     if (this.view === 'mast') this.mastFov = clamp(this.mastFov * Math.exp(amount), 8, 75);
-    else this.camDist = clamp(this.camDist * Math.exp(amount), 2.4, 60);
+    else this.camDist = clamp(this.camDist * Math.exp(amount), 2.4, 80);
   }
-  resetCamera() { this.camOff = 0; this.camPitch = 16; this.camDist = 7; this.lensTo = 0; this.view = 'chase'; }
+  resetCamera() { this.camOff = 0; this.camPitch = 16; this.camDist = this.def.geom.cam; this.lensTo = 0; this.view = 'chase'; }
   setTags(t: Tags) { this.tags = t; }
 
   private syncMarkers() {
-    const ob = objective(this.quest, this.plan, this.sky.earthUp);
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct);
     this.goal.visible = !!ob.target && this.quest.phase !== 'ice';
     if (ob.target && this.goal.visible) { this.goal.position.set(ob.target.e, groundY(this.w, ob.target.e, ob.target.n, true), -ob.target.n); this.goal.children[1].scale.setScalar(ob.ring); }
     this.zoneRing.visible = this.quest.phase === 'ice';
@@ -574,14 +650,14 @@ export class Game {
     const fx = Math.sin(this.psi), fn = Math.cos(this.psi);
     this.slope = Math.atan((this.gy(this.e + fx * 0.6, this.n + fn * 0.6) - this.gy(this.e - fx * 0.6, this.n - fn * 0.6)) / 1.2) / D2R;
     const climb = thr >= 0 ? this.slope : -this.slope;
-    let vT = thr * SPEC.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
+    let vT = thr * this.spec.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
     if (climb > 25 && thr !== 0) {
       vT = -Math.sign(thr) * 0.7;
       if (!this.flagsSaid.has('slope')) { this.flagsSaid.add('slope'); this.say({ from: 'RASSOR', text: 'This slope is too steep. Approach along a gentler route.' }); }
     }
     const acc = K.has('brake') ? 12 : thr === 0 ? 5 : 4.2;
     this.v += clamp((K.has('brake') ? 0 : vT) - this.v, -acc * dt, acc * dt);
-    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / SPEC.vMax), k(8, dt));
+    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / this.spec.vMax), k(8, dt));
     this.psi += this.yawRate * dt;
     this.e += fx * this.v * dt; this.n += fn * this.v * dt; this.odo += Math.abs(this.v) * dt;
     const r = Math.hypot(this.e, this.n);
@@ -603,31 +679,36 @@ export class Game {
     const lamp = this.lampAuto ? this.sky.sunFrac < 0.3 : this.lampOn;
     this.lampOn = lamp;
     this.vit = stepVitals(this.vit, (dt * rate) / 3600, {
-      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / SPEC.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp,
-    });
+      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / this.spec.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp,
+    }, this.spec);
     this.minTemp = Math.min(this.minTemp, this.vit.tempC);
-    if (this.vit.wh / SPEC.batteryWh < 0.2 && this.sky.sunFrac < 0.2) this.once('lowBatt');
-    if (this.vit.heaterW > SPEC.heaterMaxW * 0.95) this.once('cold');
-    if (this.vit.tempC < SPEC.freezeC) { this.state = 'end'; this.cb.onEnd('frozen', this.stats()); return; }
-    if (this.vit.wh <= 0 && this.sky.sunFrac < 0.01) { this.busy = null; this.state = 'end'; this.cb.onEnd('power', this.stats()); return; }
+    if (this.vit.wh / this.spec.batteryWh < 0.2 && this.sky.sunFrac < 0.2) this.once('lowBatt');
+    if (this.vit.heaterW > this.spec.heaterMaxW * 0.95) this.once('cold');
+    if (this.vit.tempC < this.spec.freezeC) { this.state = 'end'; this.cb.onEnd('frozen', this.stats()); return; }
+    if (this.vit.wh <= 0 && (this.spec.solarW <= 0 || this.sky.sunFrac < 0.01)) { this.busy = null; this.state = 'end'; this.cb.onEnd('power', this.stats()); return; }
 
     // digging and transmitting
     if (this.busy) {
       if (this.vit.wh <= 0) { this.busy = null; this.say({ from: 'RASSOR', text: 'Battery depleted. Work stopped until the panels recharge it.' }); }
       else if (this.busy.kind === 'tx' && !this.sky.earthUp) { this.busy = null; this.say({ from: 'RASSOR', text: 'Signal lost. Transmission stopped.' }); }
       else {
-        this.busy.p += dt / (this.busy.kind === 'dig' ? 4 : 3);
+        this.busy.p += dt / (this.busy.kind === 'dig' ? this.def.digS : 3);
         if (this.busy.p >= 1) { const kind = this.busy.kind; this.busy = null; this.event(kind === 'dig' ? { type: 'dug' } : { type: 'sent' }); }
       }
     }
     this.event({ type: 'tick' });
+    this.playS += dt;
+    this.scanBonus();
   }
+  private get chargePct() { return this.spec.solarW > 0 ? CHARGE_PCT : 0; }
   private goalEarth = false;
   private syncGoalForSignal() { if (this.goalEarth !== this.sky.earthUp) { this.goalEarth = this.sky.earthUp; this.syncMarkers(); } }
   private event(ev: Parameters<typeof advance>[3]) {
-    const r = advance(this.quest, this.plan, { pos: { e: this.e, n: this.n }, battPct: (100 * this.vit.wh) / SPEC.batteryWh, earthUp: this.sky.earthUp, sunFrac: this.sky.sunFrac, parked: Math.abs(this.v) < 0.05 }, ev);
+    const r = advance(this.quest, this.plan, { pos: { e: this.e, n: this.n }, battPct: (100 * this.vit.wh) / this.spec.batteryWh, earthUp: this.sky.earthUp, sunFrac: this.sky.sunFrac, parked: Math.abs(this.v) < 0.05, chargePct: this.chargePct }, ev);
     this.quest = r.q;
     if (r.dry) this.say(STORY.dry);
+    if (r.iceFound !== null) this.award(300, `Ice sample ${this.quest.found.filter(Boolean).length}`);
+    if (r.done && r.done !== 'ice') this.award(500, { charge: 'Charged up', phone: 'Contact with Earth', uplink: 'Data delivered', haven: 'Safe haven', ice: '', done: '' }[r.done] || 'Objective');
     if (r.iceFound !== null && !r.done) this.say(STORY.ice1);
     if (r.iceFound !== null || r.done) this.syncMarkers();
     if (r.done) {
@@ -635,7 +716,18 @@ export class Game {
       if (r.done === 'haven') { this.say(STORY.done); this.pause(true); this.cb.onEnd('done', this.stats()); }
     }
   }
-  private stats(): Stats { return { odo: this.odo, hours: (this.simT - this.t0) / 3600000, found: this.quest.found.filter(Boolean).length, minTempC: this.minTemp, battPct: (100 * this.vit.wh) / SPEC.batteryWh }; }
+  private stats(): Stats {
+    const battPct = (100 * this.vit.wh) / this.spec.batteryWh, done = this.quest.phase === 'done';
+    const parts: [string, number][] = [...this.parts];
+    if (done) {
+      parts.push(['Speed bonus', Math.max(0, Math.round(2000 - this.playS * 2.2))]);
+      parts.push(['Battery left', Math.round(battPct * 6)]);
+      if (this.taken.every(Boolean)) parts.push(['Every target scanned', 800]);
+    }
+    const score = parts.reduce((a, [, v]) => a + v, 0);
+    const stars = !done ? 0 : score >= 6200 ? 3 : score >= 4600 ? 2 : 1;
+    return { odo: this.odo, hours: (this.simT - this.t0) / 3600000, found: this.quest.found.filter(Boolean).length, minTempC: this.minTemp, battPct, score, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, parts, stars, playS: this.playS };
+  }
 
   /** Put everything where it belongs for this frame: rover, effects, sky, camera. */
   private place(dt: number, now: number) {
@@ -643,11 +735,12 @@ export class Game {
     // rover on the ground: four wheel contacts give pitch and roll
     const f = new THREE.Vector3(Math.sin(psi), 0, -Math.cos(psi)), l = new THREE.Vector3(-Math.cos(psi), 0, -Math.sin(psi));
     const h = (df: number, dl: number) => this.gy(e + f.x * df + l.x * dl, n - (f.z * df + l.z * dl));
-    const hfl = h(0.249, 0.263), hfr = h(0.249, -0.263), hrl = h(-0.249, 0.263), hrr = h(-0.249, -0.263);
-    const F = f.clone().multiplyScalar(0.498).addScaledVector(up, (hfl + hfr - hrl - hrr) / 2).normalize();
-    const L = l.clone().multiplyScalar(0.526).addScaledVector(up, (hfl + hrl - hfr - hrr) / 2).normalize();
+    const G = this.def.geom;
+    const hfl = h(G.wb, G.tw), hfr = h(G.wb, -G.tw), hrl = h(-G.wb, G.tw), hrr = h(-G.wb, -G.tw);
+    const F = f.clone().multiplyScalar(2 * G.wb).addScaledVector(up, (hfl + hfr - hrl - hrr) / 2).normalize();
+    const L = l.clone().multiplyScalar(2 * G.tw).addScaledVector(up, (hfl + hrl - hfr - hrr) / 2).normalize();
     const Un = new THREE.Vector3().crossVectors(F, L).normalize(); L.crossVectors(Un, F);
-    const y = (hfl + hfr + hrl + hrr) / 4 + 0.21;
+    const y = (hfl + hfr + hrl + hrr) / 4 + G.wr * 0.94;
     this.rover.position.set(e, y, -n);
     this.rover.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(L, Un, F));
     if (dt > 0) {
@@ -661,9 +754,9 @@ export class Game {
       const shake = this.busy?.kind === 'dig' ? 0.006 * Math.sin(now * 0.09) : 0;
       this.tilt.rotation.set(-this.pitchD, 0, this.rollD + shake); this.tilt.position.y = this.heave;
       // wheels turn with the ground speed of their own side (skid steering), drums only while digging
-      const vl = this.v - this.yawRate * 0.263, vr = this.v + this.yawRate * 0.263;
-      this.wheels.forEach((g, i) => { g.rotation.x += ((i % 2 === 0 ? vl : vr) / 0.224) * dt; });
-      if (this.busy?.kind === 'dig') { this.drumF.rotation.x += 9 * dt; this.drumR.rotation.x -= 9 * dt; }
+      const vl = this.v - this.yawRate * G.tw, vr = this.v + this.yawRate * G.tw;
+      this.wheels.forEach((g, i) => { g.rotation.x += ((i % 2 === 0 ? vl : vr) / G.wr) * dt; });
+      if (this.busy?.kind === 'dig') { if (this.pose) this.drumF.rotation.y += 14 * dt; else { this.drumF.rotation.x += 9 * dt; this.drumR.rotation.x -= 9 * dt; } }
       this.poseArms(dt);
       this.fx(dt, f, l, [hrl, hrr]);
     }
@@ -675,7 +768,9 @@ export class Game {
     this.sunLightN.intensity = 3.4 * s.sunFrac; this.sunLightN.position.copy(this.rover.position).addScaledVector(sd, 50); this.sunLightN.target.position.copy(this.rover.position);
     this.earthLight.intensity = s.earthUp ? 0.05 : 0; this.earthLight.position.copy(this.rover.position).addScaledVector(ed, 50); this.earthLight.target.position.copy(this.rover.position);
     this.fill.intensity = this.lampOn ? 2.2 : 1.2;
-    const lampP = this.rover.localToWorld(new THREE.Vector3(0, 0.35, 0.3)), lampD = new THREE.Vector3(0, -0.2, 1).normalize().transformDirection(this.rover.matrixWorld);
+    // sunlit regolith throws light back up onto the rover's shaded side (the only 'ambient' light on the Moon)
+    this.bounce.intensity = 0.12 + 1.1 * s.sunFrac;
+    const lampP = this.rover.localToWorld(new THREE.Vector3(0, Math.max(0.35, G.mastH * 0.4), G.wb + 0.05)), lampD = new THREE.Vector3(0, -0.2, 1).normalize().transformDirection(this.rover.matrixWorld);
     this.U.uLampPos.value.copy(lampP); this.U.uLampDir.value.copy(lampD); this.U.uLampI.value = this.lampOn && this.vit.wh > 0 ? 5 : 0;
 
     this.camera(dt, now, f);
@@ -688,7 +783,7 @@ export class Game {
     this.farCam.position.copy(cp); this.farCam.quaternion.copy(this.cam.quaternion); this.farCam.fov = this.cam.fov; this.farCam.updateProjectionMatrix();
 
     // links: a line from the rover toward each body, cut short at the terrain when it is blocked
-    const top = this.rover.position.clone().addScaledVector(Un, 0.45);
+    const top = this.rover.position.clone().addScaledVector(Un, G.mastH * 0.5);
     const beam = (ln: THREE.Line, d: THREE.Vector3, ok: boolean, hit: number, okColor: number) => {
       const p = ln.geometry.getAttribute('position') as THREE.BufferAttribute, len = ok ? 6000 : clamp(hit, 15, 6000);
       p.setXYZ(0, top.x, top.y, top.z); p.setXYZ(1, top.x + d.x * len, top.y + d.y * len, top.z + d.z * len); p.needsUpdate = true; ln.computeLineDistances();
@@ -701,6 +796,7 @@ export class Game {
     this.exposure = lerp(this.exposure, lerp(2.6, 1.05, clamp(s.sunFrac, 0, 1)), k(1.2, dt || 0.016));
     this.renderer.toneMappingExposure = this.exposure;
     this.goal.rotation.y += dt * 0.6;
+    for (const g of this.bonusMarks.children) { const gem = g.children[0]; gem.rotation.y += dt * 1.6; gem.position.y = 1.6 + 0.25 * Math.sin(now * 0.003 + (g.userData.i as number)); }
     this.placeTags();
   }
 
@@ -708,14 +804,14 @@ export class Game {
   private fx(dt: number, f: THREE.Vector3, l: THREE.Vector3, rearH: number[]) {
     const { e, n } = this;
     // tracks
-    const cur = [0.263, -0.263].map((dl) => { const x = e + l.x * dl, z = -n + l.z * dl; return new THREE.Vector3(x, this.gy(x, -z) + 0.025, z); });
+    const G = this.def.geom, cur = [G.tw, -G.tw].map((dl) => { const x = e + l.x * dl, z = -n + l.z * dl; return new THREE.Vector3(x, this.gy(x, -z) + 0.025, z); });
     if (!this.trackLast) this.trackLast = cur;
     this.trackDist += Math.abs(this.v) * dt;
     if (this.trackDist > 0.45) {
       this.trackDist = 0;
       const p = this.tracks.geometry.getAttribute('position') as THREE.BufferAttribute, MAXQ = p.count / 6;
       cur.forEach((c, i) => {
-        const a = this.trackLast![i], w = l.clone().multiplyScalar(0.075), q = (this.trackN++ % MAXQ) * 6;
+        const a = this.trackLast![i], w = l.clone().multiplyScalar(Math.max(0.075, G.wr * 0.3)), q = (this.trackN++ % MAXQ) * 6;
         const pts = [a.clone().sub(w), a.clone().add(w), c.clone().sub(w), c.clone().sub(w), a.clone().add(w), c.clone().add(w)];
         pts.forEach((v, j) => p.setXYZ(q + j, v.x, v.y, v.z));
       });
@@ -729,11 +825,11 @@ export class Game {
     };
     const sp = Math.abs(this.v);
     if (!this.o.reduce && sp > 0.6) for (let c = 0; c < Math.ceil(sp * dt * 9); c++) {
-      const side = Math.random() < 0.5 ? 0 : 1, dl = side ? -0.263 : 0.263, back = -0.3 * Math.sign(this.v);
+      const side = Math.random() < 0.5 ? 0 : 1, dl = side ? -G.tw : G.tw, back = -(G.wb + 0.05) * Math.sign(this.v);
       spawn(e + f.x * back + l.x * dl, rearH[side] + 0.05, -n + f.z * back + l.z * dl, -f.x * this.v * 0.25 + (Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 1.1, -f.z * this.v * 0.25 + (Math.random() - 0.5) * 0.8);
     }
     if (!this.o.reduce && this.busy?.kind === 'dig') for (let c = 0; c < 3; c++) {
-      const d = Math.random() < 0.5 ? 0.78 : -0.78;
+      const d = this.pose ? G.wb + 0.15 : Math.random() < 0.5 ? 0.78 : -0.78;
       spawn(e + f.x * d + l.x * (Math.random() - 0.5) * 0.7, this.rover.position.y - 0.15, -n + f.z * d + l.z * (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 1.6, 0.8 + Math.random() * 1.8, (Math.random() - 0.5) * 1.6);
     }
     for (let i = 0; i < DN; i++) {
@@ -748,9 +844,9 @@ export class Game {
     const s = this.sky, sh = this.shadow, sp2 = sh.geometry.getAttribute('position') as THREE.BufferAttribute;
     sh.visible = s.sunFrac > 0.05 && s.sunEl > 0.15;
     if (sh.visible) {
-      const len = clamp(0.5 / Math.tan(s.sunEl * D2R), 1, 34), ax = -Math.sin(s.sunAz * D2R), an = -Math.cos(s.sunAz * D2R), px = -an, pn = ax, rows = sp2.count / 2;
+      const len = clamp(Math.max(0.5, G.mastH * 0.45) / Math.tan(s.sunEl * D2R), 1, 60), ax = -Math.sin(s.sunAz * D2R), an = -Math.cos(s.sunAz * D2R), px = -an, pn = ax, rows = sp2.count / 2;
       for (let r = 0; r < rows; r++) {
-        const t = r / (rows - 1), d = t * len, wd = 0.5 * (1 - 0.35 * t);
+        const t = r / (rows - 1), d = t * len, wd = Math.max(0.5, G.tw * 1.2) * (1 - 0.35 * t);
         for (const [c, sgn] of [[0, -1], [1, 1]] as const) { const x = e + ax * d + px * wd * sgn, nn = n + an * d + pn * wd * sgn; sp2.setXYZ(r * 2 + c, x, this.gy(x, nn) + 0.03, -nn); }
       }
       sp2.needsUpdate = true; (sh.material as THREE.MeshBasicMaterial).opacity = 0.62 * s.sunFrac;
@@ -765,16 +861,16 @@ export class Game {
     const az = this.camAz * D2R;
     if (this.view === 'mast') {
       const p = this.camPitch * D2R, look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));
-      cam.position.copy(rp).add(new THREE.Vector3(0, 0.95, 0)); cam.up.set(0, 1, 0); cam.lookAt(cam.position.clone().add(look));
+      cam.position.copy(rp).add(new THREE.Vector3(0, this.def.geom.mastH, 0)); cam.up.set(0, 1, 0); cam.lookAt(cam.position.clone().add(look));
       cam.fov = lerp(this.mastFov, Math.min(this.mastFov, 14), this.lens);
     } else {
       // perspective zoom: the long lens pulls the camera back as it narrows, so the rover stays the same size
       // while the hills, the Sun and Earth behind it swell
-      const sp = Math.abs(this.v) / SPEC.vMax, wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
+      const sp = Math.abs(this.v) / this.spec.vMax, wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
       const dist = this.camDist * (Math.tan((wide / 2) * D2R) / Math.tan((fov / 2) * D2R));
       const p = lerp(this.camPitch, Math.min(this.camPitch, 9), this.lens) * D2R;
       const look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));
-      const to = rp.clone().add(new THREE.Vector3(0, 0.45, 0)).addScaledVector(f, this.v * 0.28);
+      const to = rp.clone().add(new THREE.Vector3(0, Math.max(0.45, this.def.geom.mastH * 0.35), 0)).addScaledVector(f, this.v * 0.28);
       if (this.tgt.lengthSq() === 0) this.tgt.copy(to);
       this.tgt.lerp(to, k(7, d));
       cam.position.copy(this.tgt).addScaledVector(look, -dist);
@@ -814,20 +910,22 @@ export class Game {
     const s = this.sky, cp = cam.position;
     put(t.sun, dirOf(s.sunAz, s.sunEl).multiplyScalar(1e5).add(cp), true);
     put(t.earth, dirOf(s.earthAz, s.earthEl).multiplyScalar(1e5).add(cp), true);
-    const ob = objective(this.quest, this.plan, s.earthUp);
+    const ob = objective(this.quest, this.plan, s.earthUp, this.chargePct);
     put(t.goal, ob.target ? new THREE.Vector3(ob.target.e, this.gy(ob.target.e, ob.target.n) + 4, -ob.target.n) : cp, !!ob.target && this.state === 'play');
   }
 
   private hud(): Hud {
-    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp), pos = { e: this.e, n: this.n };
-    const ice = iceSignal(this.quest, this.plan, pos);
+    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp, this.chargePct), pos = { e: this.e, n: this.n };
+    const ice = iceSignal(this.quest, this.plan, pos, this.def.detectM);
     return {
-      t: this.simT, rate: this.ff ? RATE_FF : RATE, battPct: (100 * this.vit.wh) / SPEC.batteryWh, netW: this.vit.solarW - this.vit.loadW, solarW: this.vit.solarW,
+      t: this.simT, rate: this.ff ? RATE_FF : RATE, battPct: (100 * this.vit.wh) / this.spec.batteryWh, netW: this.vit.solarW - this.vit.loadW, solarW: this.vit.solarW,
       sunFrac: s.sunFrac, earthUp: s.earthUp, tempC: this.vit.tempC, heaterW: this.vit.heaterW, speed: this.v, heading: ((this.psi / D2R) % 360 + 360) % 360, slope: this.slope,
       ice, canDig: this.plan.ice.some((p, i) => !this.quest.found[i] && distance(p, pos) <= DIG_M), busy: this.busy ? { ...this.busy } : null, obj: ob,
       objDist: ob.target ? distance(ob.target, pos) : null, objBearing: ob.target ? ((Math.atan2(ob.target.e - this.e, ob.target.n - this.n) / D2R) + 360) % 360 : null,
       found: this.quest.found.filter(Boolean).length, total: this.quest.found.length, sunAz: s.sunAz, sunEl: s.sunEl, earthAz: s.earthAz, earthEl: s.earthEl,
       lamp: this.lampOn, view: this.view, tele: this.lensTo > 0, odo: this.odo, dead: this.vit.wh <= 0, phase: this.quest.phase, camAz: ((this.camAz % 360) + 360) % 360, held: this.held,
+      score: this.score, combo: this.playS - this.comboAt < 40 ? this.combo : 1, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, gain: this.gain,
+      nearBonus: this.plan.bonus.reduce<number | null>((m, p, i) => (this.taken[i] ? m : Math.min(m ?? Infinity, distance(p, pos))), null),
     };
   }
 
@@ -849,7 +947,8 @@ export class Game {
     g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,0.5)'; g.setLineDash([4, 4]); g.beginPath(); g.arc(S / 2, S / 2, BOUND * sc, 0, 6.283); g.stroke(); g.setLineDash([]);
     if (this.quest.phase === 'ice') { g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.arc(X(this.plan.zone.c.e), Y(this.plan.zone.c.n), this.plan.zone.r * sc, 0, 6.283); g.stroke(); }
     this.plan.ice.forEach((p, i) => { if (this.quest.found[i]) { g.fillStyle = '#63a1ff'; g.fillRect(X(p.e) - 3, Y(p.n) - 3, 6, 6); } });
-    const ob = objective(this.quest, this.plan, this.sky.earthUp);
+    this.plan.bonus.forEach((p, i) => { if (this.taken[i]) return; const x = X(p.e), y = Y(p.n); g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); g.stroke(); });
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct);
     if (ob.target && this.quest.phase !== 'ice') { const x = X(ob.target.e), y = Y(ob.target.n); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.fill(); }
     const tick = (az: number, color: string) => { const a = az * D2R, r = S / 2 - 5; g.fillStyle = color; g.beginPath(); g.arc(S / 2 + Math.sin(a) * r, S / 2 - Math.cos(a) * r, 5, 0, 6.283); g.fill(); };
     tick(this.sky.sunAz, '#ffd23f'); tick(this.sky.earthAz, '#63a1ff');
