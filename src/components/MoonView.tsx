@@ -332,7 +332,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       // Sun and Earth pointers: a ring on the body when it is on screen, otherwise an arrow at the edge
       // pointing the shortest way to turn toward it
       {
-        const cx = w / 2, cy = h / 2, inset = 34;
+        // keep edge arrows inside the band between the HUD's top text and its bottom button rows
+        const insX = 34, top = w < 760 ? 120 : 78, bottom = w < 760 ? 150 : 64;
+        const cx = w / 2, cy = (top + h - bottom) / 2, halfY = (h - bottom - top) / 2;
         const earthPos = new THREE.Vector3().setFromMatrixPosition(st.earth.matrix);
         const sunPos = camera.position.clone().addScaledVector(u.uSun.value as THREE.Vector3, 1e5);
         for (const [el, world] of [[sunPtr.current, sunPos], [earthPtr.current, earthPos]] as const) {
@@ -349,7 +351,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
           else {
             let dx = d.x, dy = d.y;
             if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = -1; }
-            const k = Math.min((cx - inset) / Math.max(Math.abs(dx), 1e-9), (cy - inset) / Math.max(Math.abs(dy), 1e-9));
+            const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
             x = cx + dx * k; y = cy - dy * k; ang = Math.atan2(-dy, dx);
           }
           el.style.transform = `translate(${x}px, ${y}px)`;
