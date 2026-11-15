@@ -15,8 +15,9 @@ export default function CustomSite({ doc, onReady }: Props) {
   const worker = useRef<Worker | null>(null);
 
   const run = () => {
-    const la = Number(lat), lo = Number(lon);
-    if (!isFinite(la) || !isFinite(lo) || la > -80.5 || la < -90) { setErr('Latitude has to be between −90 and −80.5. Terrain is only loaded for the south polar cap.'); return; }
+    const la = lat.trim() === '' ? NaN : Number(lat), lo = lon.trim() === '' ? NaN : Number(lon);
+    if (!isFinite(lo)) { setErr('Enter a longitude in degrees east.'); return; }
+    if (!isFinite(la) || la > -80.5 || la < -90) { setErr('Latitude has to be between −90 and −80.5. Terrain is only loaded for the south polar cap.'); return; }
     setErr(null); setBusy('Starting…');
     worker.current ??= new Worker(new URL('../workers/customSite.ts', import.meta.url), { type: 'module' });
     const stepMin = doc.range.stepMin;
