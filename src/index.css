@@ -733,7 +733,11 @@ kbd {
 .launch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .launch-table th { text-align: left; font-size: 11.5px; font-weight: 500; color: var(--ink-2); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .launch-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
-.launch-table tbody tr:first-child { background: var(--accent-tint); }
+.launch-table tbody tr { cursor: pointer; }
+.launch-table tbody tr:hover { background: var(--surface-2); }
+.launch-table tbody tr.picked { background: var(--accent-tint); }
+.launch-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.launch-table-foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .launch-sites { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .launch-site { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
 .launch-site h3 { font-size: 14px; margin: 0 0 2px; }
@@ -755,3 +759,33 @@ kbd {
 .sky-ptr.edge span { left: -20px; top: 12px; }
 .sky-ptr.blocked i { border-style: dashed; opacity: 0.7; }
 .sky-ptr.blocked em { display: inline; }
+
+/* Launch planner: flight path */
+.fp { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); display: grid; gap: 10px; }
+.fp-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.fp-head h3 { margin: 0; font-size: 15px; }
+.fp-head p { margin: 0; }
+.fp-body { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .fp-body { grid-template-columns: minmax(0, 1fr); } }
+.fp-plot-wrap { background: var(--sky); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.fp-plot { display: block; width: 100%; height: auto; }
+.fp-transfer { fill: none; stroke: var(--accent); stroke-width: 2; }
+.fp-moonpath { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.fp-earth { fill: var(--earth); }
+.fp-moon { fill: var(--terrain-edge); }
+.fp-moon.ghost { fill: none; stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 2 2; }
+.fp-tick { fill: var(--accent); }
+.fp-label { fill: var(--ink-2); font: 500 10.5px var(--font-body); }
+.fp-label.strong { fill: var(--ink); font-weight: 600; }
+.fp-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: fp; }
+.fp-steps li { padding-left: 22px; position: relative; }
+.fp-steps li::before { counter-increment: fp; content: counter(fp); position: absolute; left: 0; top: 1px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface-2); color: var(--ink-2); font: 600 10px/16px var(--font-body); text-align: center; }
+.fp-step-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 10px; font-size: 13px; }
+.fp-step-head .num { font-size: 11.5px; }
+.fp-steps p { margin: 2px 0 0; color: var(--ink-2); }
+.fp-dv { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 12px; }
+.fp-dv caption { text-align: left; font-size: 11.5px; color: var(--ink-2); padding-bottom: 4px; }
+.fp-dv th { text-align: left; font-weight: 400; padding: 4px 0; border-top: 1px solid var(--line); }
+.fp-dv td { text-align: right; padding: 4px 0; border-top: 1px solid var(--line); }
+.fp-dv tr.total th, .fp-dv tr.total td { font-weight: 600; }
+.fp-note { margin: 0; max-width: 90ch; }
