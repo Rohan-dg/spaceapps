@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { SiteInfo } from '../lib/data';
 import { Game, type Hud, type Stats } from './engine';
 import { PHASES, RATE } from './sim';
-import { ROVERS, roverById, type RoverDef } from './rovers';
+import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
 import './game.css';
 
 type Stage = 'loading' | 'brief' | 'play' | 'pause' | 'done' | 'frozen' | 'power' | 'time' | 'unavailable' | 'error';
@@ -75,7 +75,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
   const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null), map = useRef<HTMLCanvasElement>(null);
   const engine = useRef<Game | null>(null), serial = useRef(0);
-  const pickRover = (id: string) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
+  const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
   const stageRef = useRef(stage);
   useEffect(() => { stageRef.current = stage; }, [stage]);
   const send = useCallback((key: string, down: boolean) => engine.current?.press(key, down), []);
