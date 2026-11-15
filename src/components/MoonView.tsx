@@ -530,7 +530,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       }
       const moving = st.flying ? false : st.controls.update();
       constrainCamera(camera.position, st.controls.target, surfaceRadius, st.mode === 'site' && !st.flying);
-      camera.lookAt(st.controls.target);
+      if (!st.flying) camera.lookAt(st.controls.target);
       u.uCam.value.copy(camera.position);
       {
         // anchor = ground point under the camera, snapped to whole 2048 m cells; everything here is float64,
@@ -844,27 +844,32 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const a0 = Math.max(r0 - sr0, 0.001), a1 = Math.max(r1 - sr1, 0.001);
     const d0 = p0.clone().normalize(), d1 = toPos.clone().normalize();
     const ang = d0.angleTo(d1);
-    const hop = Math.min(2600, Math.max(0, ang * R_KM * 0.5));
+    // Orientation: one direct turn from where the camera looks now to where it should look at the end, along the
+    // shortest rotation. Re-aiming every frame at a moving target with a separately rolled up-vector is what made
+    // the view flick round and back, especially into the near-vertical site views.
+    const q0 = camera.quaternion.clone();
+    const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(toPos, toTarget, up));
     const o = { k: 0 };
     st.mode = mode;
     st.flying = gsap.to(o, {
-      k: 1, duration: dur, ease: 'power3.inOut',
+      k: 1, duration: dur, ease: 'power2.inOut',
       onUpdate: () => {
         const k = o.k;
         const dir = new THREE.Vector3().copy(d0).lerp(d1, k).normalize();
         if (ang > 1e-4) { const q = new THREE.Quaternion().setFromUnitVectors(d0, d1); dir.copy(d0).applyQuaternion(new THREE.Quaternion().slerp(q, k)); }
-        // Interpolate clearance above the actual terrain, including destinations below the reference sphere.
-        const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + hop * Math.sin(Math.PI * k);
+        // the shortest way there: along the great circle, height above the ground blended smoothly, no arc or hop
+        // (a gentle lift on long legs only, enough to stay clear of mountains between the two points)
+        const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + Math.min(300, ang * R_KM * 0.1) * Math.sin(Math.PI * k);
         // ground radius: the take-off and landing values blended along the way, easing onto the live terrain only in
         // the last stretch, so detail that loads mid-flight (site patch, tiles) cannot make the camera jump
         const w = k < 0.8 ? 0 : (k - 0.8) / 0.2, ws = w * w * (3 - 2 * w);
         const srPath = sr0 + (sr1 - sr0) * k;
         const sr = ws > 0 ? srPath + (st.surfaceRadius(dir) - srPath) * ws : srPath;
         camera.position.copy(dir.multiplyScalar(sr + alt));
-        controls.target.copy(t0).lerp(toTarget, gsap.parseEase('power2.inOut')(k));
-        camera.up.copy(up0).applyQuaternion(new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(up0, up), k));
-        if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * gsap.parseEase('power2.inOut')(k); camera.updateProjectionMatrix(); }
-        camera.lookAt(controls.target);
+        controls.target.copy(t0).lerp(toTarget, k);
+        camera.quaternion.slerpQuaternions(q0, q1, k);
+        camera.up.copy(up0).lerp(up, k).normalize();
+        if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * k; camera.updateProjectionMatrix(); }
         st.request();
       },
       onComplete: () => {
