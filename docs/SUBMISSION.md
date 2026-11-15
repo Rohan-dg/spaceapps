@@ -84,7 +84,7 @@ Open-source software: astronomy-engine (MIT), three.js (MIT), React (MIT), D3 (I
 | Animations and timelines | Play, timeline, Sun and Earth paths |
 | Content for all skill levels | How to use guide, plain-language ratings, term explanations, About panel (data, method and limits) |
 | No atmospheric refraction | Not applied (the Moon has no atmosphere), see docs/MATH.md |
-| Libration | Included through the IAU Moon-fixed rotation, see docs/MATH.md |
+| Libration | Included through the IAU Moon-fixed rotation (docs/MATH.md) and shown in its own **Libration & orbit** tool, the first tab of Detailed analysis: Earth's ±8°/±7° wobble, perigee to apogee distance, the Sun's ±1.5° seasonal swing, and whether libration hides Earth at the site or is the only reason it is ever in view |
 
 ## Checklist before pressing "Submit for Judging"
 
