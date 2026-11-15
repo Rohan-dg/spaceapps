@@ -59,7 +59,7 @@ function loadPlan(t: number): MissionPlan {
   return { ...DEFAULT_PLAN, departure: t };
 }
 type View = 'panorama' | 'sky' | 'first' | 'shadow';
-type Deep = 'libration' | 'calendar' | 'mission' | 'compare';
+type Deep = 'horizon' | 'month' | 'slip' | 'earth' | 'libration' | 'calendar' | 'mission' | 'compare';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
@@ -116,6 +116,11 @@ const COPY = {
   },
 };
 const NO_SITES: SiteInfo[] = [];
+/** The Analysis panel's tabs (Scientific mode), in reading order; Compare is added when two sites are picked. */
+const ANALYSIS_TABS: [Deep, string][] = [
+  ['horizon', 'Horizon'], ['month', 'Next 30 days'], ['slip', 'Date slip'], ['earth', 'Moon vs Earth'],
+  ['libration', 'Libration & orbit'], ['calendar', 'Calendar'], ['mission', 'Mission plan'],
+];
 const MoonView = lazy(() => import('./components/MoonView'));
 const Onboarding = lazy(() => import('./components/Onboarding'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
@@ -199,7 +204,7 @@ export default function App() {
     if (!o) setPair((p) => (p.a || p.b ? p : { a: siteId || 'apollo-11', b: 'griffin-1', active: 'b' }));
     return !o;
   }), [siteId]);
-  const [deep, setDeep] = useState<Deep>('libration');
+  const [deep, setDeep] = useState<Deep>('horizon');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -476,7 +481,7 @@ export default function App() {
     else if (a.type === 'palette') setPalette(true);
     else if (a.type === 'theme') theme.toggle();
     else if (a.type === 'home') goHome();
-    else if (a.type === 'view') { setMode('explore'); setView(a.view); }
+    else if (a.type === 'view') { setMode('explore'); setView(a.view); setDeep('horizon'); }
     else if (a.type === 'deep') { setMode('explore'); setDeep(a.deep); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
     else if (a.type === 'site') pickSite(a.id);
   };
@@ -604,65 +609,50 @@ export default function App() {
                 </div>
                 </>)}
 
-                {expert && <>
-                <div className="instrument">
-                  <div className="view-head pnl-h">
-                    <div><h3>{L.hz[0]}</h3><p>{L.hz[1]}</p></div>
-                    <div className="seg" role="radiogroup" aria-label="View">
-                      {VIEWS.map((v) => (
-                        <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{L.views[v.id] ?? v.label}</button>
+                {(expert || partnerData) && <section className="deep analysis" aria-label="Analysis">
+                  <div className="an-head">
+                    <div className="an-tabs" role="tablist" aria-label="Analysis">
+                      {(expert ? ANALYSIS_TABS : []).map(([id, label]) => (
+                        <button key={id} role="tab" aria-selected={dv === id} onClick={() => setDeep(id)}>{label}</button>
                       ))}
+                      {partnerData && <button role="tab" aria-selected={dv === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
                     </div>
+                    <p className="an-desc">{dv === 'horizon' ? L.hz[1] : dv === 'month' ? L.next[1] : dv === 'slip' ? L.slip[1] : dv === 'earth' ? L.me[1] : L.deepText[dv === 'compare' && !partnerData ? 'libration' : (dv as 'libration' | 'calendar' | 'mission' | 'compare')]}</p>
                   </div>
-                  {view === 'panorama' ? <PanoramaM data={data} t={tl} height={300} />
-                    : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
-                    : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} plain={!expert} />
-                    : <SkyPlotM data={data} t={tl} />}
-                  {readoutHz && expert && (
-                    <p className="hz-note">
-                      <span>Skyline <b className="num">{Math.min(...readoutHz.profile).toFixed(2)}°</b> to <b className="num">{Math.max(...readoutHz.profile).toFixed(2)}°</b>; a smooth Moon would give <b className="num">{sphereHorizonDeg(readoutHz.observerM).toFixed(2)}°</b> all round ({readoutHz.observerM} m mast).</span>
-                      <span><Term t="no-refraction">No refraction</Term>: with no air, the Sun or Earth is up exactly when it clears the terrain.</span>
-                    </p>
-                  )}
-                </div>
-
-                <div className="instrument">
-                  <div className="view-head pnl-h">
-                    <div><h3>{L.next[0]}</h3><p>{L.next[1]}</p></div>
-                    <ul className="chart-legend" aria-label="Legend">
-                      <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> {expert ? 'Sunlit' : 'Sunny'}</li>
+                  <div className="an-body">
+                  {dv === 'horizon' ? (<>
+                    <div className="an-sub hz-row">
+                      {readoutHz && (
+                        <p className="hz-note">
+                          <span>Skyline <b className="num">{Math.min(...readoutHz.profile).toFixed(2)}°</b> to <b className="num">{Math.max(...readoutHz.profile).toFixed(2)}°</b>; a smooth Moon would give <b className="num">{sphereHorizonDeg(readoutHz.observerM).toFixed(2)}°</b> all round ({readoutHz.observerM} m mast).</span>
+                          <span><Term t="no-refraction">No refraction</Term>: with no air, the Sun or Earth is up exactly when it clears the terrain.</span>
+                        </p>
+                      )}
+                      <div className="seg" role="radiogroup" aria-label="View">
+                        {VIEWS.map((v) => (
+                          <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{L.views[v.id] ?? v.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {view === 'panorama' ? <PanoramaM data={data} t={tl} height={300} />
+                      : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
+                      : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} plain={!expert} />
+                      : <SkyPlotM data={data} t={tl} />}
+                  </>) : dv === 'month' ? (<>
+                    <ul className="chart-legend an-sub" aria-label="Legend">
+                      <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
                       <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
                       <li><span className="swatch swatch-line" aria-hidden /> Now</li>
                     </ul>
-                  </div>
-                  <TimelineM data={data} t={tl} onSeek={onT} />
-                </div>
-
-                <div className="instrument">
-                  <header className="pnl-h"><h3>{L.slip[0]}</h3><p>{L.slip[1]}</p></header>
-                  <SlipPanelM data={data} t={tl} t0={range[0]} t1={range[1]} onSeek={pickDay} playing={playing} plain={!expert} />
-                </div>
-
-                <div className="instrument">
-                  <header className="pnl-h"><h3>{L.me[0]}</h3><p>{L.me[1]}</p></header>
-                  <MoonEarthM data={data} t={tl} m={res.metrics} />
-                </div>
-
-                </>}
-                {(expert || partnerData) && <section className="deep" aria-label="Detail">
-                  <div className="view-head pnl-h">
-                    <div><h3>{L.deep}</h3><p>{L.deepText[dv === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
-                    <div className="seg" role="tablist" aria-label="Detail panels">
-                      {expert && <button role="tab" className="seg-key" aria-selected={dv === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>}
-                      {partnerData && <button role="tab" aria-selected={dv === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
-                      {expert && <button role="tab" aria-selected={dv === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>}
-                      {expert && <button role="tab" aria-selected={dv === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>}
-                    </div>
-                  </div>
-                  {dv === 'compare' && partnerData ? (
+                    <TimelineM data={data} t={tl} onSeek={onT} />
+                  </>) : dv === 'slip' ? (
+                    <SlipPanelM data={data} t={tl} t0={range[0]} t1={range[1]} onSeek={pickDay} playing={playing} plain={!expert} />
+                  ) : dv === 'earth' ? (
+                    <MoonEarthM data={data} t={tl} m={res.metrics} />
+                  ) : dv === 'compare' && partnerData ? (
                     <PairCompare a={partnerData} b={data} t={tl} expert={expert} range={doc.range} onRecompute={(lat, lon, mastM, slot) => comparePoint(lat, lon, mastM, slot)} busy={pointBusy}
                       onCloseUp={(id) => { setCloseUp((c) => ({ id, n: (c?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                      onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
+                      onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('horizon'); }} />
                   ) : dv === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
                   ) : dv === 'mission' ? (
@@ -676,6 +666,7 @@ export default function App() {
                       <ExportM d={data} r={res} />
                     </div>
                   )}
+                  </div>
                 </section>}
               </>
             ) : siteId ? <Loading label="Loading site" /> : !expert ? (
@@ -707,11 +698,7 @@ export default function App() {
                     <div className="answer-card"><span className="answer-kind">Radio to Earth</span><span className="answer-word">-</span></div>
                   </section>
                 </div>
-                {[['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth.'],
-                  ['Next 30 days', 'When the site is sunlit and when Earth is above the horizon.'],
-                  ['If the landing date slips', 'How far the landing date can move before the power or radio rating changes.'],
-                  ['Moon vs Earth', 'The selected site next to the same latitude on Earth.'],
-                  ['Detailed analysis', 'Calendar, all figures and the mission plan for the selected site.']].map(([h, c]) => (
+                {[['Analysis', 'Horizon views, the next 30 days, date slips, Moon vs Earth, libration and orbit, the calendar and the mission plan for the selected site.']].map(([h, c]) => (
                   <div className="instrument" key={h}>
                     <header className="pnl-h"><h3>{h}</h3><p>{c}</p></header>
                     <p className="dash-block">-</p>

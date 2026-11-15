@@ -2102,3 +2102,22 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .ct-tutorial:hover, .ct-missions:not(.on):hover { background: var(--btn-hover, rgba(255, 255, 255, 0.08)); }
 /* narrow screens: Missions and Tutorial go icon-only and the tabs drop their icons, so the top bar fits */
 @media (max-width: 1000px) { .ct-tutorial, .ct-missions { padding: 0 9px; } .ct-tutorial span, .ct-missions span { display: none; } .ct-tabs button svg { display: none; } }
+
+/* Scientific mode: one Analysis panel with a tab bar instead of seven stacked panels */
+.explore .deep.analysis { padding: 0; gap: 0; }
+.an-head { display: grid; gap: 8px; padding: 0 16px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 64px; z-index: 3; }
+.an-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; }
+.an-tabs::-webkit-scrollbar { display: none; }
+.an-tabs button { position: relative; flex: none; height: 44px; padding: 0 12px; border: 0 !important; border-radius: 0; background: none; color: var(--ink-2); font-size: 13.5px; font-weight: 600; }
+.an-tabs button:hover { color: var(--ink); background: none; }
+.an-tabs button[aria-selected='true'] { color: var(--ink); }
+.an-tabs button::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px; background: var(--mode, var(--accent)); transform: scaleX(0); transition: transform 240ms var(--ease-out, ease); }
+.an-tabs button[aria-selected='true']::after { transform: scaleX(1); }
+.an-desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 90ch; }
+.an-body { display: grid; gap: 12px; padding: 16px; min-width: 0; animation: view-in 280ms var(--ease-out, ease) both; }
+.an-body > * { min-width: 0; }
+.an-sub { display: flex; justify-content: flex-end; }
+.an-body .hz-note { margin-top: 0; }
+@media (max-width: 720px) { .an-head { top: 0; padding: 0 12px 10px; } .an-body { padding: 12px; } .an-tabs button { padding: 0 10px; font-size: 13px; } }
+.an-sub.hz-row { justify-content: space-between; align-items: center; gap: 12px 24px; flex-wrap: wrap; }
+.hz-row .hz-note { margin: 0; flex: 1 1 360px; }
