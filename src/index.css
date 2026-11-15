@@ -2442,3 +2442,14 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash:not(.dash-explore) .hud-bl { left: 84px; }
 .dash { --r: 12px; --r-lg: 16px; --success: #ffffff; }
 .dash-wide .table-scroll, .dash-wide .lp-table-wrap { overflow-x: auto; }
+/* site-card actions: Compare gets its own full-width row so a long partner name never pushes the others out */
+.dg-actions { flex-wrap: wrap; }
+.dg-actions > button:first-child { flex: 1 1 100%; }
+.dg-actions .ell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-actions > button:not(.dg-open):not(:first-child) { flex: 1 1 0; justify-content: center; }
+/* launch table fits the panel: tighter cells, the last column wraps */
+.dash-wide .launch-table td, .dash-wide .launch-table th { padding-left: 8px; padding-right: 8px; }
+.dash-wide .launch-table td:last-child, .dash-wide .launch-table th:last-child { white-space: normal; min-width: 150px; }
+.dash-wide .launch-table-wrap { justify-items: stretch; }
+.dash-wide .launch-table { font-size: 12.5px; }
+.dg-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
