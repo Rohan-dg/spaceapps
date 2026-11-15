@@ -208,11 +208,10 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
     const row = rows.get(n)!, v = variable(n);
     return (
       <tr key={n}>
-        <td className="mv-n num">V{String(n).padStart(2, '0')}</td>
+        <td className="mv-n num">{n}</td>
         <th scope="row"><span className="mv-name" title={v.description}>{v.name}</span></th>
         <td className="mv-val">{row.value}{row.detail && <small>{row.detail}</small>}</td>
-        <td className="mv-tags"><span className={`prio ${PRIO[v.priority]}`}>{v.priority}</span></td>
-        <td className="mv-tags"><span className={`src src-${row.src}`} title={SRC_TIP[row.src]}>{SRC_LABEL[row.src]}</span></td>
+        <td className="mv-tags"><span className={`prio ${PRIO[v.priority]}`}>{v.priority}</span><span className={`src src-${row.src}`} title={SRC_TIP[row.src]}>{SRC_LABEL[row.src]}</span></td>
       </tr>
     );
   };
@@ -242,10 +241,10 @@ export default function MissionPanel({ d, r, m, t, plan, onPlan, sites, all, onS
       <div className="table-wrap">
         <table className="mv-table">
           <caption className="sr-only">Mission variables</caption>
-          <thead><tr><th scope="col">ID</th><th scope="col">Variable</th><th scope="col">Value</th><th scope="col">Priority</th><th scope="col">Source</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col">Variable</th><th scope="col">Value</th><th scope="col"><span className="sr-only">Priority and source</span></th></tr></thead>
           {GROUPS.map(([g, ns]) => (
             <tbody key={g}>
-              <tr className="mv-group"><th colSpan={5} scope="rowgroup">{g}</th></tr>
+              <tr className="mv-group"><th colSpan={4} scope="rowgroup">{g}</th></tr>
               {ns.map(cell)}
             </tbody>
           ))}
