@@ -182,6 +182,11 @@ export default function App() {
     const where = d.info.name.replace(/^Point\s+/, '');
     d.info.short = `Point ${letter}`; d.info.name = `Point ${letter} (${where})`;
   };
+  const removePoint = useCallback((id: string) => {
+    setCustoms((c) => c.filter((x) => x.id !== id));
+    setSiteId((cur) => (cur === id ? '' : cur));
+    setPartner((p) => (p === id ? null : p));
+  }, []);
   const clearPoints = useCallback(() => {
     setCustoms([]); letterSeq.current = 0;
     setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
@@ -448,7 +453,7 @@ export default function App() {
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span>
                 {customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
-              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} />
+              <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} onRemove={removePoint} />
               <CustomSite doc={doc} onReady={addCustom} />
             </section>
             <section className="ct-panel">

@@ -1869,3 +1869,10 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .ct-clear:hover { background: color-mix(in srgb, #ff8a00 16%, transparent); }
 
 .moon-marker.mine.crowded span { opacity: 1; }
+
+.site-list li { position: relative; }
+.site-remove { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, #ff8a00 55%, var(--line)); background: var(--surface); color: #ff8a00; font-size: 14px; line-height: 1; display: grid; place-items: center; opacity: 0.85; }
+.site-remove:hover { opacity: 1; background: color-mix(in srgb, #ff8a00 18%, var(--surface)); }
+.site-list li:has(.site-remove) .site-row { padding-right: 32px; }
+/* your points: the orange diamond only, never a blue ring */
+.moon-marker.mine.pair i, .moon-marker.mine.on i { background: #ff8a00; box-shadow: 0 0 0 2px #000; }
