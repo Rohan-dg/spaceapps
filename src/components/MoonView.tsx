@@ -803,7 +803,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
-      b.onclick = () => { if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } };
+      // a site marker behaves like any other point: select it and glide to a top-down view over it
+      b.onclick = () => {
+        if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); }
+        topRef.current(v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief)));
+      };
       b.ondblclick = (e) => {
         e.preventDefault();
         const st2 = S.current;
