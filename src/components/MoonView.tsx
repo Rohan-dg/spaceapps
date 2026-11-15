@@ -102,11 +102,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   const [relief, setRelief] = useState(1);
   const [hiInfo, setHiInfo] = useState<HiMeta | null>(null);
   const [fail, setFail] = useState<string | null>(null);
-  const [viewer, setViewer] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
+  const [viewer, setViewer] = useState<string | null>(null);
 
   // everything three.js lives here so React re-renders never rebuild the scene
   const S = useRef<{
