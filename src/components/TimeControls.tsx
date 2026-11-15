@@ -15,7 +15,7 @@ interface Props {
   playing: boolean; onPlaying: (p: boolean) => void; speed: number; onSpeed: (s: number) => void;
 }
 
-/** Date, step and play controls. The play loop itself runs in App, so Play works the same in Normal mode. */
+/** Date, step and play controls. The play loop itself runs in App, so Play works the same in Education mode. */
 export default function TimeControls({ t, t0, t1, onChange, playing, onPlaying, speed, onSpeed }: Props) {
   const clamp = (x: number) => Math.max(t0, Math.min(t1, x));
   const step = (h: number) => onChange(clamp(t + h * 3600000));
