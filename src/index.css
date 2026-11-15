@@ -1033,3 +1033,13 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
   .kpi-icon { display: none; }
   .kpi-value { font-size: 18px; }
 }
+
+/* First-person site view (src/components/FirstPerson.tsx): a viewport onto the airless sky, always dark */
+.fp { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fp-canvas { display: block; border-radius: var(--r); background: #05070a; cursor: grab; touch-action: pan-y; }
+.fp-canvas:active { cursor: grabbing; }
+.fp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.fp-bar button { height: 26px; font-size: 12px; }
+.fp-bar .seg button { height: 22px; }
+.fp-heading { font-size: 12px; color: var(--ink); margin-right: 4px; }
+.fp-note { margin-left: auto; font-size: 12px; color: var(--ink-2); }

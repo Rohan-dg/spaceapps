@@ -14,6 +14,7 @@ import KpiStrip from './components/KpiStrip';
 import MissionPanel from './components/MissionPanel';
 import { Readout, Summary } from './components/Metrics';
 import Panorama from './components/Panorama';
+import FirstPerson from './components/FirstPerson';
 import SiteList from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import TimeControls from './components/TimeControls';
@@ -31,11 +32,12 @@ function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
   return { ...DEFAULT_PLAN, departure: t };
 }
-type View = 'panorama' | 'sky';
+type View = 'panorama' | 'sky' | 'first';
 type Deep = 'calendar' | 'numbers' | 'mission';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
+  { id: 'first', label: 'First person' },
 ];
 const MoonView = lazy(() => import('./components/MoonView'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
@@ -269,6 +271,7 @@ export default function App() {
                           </div>
                         </div>
                         {view === 'panorama' ? <Panorama data={data} t={t} height={300} />
+                          : view === 'first' ? <FirstPerson data={data} t={t} height={320} />
                           : <SkyPlot data={data} t={t} />}
                       </div>
 
