@@ -61,7 +61,7 @@ const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect, on
           </>
         ) : <><span className="cell-status muted">…</span><span /></>}
       </button>
-      {onRemove && info.id.startsWith('custom') && <button className="site-remove" onClick={() => onRemove(info.id)} aria-label={`Remove ${info.short}`} title={`Remove ${info.short}`}>×</button>}
+      {onRemove && (info.id.startsWith('custom') || info.id.startsWith('pending')) && <button className="site-remove" onClick={() => onRemove(info.id)} aria-label={`Remove ${info.short}`} title={`Remove ${info.short}`}>×</button>}
     </li>
   );
 });

@@ -372,24 +372,36 @@ export default function App() {
   const comparePoint = useCallback((lat: number, lon: number, mastM = 2, slot?: 'A' | 'B') => {
     if (!doc) return;
     const n = ++pointSeq.current;
+    // a fresh click shows its lettered point on the Moon at once, while the terrain and Sun / Earth series are computed;
+    // every click is kept (computations queue), so a second click never hides or cancels the first
+    let pendingId: string | null = null, letter: string | null = null;
+    if (!slot) {
+      letter = nextLetter(); pendingId = `pending_${n}`;
+      const l = ((lon % 360) + 360) % 360;
+      const pending = { id: pendingId, name: `Point ${letter} (computing)`, short: `Point ${letter}`, lat, lon: l, region: lat < -80.5 ? 'south-pole' : 'global',
+        approximate: true, siteHeightM: 0, dem: '', source: 'User input', mission: 'Computing…' } as unknown as SiteInfo;
+      setCustoms((c) => [...c, pending]);
+    }
     setPointBusy('Computing the point…');
     computeSite(doc, lat, lon, (m) => { if (n === pointSeq.current) setPointBusy(m); }, mastM)
       .then((d) => {
-        if (n !== pointSeq.current) return;
-        // recalculating a point in the comparison replaces it in place; a fresh click pairs with the current site
         if (slot) {
-          // a recalculated point keeps its letter
+          // recalculating a point in the comparison replaces it in place and keeps its letter
           const old = customs.find((c) => c.id === (slot === 'A' ? partner : siteId));
           const L = old?.short.match(/^Point ([A-Z]+)$/)?.[1];
-          if (L) letterPoint(d, L); else letterPoint(d, nextLetter());
+          letterPoint(d, L ?? nextLetter());
           setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info]);
           if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id);
+          return;
         }
-        else { addCustom(d); setMode('explore'); }
+        letterPoint(d, letter!);
+        setCustoms((c) => [...c.filter((x) => x.id !== d.info.id).map((x) => (x.id === pendingId ? d.info : x))]);
+        setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
+        setMode('explore');
       })
-      .catch((e) => { if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
+      .catch((e) => { setCustoms((c) => c.filter((x) => x.id !== pendingId)); if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
       .finally(() => { if (n === pointSeq.current) setTimeout(() => setPointBusy(null), 1200); });
-  }, [doc, addCustom, customs, partner, siteId]);
+  }, [doc, customs, partner, siteId]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
