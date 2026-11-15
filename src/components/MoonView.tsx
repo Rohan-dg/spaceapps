@@ -629,11 +629,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         }
       }
       for (const v of vis) { const l = labelled.find((x) => x.m === v.m); const sp = v.m.el.querySelector('span') as HTMLElement | null; if (sp) sp.dataset.more = l && l.more ? `+${l.more}` : ''; }
-      // Sun and Earth pointers: a ring on the body when it is on screen, otherwise an arrow at the edge
-      // pointing the shortest way to turn toward it
+      // Sun and Earth pointers: always an arrow pinned to the edge of the 3D window, on the line from the centre of
+      // the view toward the body (its screen position when it is in front, its direction when it is behind), so they
+      // never wander into the middle of the picture
       {
-        // keep edge arrows inside the band between the HUD's top text and its bottom button rows
-        const insX = 34, top = w < 760 ? 120 : 78, bottom = w < 760 ? 150 : 64;
+        // arrows ride the very edge of the window (just inside the border)
+        const insX = 16, top = 16, bottom = 16;
         const cx = w / 2, cy = (top + h - bottom) / 2, halfY = (h - bottom - top) / 2;
         const earthPos = new THREE.Vector3().setFromMatrixPosition(st.earth.matrix);
         const sunPos = camera.position.clone().addScaledVector(u.uSun.value as THREE.Vector3, 1e5);
@@ -645,18 +646,18 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           const o = camera.position, dir = world.clone().sub(o), len = dir.length(); dir.divideScalar(len);
           const bq = o.dot(dir), cq = o.lengthSq() - R_KM * R_KM, disc = bq * bq - cq;
           const blocked = disc > 0 && -bq - Math.sqrt(disc) > 0 && -bq - Math.sqrt(disc) < len;
-          const onScreen = d.z < 0 && Math.abs(tmp.x) < 0.9 && Math.abs(tmp.y) < 0.86;
-          let x: number, y: number, ang = 0;
-          if (onScreen) { x = ((tmp.x + 1) / 2) * w; y = ((1 - tmp.y) / 2) * h; }
-          else {
-            let dx = d.x, dy = d.y;
-            if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = -1; }
-            const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
-            x = cx + dx * k; y = cy - dy * k; ang = Math.atan2(-dy, dx);
-          }
+          // direction on screen (right, up) from the centre of the view toward the body
+          let dx: number, dy: number;
+          if (d.z < 0) { dx = ((tmp.x + 1) / 2) * w - cx; dy = cy - ((1 - tmp.y) / 2) * h; }
+          else { dx = d.x; dy = d.y; }
+          if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = 1; }
+          const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
+          const x = cx + dx * k, y = cy - dy * k, ang = Math.atan2(-dy, dx), n = Math.hypot(dx, dy);
           el.style.transform = `translate(${x}px, ${y}px)`;
           el.style.setProperty('--ang', `${ang}rad`);
-          el.classList.toggle('edge', !onScreen);
+          // the label sits just inside the arrow, toward the centre, so it never runs off the window
+          el.style.setProperty('--lx', `${(-dx / n) * 36}px`);
+          el.style.setProperty('--ly', `${(dy / n) * 24}px`);
           el.classList.toggle('blocked', blocked);
           el.style.opacity = '1';
         }
@@ -1364,8 +1365,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div className="moon-markers sky-ptrs" hidden={!pointers} aria-hidden>
-        <div ref={sunPtr} className="sky-ptr sun"><i /><b /><span>Sun<em> · behind the Moon</em></span></div>
-        <div ref={earthPtr} className="sky-ptr earth"><i /><b /><span>Earth<em> · behind the Moon</em></span></div>
+        <div ref={sunPtr} className="sky-ptr sun"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Sun<em> · behind the Moon</em></span></div>
+        <div ref={earthPtr} className="sky-ptr earth"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Earth<em> · behind the Moon</em></span></div>
       </div>
       <div ref={hud} className="moon-hud">
         <div className="hud-tl hud-anim">
@@ -1490,7 +1491,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             {menuOpen && (
               <div className="hud-menu" role="menu" aria-label="Display">
                 {([
-                  ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Show where the Sun and Earth are, with arrows when they are off screen'],
+                  ['compass', 'Sun & Earth pointers', pointers, () => setPointers((x) => !x), 'Arrows on the edge of the window pointing toward the Sun and Earth'],
                   ['shadow', 'Shadows', shadows, () => setShadows((x) => !x), 'Cast shadows, ray-traced on the LOLA heights'],
                   ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],
                   ['sparkle', 'Fine detail', detail, () => setDetail((x) => !x), 'Procedural craters and rocks below the resolution of the real data. Illustrative only.'],
