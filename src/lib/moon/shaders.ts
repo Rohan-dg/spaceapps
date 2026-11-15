@@ -525,14 +525,18 @@ export const PATCH_V = /* glsl */ `
 ${HEAD_V}
 attribute vec2 aXY;      // stereographic metres (absolute)
 attribute vec2 aLocal;   // stereographic metres relative to the site (precise near the camera)
+attribute vec3 aUp;      // unit outward direction of the sphere at the vertex
+attribute float aH;      // terrain height, metres
+uniform float uExag;     // relief exaggeration, applied along the vertical like the globe, cap and tiles
 varying vec2 vXY;
 varying vec2 vLocal;
 varying vec3 vPos;       // km relative to the patch origin
 void main() {
   vXY = aXY;
   vLocal = aLocal;
-  vPos = position;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec3 p = position + aUp * (aH * (uExag - 1.0) / 1000.0);
+  vPos = p;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   #include <logdepthbuf_vertex>
 }`;
 
