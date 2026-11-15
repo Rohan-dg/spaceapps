@@ -166,6 +166,7 @@ export default function App() {
   const setUi = useCallback((u: Ui) => {
     setUiState(u);
     try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+    if (u === 'normal') setMode('explore'); // the other modes are Expert tools
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -298,6 +299,8 @@ export default function App() {
   }, []);
   const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
   const partnerData = useSiteData(partner && partner !== siteId ? partner : null);
+  // Normal mode shows only Best days and Side by side in the detail panel
+  const dv: Deep = expert ? deep : deep === 'compare' ? 'compare' : 'calendar';
   const openCompare = () => { setDeep('compare'); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
   const onMoonSelect = useCallback((id: string) => {
@@ -351,12 +354,13 @@ export default function App() {
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
+    if (m !== 'explore' && !expert) setUi('expert'); // calculators, launch planning and the scenario editor are Expert tools
     setMode(m);
     window.scrollTo({ top: 0 });
-  }, [mode, siteId, t]);
+  }, [mode, siteId, t, expert, setUi]);
   const commands = useMemo<Command[]>(() => {
     const showDeep = (d: Deep) => () => { setMode('explore'); setDeep(d); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
-    return [
+    const list: Command[] = [
       ...allSites.map((s) => ({
         id: `site-${s.id}`, group: 'Sites', title: s.name, keywords: `${s.short} ${s.mission} ${s.region}`,
         icon: <Globe size={16} />, accessory: <span className="num">{Math.abs(s.lat).toFixed(2)}°{s.lat < 0 ? 'S' : 'N'}</span>,
@@ -380,6 +384,9 @@ export default function App() {
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
+    // Normal mode leaves out the Expert-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
+    const EXPERT_ONLY = new Set(['mode-compare', 'mode-calc', 'mode-launch', 'deep-mission', 'deep-libration']);
+    return expert ? list : list.filter((c) => !EXPERT_ONLY.has(c.id) && !(c.id.startsWith('preset-') && PRESETS.find((p) => `preset-${p.id}` === c.id)?.mode === 'compare'));
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi]);
 
   // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
@@ -458,9 +465,11 @@ export default function App() {
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
+        {expert && <>
         <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
         <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
         <button className={mode === 'launch' ? 'on' : ''} aria-label="Launch" title="Launch" onClick={() => setMode('launch')}><CalendarSync size={18} /></button>
+        </>}
         <button className={missionsOpen ? 'on' : ''} aria-label="Mission comparison" aria-pressed={missionsOpen} title="Mission comparison (M)" onClick={toggleMissions}><Satellite size={18} /></button>
         <span className="ct-rail-gap" />
         <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
@@ -479,10 +488,12 @@ export default function App() {
         </div>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> {L.tabs.explore}</button>
+          {expert && <>
           <button role="tab" aria-selected={mode === 'compare'}
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}><Columns2 size={15} /> {L.tabs.compare}</button>
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}><CalcIcon size={15} /> {L.tabs.calc}</button>
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
+          </>}
         </nav>
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> {L.tabs.missions}</button>
       </header>
@@ -538,8 +549,8 @@ export default function App() {
                     title={partnerData ? 'Open the side-by-side comparison' : 'Click a second site on the 3D Moon or in the list'}>
                     <Columns2 size={15} /> {partnerData ? <>Compare <b>{partnerData.info.short || partnerData.info.name}</b> and <b>{info.short || info.name}</b></> : L.pick2}
                   </button>
-                  <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> {L.plan}</button>
-                  <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> {L.logic}</button>
+                  {expert && <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> {L.plan}</button>}
+                  {expert && <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> {L.logic}</button>}
                   <button onClick={() => setAbout(true)}><Info size={14} /> {L.explain}</button>
                 </div>
               )}
@@ -549,7 +560,7 @@ export default function App() {
                   <div className="ct-fields">
                     <div><b className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</b><small>{L.fPos}</small></div>
                     <div><b className="num">{info.siteHeightM.toFixed(0)} m</b><small>{L.fElev}</small></div>
-                    <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>{L.fDem}</small></div>
+                    {expert && <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>{L.fDem}</small></div>}
                     <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '-'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '-'}</b><small>{L.fNow}</small></div>
                   </div>
                   <p className="ct-src"><small>{L.fSrc}</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
@@ -567,7 +578,7 @@ export default function App() {
             {data && res ? (
               <>
                 {!expert ? (
-                  <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
+                  <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} />
                 ) : (<>
                 <div className="work-head">
                   <h2>{data.info.name}</h2>
@@ -630,21 +641,21 @@ export default function App() {
 
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>{L.deep}</h3><p>{L.deepText[deep === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
+                    <div><h3>{L.deep}</h3><p>{L.deepText[dv === 'compare' && !partnerData ? 'libration' : deep]}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
-                      <button role="tab" className="seg-key" aria-selected={deep === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>
-                      {partnerData && <button role="tab" aria-selected={deep === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
-                      <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>
-                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>
+                      {expert && <button role="tab" className="seg-key" aria-selected={dv === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> {L.deepTabs.libration}</button>}
+                      {partnerData && <button role="tab" aria-selected={dv === 'compare'} onClick={() => setDeep('compare')}>{L.deepTabs.compare}</button>}
+                      <button role="tab" aria-selected={dv === 'calendar'} onClick={() => setDeep('calendar')}>{L.deepTabs.calendar}</button>
+                      {expert && <button role="tab" aria-selected={dv === 'mission'} onClick={() => setDeep('mission')}>{L.deepTabs.mission}</button>}
                     </div>
                   </div>
-                  {deep === 'compare' && partnerData ? (
+                  {dv === 'compare' && partnerData ? (
                     <PairCompare a={partnerData} b={data} t={tl} expert={expert} range={doc.range} onRecompute={(lat, lon, mastM, slot) => comparePoint(lat, lon, mastM, slot)} busy={pointBusy}
                       onCloseUp={(id) => { setCloseUp((c) => ({ id, n: (c?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                       onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
-                  ) : deep === 'calendar' ? (
+                  ) : dv === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
-                  ) : deep === 'mission' ? (
+                  ) : dv === 'mission' ? (
                     mission ? <MissionPanel d={data} r={res} m={mission} t={t} plan={plan} onPlan={setPlan} sites={allSites.filter((s) => s.id !== siteId)} all={all}
                       onSeek={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }}
                       onCompare={(ids) => { setScenarios(ids.map((id) => ({ siteId: id, t }))); setMode('compare'); window.scrollTo({ top: 0 }); }}
