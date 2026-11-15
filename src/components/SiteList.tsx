@@ -8,7 +8,8 @@ import { LevelIcon } from './Metrics';
 const REGION: Record<string, string> = { 'south-pole': 'pole', 'high-latitude': 'high lat.', 'mid-latitude': 'mid lat.', equatorial: 'equator', 'far-side': 'far side' };
 /** Site-list groups, in display order. Custom points go last. */
 const GROUPS: { id: string; label: string }[] = [
-  { id: 'artemis', label: 'NASA Artemis III candidate regions' },
+  { id: 'artemis', label: 'NASA Artemis III candidate regions (2024)' },
+  { id: 'artemis-2022', label: 'Earlier Artemis III candidates (2022)' },
   { id: 'clps', label: 'NASA CLPS (commercial landers)' },
   { id: 'apollo', label: 'Apollo' },
   { id: 'international', label: 'Other countries' },
@@ -69,7 +70,7 @@ export default function SiteList({ sites, all, t, selected, onSelect }: { sites:
         return (
           <section key={g.id} className={`site-group${g.id === 'artemis' ? ' featured' : ''}`} aria-label={g.label}>
             <h3 className="site-group-h">
-              <span>{g.label}{g.id === 'artemis' && <small>NASA's challenge sites: evaluate these first</small>}</span>
+              <span>{g.label}{g.id === 'artemis' && <small>NASA's current crewed landing regions (Oct 2024)</small>}</span>
               <span className="num">{rows.length}</span>
             </h3>
             <ul className="site-list">

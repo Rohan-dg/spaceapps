@@ -11,7 +11,7 @@ import { loadSite, type SiteData, type SiteInfo, type SitesDoc } from '../lib/da
 import { ROWS, better, criteriaOf, eraOf, longRunScore, separationKm, verdict, yearOf, type Criteria, type Era } from '../lib/missionCompare';
 import { ArrowRight, Search, X } from './Icons';
 
-const PROGRAM: Record<string, string> = { artemis: 'Artemis III', clps: 'NASA CLPS', apollo: 'Apollo', international: 'Other countries', reference: 'Reference' };
+const PROGRAM: Record<string, string> = { artemis: 'Artemis III (2024)', 'artemis-2022': 'Artemis III (2022 list)', clps: 'NASA CLPS', apollo: 'Apollo', international: 'Other countries', reference: 'Reference' };
 const STATUS: Record<string, string> = { landed: 'Landed', target: 'Failed (target)', planned: 'Planned', candidate: 'Candidate', reference: 'Reference' };
 const ERA: Record<Era, string> = { past: 'Past', future: 'Future', reference: 'Reference' };
 const fmtLat = (lat: number, lon: number) => {
