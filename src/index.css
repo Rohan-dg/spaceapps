@@ -1089,3 +1089,9 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
    bottom, so its details unfold from the bottom to the top */
 .moon-hud > .hud-panels { justify-content: flex-end; }
 .hud-panels .hud-probe { display: flex; flex-direction: column-reverse; }
+
+/* Site list groups (Artemis III, CLPS, Apollo, other countries, reference, your points) */
+.site-group + .site-group { margin-top: 6px; }
+.site-group-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 8px 4px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); letter-spacing: 0; text-transform: none; }
+.site-group-h .num { font-weight: 500; }
+.site-status { margin-left: 6px; padding: 0 5px; border-radius: var(--r-xs, 4px); border: 1px solid var(--line); font-size: 10.5px; font-weight: 500; color: var(--ink-2); vertical-align: 1px; }

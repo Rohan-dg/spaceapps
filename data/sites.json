@@ -11,7 +11,9 @@
       "mission": "Artemis III candidate region (\"Connecting Ridge\")",
       "description": "Raised ridge between Shackleton and de Gerlache craters; one of the best-lit spots near the pole.",
       "source": "Gläser et al. 2014, Icarus 243, 'Illumination conditions at the lunar south pole using high resolution DTMs from LOLA' (Site 1); NASA Artemis III candidate regions (2022)",
-      "verify": true
+      "verify": true,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "shackleton-rim",
@@ -24,7 +26,9 @@
       "description": "Rim of the 21 km crater at the pole. High sun incidence, but the crater's own walls shape the horizon.",
       "source": "Bussey et al. 2010, Icarus 208 (Point A, 89.68°S 166.0°W)",
       "verify": true,
-      "snapRadiusM": 1000
+      "snapRadiusM": 1000,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "shackleton-floor",
@@ -36,7 +40,9 @@
       "mission": "Permanently shadowed region (PSR): cold trap for volatiles",
       "description": "Crater floor ~4 km below the rim. The Sun never clears the walls, a control case for 'permanent shadow'.",
       "source": "IAU Gazetteer of Planetary Nomenclature: Shackleton crater centre 89.67°S 129.78°E",
-      "verify": false
+      "verify": false,
+      "program": "reference",
+      "status": "reference"
     },
     {
       "id": "de-gerlache-rim",
@@ -49,7 +55,9 @@
       "description": "Rim of the 32 km de Gerlache crater, about 50 km from Shackleton.",
       "source": "Approximated from IAU Gazetteer crater centre (88.5°S, 87.1°W) and NASA Artemis III region map; not a published point",
       "verify": true,
-      "snapRadiusM": 5000
+      "snapRadiusM": 5000,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "malapert",
@@ -62,7 +70,9 @@
       "description": "A 5 km high mountain on the Earth-facing side; it trades some sunlight for an excellent view of Earth.",
       "source": "Sharpton 2014 / NASA Artemis III candidate regions; summit approx. 86.0°S, 2.9°E",
       "verify": true,
-      "snapRadiusM": 1000
+      "snapRadiusM": 1000,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "mons-mouton",
@@ -74,7 +84,9 @@
       "mission": "Intuitive Machines IM-2 'Athena' landing area, March 2025",
       "description": "Flat-topped plateau ~160 km from the pole. Athena landed nearby and ended early after tipping over.",
       "source": "Intuitive Machines / NASA IM-2 mission reports (landing ≈84.8°S, 29.2°E)",
-      "verify": true
+      "verify": true,
+      "program": "clps",
+      "status": "landed"
     },
     {
       "id": "nobile-rim",
@@ -86,7 +98,9 @@
       "mission": "Former VIPER rover target; Artemis III candidate ('Nobile Rim')",
       "description": "Western rim of Nobile crater, chosen for rover traverses between lit ridges and shadowed pockets.",
       "source": "NASA VIPER mission site selection (2021), approx. western Nobile rim",
-      "verify": true
+      "verify": true,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "haworth",
@@ -98,7 +112,9 @@
       "mission": "Artemis III candidate region ('Haworth') borders this PSR",
       "description": "Large permanently shadowed crater. Its floor is a shadow benchmark, so expect almost no direct sunlight.",
       "source": "IAU Gazetteer: Haworth crater centre 87.45°S 4.96°W",
-      "verify": false
+      "verify": false,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "faustini-rim",
@@ -111,7 +127,9 @@
       "description": "Pole-facing rim of the permanently shadowed Faustini crater.",
       "source": "Approximated: IAU Gazetteer Faustini centre (87.18°S, 77.0°E) moved ~20 km poleward to the rim; not a published point",
       "verify": true,
-      "snapRadiusM": 5000
+      "snapRadiusM": 5000,
+      "program": "artemis",
+      "status": "candidate"
     },
     {
       "id": "chandrayaan-3",
@@ -123,7 +141,9 @@
       "mission": "ISRO Chandrayaan-3 landing, 23 Aug 2023",
       "description": "High southern latitude but not polar: ordinary day/night cycle with a low Sun.",
       "source": "ISRO; LROC NAC image release (Aug 2023): 69.373°S 32.319°E",
-      "verify": false
+      "verify": false,
+      "program": "international",
+      "status": "landed"
     },
     {
       "id": "apollo-11",
@@ -135,7 +155,9 @@
       "mission": "Apollo 11, July 1969, for contrast",
       "description": "Equatorial near side: a 14-day day and 14-day night, with Earth fixed high in the sky.",
       "source": "LROC / Davies & Colvin 2000 (0.67408°N, 23.47297°E)",
-      "verify": false
+      "verify": false,
+      "program": "apollo",
+      "status": "landed"
     },
     {
       "id": "change-4",
@@ -147,7 +169,205 @@
       "mission": "CNSA Chang'e-4, first far-side landing, Jan 2019",
       "description": "Far side: Earth never rises. All communications go through a relay satellite (Queqiao).",
       "source": "Liu et al. 2019, Nature Communications 10:4229 (45.4446°S 177.5991°E)",
+      "verify": false,
+      "program": "international",
+      "status": "landed"
+    },
+    {
+      "id": "apollo-12",
+      "name": "Apollo 12 (Ocean of Storms)",
+      "short": "Apollo 12",
+      "lat": -3.01239,
+      "lon": -23.42157,
+      "region": "equatorial",
+      "program": "apollo",
+      "status": "landed",
+      "mission": "Apollo 12, November 1969",
+      "description": "Near-equatorial mare site next to Surveyor 3: a two-week day and a two-week night, with Earth high in the sky.",
+      "source": "Davies & Colvin 2000, JGR 105(E8):20277 (Apollo landing-site coordinates in the lunar mean-Earth frame): 3.01239°S 23.42157°W",
       "verify": false
+    },
+    {
+      "id": "apollo-14",
+      "name": "Apollo 14 (Fra Mauro)",
+      "short": "Apollo 14",
+      "lat": -3.6453,
+      "lon": -17.47136,
+      "region": "equatorial",
+      "program": "apollo",
+      "status": "landed",
+      "mission": "Apollo 14, February 1971",
+      "description": "Fra Mauro highlands: ordinary equatorial lighting with Earth high overhead.",
+      "source": "Davies & Colvin 2000, JGR 105(E8):20277 (Apollo landing-site coordinates in the lunar mean-Earth frame): 3.64530°S 17.47136°W",
+      "verify": false
+    },
+    {
+      "id": "apollo-15",
+      "name": "Apollo 15 (Hadley–Apennine)",
+      "short": "Apollo 15",
+      "lat": 26.13222,
+      "lon": 3.63386,
+      "region": "mid-latitude",
+      "program": "apollo",
+      "status": "landed",
+      "mission": "Apollo 15, July 1971",
+      "description": "Beside Hadley Rille under the Apennine mountains: local relief rises a few degrees, so sunrise and sunset shift slightly.",
+      "source": "Davies & Colvin 2000, JGR 105(E8):20277 (Apollo landing-site coordinates in the lunar mean-Earth frame): 26.13222°N 3.63386°E",
+      "verify": false
+    },
+    {
+      "id": "apollo-16",
+      "name": "Apollo 16 (Descartes highlands)",
+      "short": "Apollo 16",
+      "lat": -8.97301,
+      "lon": 15.50019,
+      "region": "equatorial",
+      "program": "apollo",
+      "status": "landed",
+      "mission": "Apollo 16, April 1972",
+      "description": "Central highlands: equatorial lighting with Earth high in the sky.",
+      "source": "Davies & Colvin 2000, JGR 105(E8):20277 (Apollo landing-site coordinates in the lunar mean-Earth frame): 8.97301°S 15.50019°E",
+      "verify": false
+    },
+    {
+      "id": "apollo-17",
+      "name": "Apollo 17 (Taurus–Littrow)",
+      "short": "Apollo 17",
+      "lat": 20.1908,
+      "lon": 30.77168,
+      "region": "mid-latitude",
+      "program": "apollo",
+      "status": "landed",
+      "mission": "Apollo 17, December 1972",
+      "description": "A valley between massifs on the edge of Mare Serenitatis: steep surrounding terrain delays sunrise and hastens sunset.",
+      "source": "Davies & Colvin 2000, JGR 105(E8):20277 (Apollo landing-site coordinates in the lunar mean-Earth frame): 20.19080°N 30.77168°E",
+      "verify": false
+    },
+    {
+      "id": "im-1",
+      "name": "IM-1 Odysseus (near Malapert A)",
+      "short": "IM-1 Odysseus",
+      "lat": -80.1304,
+      "lon": 1.4387,
+      "region": "high-latitude",
+      "program": "clps",
+      "status": "landed",
+      "mission": "Intuitive Machines IM-1, NASA CLPS, February 2024",
+      "description": "The southernmost landing before IM-2: a low Sun and Earth low over the northern horizon.",
+      "source": "LROC NAC post-landing image release (Feb 2024): ~80.13°S 1.44°E",
+      "verify": true
+    },
+    {
+      "id": "blue-ghost-1",
+      "name": "Blue Ghost Mission 1 (Mons Latreille, Mare Crisium)",
+      "short": "Blue Ghost 1",
+      "lat": 18.5622,
+      "lon": 61.8103,
+      "region": "mid-latitude",
+      "program": "clps",
+      "status": "landed",
+      "mission": "Firefly Blue Ghost Mission 1, NASA CLPS, March 2025",
+      "description": "Near-side mare near the eastern limb: Earth sits low in the western sky.",
+      "source": "Firefly / LROC release (Mar 2025): ~18.56°N 61.81°E",
+      "verify": true
+    },
+    {
+      "id": "im-3",
+      "name": "IM-3 target (Reiner Gamma swirl)",
+      "short": "IM-3 (planned)",
+      "lat": 7.5,
+      "lon": -59.0,
+      "region": "equatorial",
+      "program": "clps",
+      "status": "planned",
+      "mission": "Intuitive Machines IM-3, NASA CLPS, planned",
+      "description": "A lunar swirl with a local magnetic field on the western near side; target area, not a landing point.",
+      "source": "NASA CLPS task order announcement: Reiner Gamma region (approximate centre)",
+      "verify": true
+    },
+    {
+      "id": "change-3",
+      "name": "Chang'e-3 (Mare Imbrium)",
+      "short": "Chang'e-3",
+      "lat": 44.1214,
+      "lon": -19.5116,
+      "region": "mid-latitude",
+      "program": "international",
+      "status": "landed",
+      "mission": "CNSA Chang'e-3 with the Yutu rover, December 2013",
+      "description": "Northern mare plain: Earth in the southern sky for the whole lunar day.",
+      "source": "Published post-landing position (CNSA / LROC): ~44.12°N 19.51°W",
+      "verify": true
+    },
+    {
+      "id": "change-5",
+      "name": "Chang'e-5 (Mons Rümker area)",
+      "short": "Chang'e-5",
+      "lat": 43.0576,
+      "lon": -51.9161,
+      "region": "mid-latitude",
+      "program": "international",
+      "status": "landed",
+      "mission": "CNSA Chang'e-5 sample return, December 2020",
+      "description": "Young mare basalts in Oceanus Procellarum: the most recent sample-return site before Chang'e-6.",
+      "source": "Published post-landing position (CNSA / LROC): ~43.06°N 51.92°W",
+      "verify": true
+    },
+    {
+      "id": "change-6",
+      "name": "Chang'e-6 (Apollo basin, far side)",
+      "short": "Chang'e-6",
+      "lat": -41.6385,
+      "lon": -153.9852,
+      "region": "far-side",
+      "program": "international",
+      "status": "landed",
+      "mission": "CNSA Chang'e-6, first far-side sample return, June 2024",
+      "description": "Far side: Earth never rises, so all communication goes through the Queqiao-2 relay.",
+      "source": "Published post-landing position (CNSA / LROC): ~41.64°S 153.99°W",
+      "verify": true
+    },
+    {
+      "id": "slim",
+      "name": "SLIM (near Shioli crater)",
+      "short": "SLIM",
+      "lat": -13.316,
+      "lon": 25.251,
+      "region": "equatorial",
+      "program": "international",
+      "status": "landed",
+      "mission": "JAXA SLIM precision landing, January 2024",
+      "description": "Near-side highlands: equatorial lighting; the lander came to rest tilted, so its panels faced west.",
+      "source": "JAXA post-landing position: ~13.316°S 25.251°E",
+      "verify": true
+    },
+    {
+      "id": "luna-24",
+      "name": "Luna 24 (Mare Crisium)",
+      "short": "Luna 24",
+      "lat": 12.7145,
+      "lon": 62.2129,
+      "region": "equatorial",
+      "program": "international",
+      "status": "landed",
+      "mission": "USSR Luna 24 sample return, August 1976",
+      "description": "Eastern near-side mare: Earth low in the western sky.",
+      "source": "LROC identification of the Luna 24 lander: ~12.71°N 62.21°E",
+      "verify": true
+    },
+    {
+      "id": "luna-25",
+      "name": "Luna 25 target (Boguslawsky crater)",
+      "short": "Luna 25 (target)",
+      "lat": -69.545,
+      "lon": 43.544,
+      "region": "high-latitude",
+      "program": "international",
+      "status": "target",
+      "mission": "Roscosmos Luna 25 planned landing site; the spacecraft crashed in August 2023",
+      "description": "High southern latitude near Boguslawsky crater: a low Sun and Earth low in the north.",
+      "source": "Roscosmos / IKI pre-launch landing ellipse centre: ~69.55°S 43.54°E",
+      "verify": true
     }
   ]
 }

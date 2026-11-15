@@ -256,14 +256,22 @@ def main():
     ap.add_argument("--synthetic", action="store_true", help="force synthetic profiles")
     ap.add_argument("--no-download", action="store_true")
     ap.add_argument("--no-series", action="store_true", help="skip the Sun/Earth series precompute (npm run series)")
+    ap.add_argument("--only", default="", help="comma-separated site ids to (re)build; others keep their existing horizon files")
     args = ap.parse_args()
 
     sites = json.loads(SITES.read_text())["sites"]
+    if args.only:
+        want = {x.strip() for x in args.only.split(",") if x.strip()}
+        missing = want - {s["id"] for s in sites}
+        if missing:
+            sys.exit(f"--only: unknown site ids: {sorted(missing)}")
+        sites = [s for s in sites if s["id"] in want]
+    need_polar = any(s["lat"] <= -82.0 for s in sites)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     polar = glob = None
     if not args.synthetic:
-        for name in POLAR_CANDIDATES:
+        for name in (POLAR_CANDIDATES if need_polar else []):
             if (DEM_DIR / f"{name}.img").exists() or (not args.no_download and download(name)):
                 polar = Dem(name); break
         for name in GLOBAL_CANDIDATES:
@@ -304,7 +312,7 @@ def main():
         print(f"{s['id']:22s} {rec['snappedM']:6.0f} {rec['dem'][:14]:14s} {str(rec['demResolutionM']):>6s} {h_site:9.0f} "
               f"{hz.min():7.2f} {hz.max():7.2f} {hz.mean():7.2f} {cov:6.1%}")
     print(f"wrote {len(sites)} profiles to {OUT_DIR.relative_to(ROOT)}/")
-    if polar is not None:
+    if polar is not None and not args.only:
         write_coarse_dem(polar, max(1, int(round(400 / polar.res_m))))
     if not args.no_series:
         import subprocess

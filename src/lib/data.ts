@@ -8,6 +8,10 @@ export interface SiteInfo {
   siteHeightM: number; dem: string; demResolutionM: number | null; synthetic: boolean;
   stats: { sunPct: number; sunDiskPct: number; earthPct: number };
   approximate?: boolean;
+  /** Grouping in the site list: artemis | clps | apollo | international | reference (custom points have none). */
+  program?: string;
+  /** landed | planned | target (planned site of a failed landing) | candidate | reference */
+  status?: string;
 }
 export interface SitesDoc { generated: string; range: { start: string; end: string; stepMin: number }; sites: SiteInfo[] }
 export interface HorizonFile {
