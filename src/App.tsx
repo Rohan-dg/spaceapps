@@ -307,7 +307,10 @@ export default function App() {
   // Two points at a time: picking a different site keeps the previous one as the second site (B), so any two
   // clicks on the 3D Moon or the list give a pair, and Compare lights up
   const [partner, setPartner] = useState<string | null>(null);
+  // bumped by every site the user picks, so a clicked point that finishes computing later never steals the selection
+  const pickGen = useRef(0);
   const chooseSite = useCallback((id: string) => {
+    pickGen.current++;
     setSiteId((cur) => { if (cur && cur !== id) setPartner(cur); return id; });
   }, []);
   const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
@@ -436,6 +439,7 @@ export default function App() {
       setCustoms((c) => [...c, pending]);
     }
     setPointBusy('Computing the point…');
+    const gen = pickGen.current;
     computeSite(doc, lat, lon, (m) => { if (n === pointSeq.current) setPointBusy(m); }, mastM)
       .then((d) => {
         if (slot) {
@@ -449,8 +453,11 @@ export default function App() {
         }
         letterPoint(d, letter!);
         setCustoms((c) => [...c.filter((x) => x.id !== d.info.id).map((x) => (x.id === pendingId ? d.info : x))]);
-        setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
-        setMode('explore');
+        // select the point only if nothing else was picked while it computed; otherwise it just joins the list
+        if (pickGen.current === gen) {
+          setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
+          setMode('explore');
+        }
       })
       .catch((e) => { setCustoms((c) => c.filter((x) => x.id !== pendingId)); if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
       .finally(() => { if (n === pointSeq.current) setTimeout(() => setPointBusy(null), 1200); });
