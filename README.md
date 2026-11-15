@@ -10,7 +10,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 
 ## Features
 
-- **Normal and Expert modes.** A *Normal / Expert* switch in the top bar (remembered, and kept in shared links). Normal mode is for everyone: pick a place and get plain answers to three questions (is it sunny, can it talk to Earth, is it a good place to land), how long until that changes, a look-around view, the next 30 days and how it differs from Earth. Expert mode is the full mission-planning workspace described below.
+- **Normal and Expert modes.** Every visit starts by asking which to use, and the *Normal / Expert* switch in the top bar changes it at any time. Both have every tool and the same data. Normal mode puts plain answers first (is it sunny, can it talk to Earth, is it a good place to land, how long until that changes) and names and explains every tool in everyday words (*Compare places*, *Plan a launch*, *What if the landing is delayed?*, *Shadows nearby*). Expert mode uses exact figures and mission terms.
 - **Time remaining.** Draining bars for daylight (or darkness) and Earth contact (or blackout) left, with the exact UTC event time and the length of the current stretch, in both modes. Event times are refined to about 30 s against the terrain skyline.
 - **No atmosphere, no refraction.** The Sun or Earth is up exactly when its geometric direction clears the skyline: the highest terrain along each line of sight, traced up to 150 km with the Moon's curvature. *All figures* shows the skyline range next to the smooth-sphere horizon (−0.09° for a 2 m mast), and the About panel explains the difference from Earth (about 0.57° of refraction).
 
