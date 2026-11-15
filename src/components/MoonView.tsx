@@ -130,7 +130,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   onComparePoint?: (lat: number, lon: number) => void;
   /** Any click on the ground (not a site marker): the app makes the point a comparable site. */
   onPointClick?: (lat: number, lon: number) => void;
-  /** Expert mode: rover range and other engineering tools appear. */
+  /** Scientific mode: rover range and other engineering tools appear. */
   expert?: boolean;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;

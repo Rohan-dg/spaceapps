@@ -1,5 +1,5 @@
 /**
- * Expert lander model: power, thermal survival and Earth link, driven by the engineer's own numbers and by the
+ * Scientific lander model: power, thermal survival and Earth link, driven by the engineer's own numbers and by the
  * site's precomputed Sun / Earth series (every 30 min, terrain skyline included).
  *
  * Lunar environment, built in: no atmosphere, so no absorption, scattering or refraction (sunlight arrives at the
