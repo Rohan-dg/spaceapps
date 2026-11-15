@@ -852,29 +852,36 @@ kbd {
   .moon-hud > .hud-panels { top: 124px; }
 }
 
-/* ---------- Explore: mission-document styling (scoped to the panels under the 3D view) ---------- */
-.explore .work { counter-reset: step; gap: 22px; }
-.explore .work-head { padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
-.explore .work-head h2 { font-size: 20px; letter-spacing: -0.01em; }
-.explore .work-head .when { font: 12px var(--font-mono); color: var(--ink-2); }
-.explore .overline { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); }
-.explore .sec-h.step { counter-increment: step; font: 600 11.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); }
-.explore .sec-h.step::before { content: counter(step, decimal-leading-zero); color: var(--accent); padding-right: 8px; margin-right: 2px; border-right: 1px solid var(--line); }
-.explore .instrument, .explore .deep { gap: 10px; padding-top: 0; }
-.explore .view-head { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.explore .instrument > .sec-h.step { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+/* ---------- Explore: panels under the 3D view. Flat instrument panels, one titled header each. ---------- */
+.explore .work { gap: 16px; }
+.explore .work-head { gap: 4px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.explore .overline { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-2); }
+.explore .work-head h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.explore .work-head .when { font: 12px var(--font-mono); color: var(--ink-2); gap: 2px 18px; }
+.explore .instrument, .explore .deep { gap: 12px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.explore .pnl-h { display: flex; flex-direction: column; gap: 3px; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+.explore .view-head.pnl-h { flex-direction: row; align-items: flex-end; justify-content: space-between; }
+.explore .pnl-h > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.explore .view-head.pnl-h > .seg { flex: none; flex-direction: row; flex-wrap: nowrap; }
+.explore .view-head.pnl-h > div:first-child { flex: 1 1 260px; }
+.explore .deep #hm-h, .explore .deep #mv-h { display: none; }
+.explore .pnl-h h3 { display: flex; align-items: center; gap: 8px; font: 600 11.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); }
+.explore .pnl-h h3::before { content: ''; width: 3px; height: 12px; background: var(--accent); flex: none; }
+.explore .pnl-h p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); max-width: 72ch; }
+.explore .chart-legend { font-size: 11.5px; }
 
 /* status board: flat cells with a status rule on top */
-.explore .answer { gap: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.explore .answer { gap: 0; border: 1px solid var(--line); border-radius: 3px; background: transparent; }
 .explore .answer-now, .explore .answer-card { border: 0; border-radius: 0; background: transparent; border-top: 3px solid var(--line); padding: 10px 14px 12px; }
 .explore .answer-card { border-left: 1px solid var(--line); }
 .explore .answer-card.good { border-top-color: var(--good); }
 .explore .answer-card.warn { border-top-color: var(--warn); }
 .explore .answer-card.poor { border-top-color: var(--poor); }
-.explore .answer-kind { font: 600 10.5px var(--font-mono); letter-spacing: 0.1em; }
+.explore .answer-kind { font: 600 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-2); }
 .explore .answer-word { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; }
-.explore .answer-foot { padding: 6px 14px; border-top: 1px solid var(--line); font: 11.5px var(--font-mono); }
-@media (max-width: 720px) { .explore .answer-card { border-left: 0; } }
+.explore .answer-reason { font-size: 12.5px; line-height: 1.45; }
+.explore .answer-foot { padding: 7px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+@media (max-width: 720px) { .explore .answer-card { border-left: 0; } .explore .view-head.pnl-h { flex-direction: column; align-items: stretch; } }
 
 /* rail facts */
 .explore .site-info, .explore .plan { border-radius: 4px; }
