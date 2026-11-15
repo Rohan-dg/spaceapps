@@ -675,10 +675,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const onDown = (e: PointerEvent) => { down = e.isPrimary ? [e.clientX, e.clientY] : null; };
     const onUp = (e: PointerEvent) => {
       const d0 = down; down = null;
-      if (!d0 || st.flying || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
+      // a click during a flight retargets it (fly() starts from wherever the camera is now)
+      if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) pickRef.current(hit);
+      if (hit) { pickRef.current(hit); topRef.current(hit); }
     };
     // a double-click flies down to that point for a near-horizontal close-up
     const onDbl = (e: MouseEvent) => {
@@ -1099,6 +1100,31 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   }, [fly]);
   const zoomRef = useRef(zoomFlat);
   zoomRef.current = zoomFlat;
+  /**
+   * Single click: glide to a top-down view over the clicked point, north up, a little closer each click.
+   * The view is tilted 1° from vertical: looking exactly along the camera's up axis leaves its roll undefined,
+   * which made OrbitControls snap. Duration grows with how far the camera travels, so short hops stay quick.
+   */
+  const topDown = useCallback((hit: THREE.Vector3) => {
+    const st = S.current; if (!st) return;
+    st.focus = null;
+    const U = hit.clone().normalize();
+    const lat = Math.asin(U.z) * 180 / Math.PI, lon = Math.atan2(U.y, U.x) * 180 / Math.PI;
+    const P = U.clone().multiplyScalar(st.surfaceRadius(U));
+    let N = v3(enu(lat, lon).n);
+    if (Math.abs(lat) > 89.99) N = new THREE.Vector3(0, 1, 0).projectOnPlane(U).normalize(); // north is undefined at the pole
+    const cam = st.camera.position;
+    const now = cam.distanceTo(P);
+    const D = Math.min(Math.max(now * 0.55, 1.5), 3500);
+    const tilt = Math.PI / 180;
+    const off = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt));
+    const to = P.clone().addScaledVector(off, D);
+    const travel = cam.distanceTo(to) / Math.max(now, 1);
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    fly(to, P, U, 'site', reduce ? 0.5 : Math.min(2.4, 1.3 + 0.6 * travel));
+  }, [fly]);
+  const topRef = useRef(topDown);
+  topRef.current = topDown;
   /** Close-up of a listed site, on the finest ground loaded under it. */
   function closeSite(s: { lat: number; lon: number; siteHeightM?: number }) {
     const st = S.current; if (!st) return;
@@ -1238,7 +1264,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
     <section className={`moon${expanded ? ' expanded' : ''}`} aria-label="3D Moon">
-      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point, double-click to zoom in." />
+      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to fly over a point and probe it, double-click to zoom in." />
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div className="moon-markers sky-ptrs" hidden={!pointers} aria-hidden>
@@ -1249,7 +1275,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click the surface for light and Earth contact · double-click to fly in · H home · Esc close</p>}
+          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
         </div>
         <div className="hud-panels">
         {probe && (
