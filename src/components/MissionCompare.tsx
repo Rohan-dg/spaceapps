@@ -38,9 +38,9 @@ function useMission(doc: SitesDoc, info: Info | null) {
 }
 
 export interface MissionPair { a: string | null; b: string | null; active: 'a' | 'b' }
-interface Props { doc: SitesDoc; sites: SiteInfo[]; pair: MissionPair; onPair: (p: MissionPair) => void; onClose: () => void; onOpenSite: (id: string) => void }
+interface Props { doc: SitesDoc; sites: SiteInfo[]; pair: MissionPair; onPair: (p: MissionPair) => void; onClose: () => void; onOpenSite: (id: string) => void; onPlanLaunch?: (id: string) => void }
 
-export default function MissionCompare({ doc, sites, pair, onPair, onClose, onOpenSite }: Props) {
+export default function MissionCompare({ doc, sites, pair, onPair, onClose, onOpenSite, onPlanLaunch }: Props) {
   const [era, setEra] = useState<Era | 'all'>('all');
   const [prog, setProg] = useState('all');
   const [q, setQ] = useState('');
@@ -142,6 +142,8 @@ export default function MissionCompare({ doc, sites, pair, onPair, onClose, onOp
           <div className="mc-open">
             <button onClick={() => onOpenSite(infoA.id)}>Open A on the Moon <ArrowRight size={14} /></button>
             <button onClick={() => onOpenSite(infoB.id)}>Open B on the Moon <ArrowRight size={14} /></button>
+            {onPlanLaunch && <button onClick={() => onPlanLaunch(infoA.id)}>Plan launch to A <ArrowRight size={14} /></button>}
+            {onPlanLaunch && <button onClick={() => onPlanLaunch(infoB.id)}>Plan launch to B <ArrowRight size={14} /></button>}
           </div>
         </section>
       )}
