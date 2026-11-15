@@ -47,7 +47,7 @@ export interface Callbacks {
   onReady: (r: { t: number; movedDays: number } | null) => void;
   onHud: (h: Hud) => void;
   onMessage: (m: { from: string; text: string }) => void;
-  onEnd: (kind: 'done' | 'frozen', s: Stats) => void;
+  onEnd: (kind: 'done' | 'frozen' | 'power' | 'time', s: Stats) => void;
   onError: (m: string) => void;
 }
 export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean }
@@ -75,14 +75,18 @@ void main() {
   vec3 n = normalize(vN);
   float d = length(vW - cameraPosition);
   if (uDetail > 0.0) { // regolith grain: tilt the normal by a noise field, fading out with distance
-    float f = uDetail * (1.0 - smoothstep(25.0, 260.0, d)), e = 0.22;
+    float footprint = max(fwidth(vW.x), fwidth(vW.z));
+    float f = uDetail * (1.0 - smoothstep(25.0, 260.0, d)) * (1.0 - smoothstep(0.08, 0.6, footprint)), e = 0.22;
     float h = fbm(vW.xz * 1.9), hx = fbm((vW.xz + vec2(e, 0.0)) * 1.9), hz = fbm((vW.xz + vec2(0.0, e)) * 1.9);
-    n = normalize(n + f * vec3(h - hx, 0.0, h - hz) * 2.6);
+    n = normalize(n + f * vec3(h - hx, 0.0, h - hz) * 0.12);
   }
-  float alb = uAlb * (0.82 + 0.26 * vn(vW.xz * 0.02) + 0.12 * vn(vW.xz * 0.45));
+  float grain = 1.0 - smoothstep(0.1, 0.8, max(fwidth(vW.x), fwidth(vW.z)));
+  float alb = uAlb * (0.88 + 0.18 * vn(vW.xz * 0.02) + grain * 0.045 * vn(vW.xz * 0.45));
   float lit = texture2D(uLit, vW.xz / (2.0 * uHalf) + 0.5).r;
   // lunar soil scatters light back toward a low Sun far better than a matte surface would
-  float sun = uSunI * lit * pow(max(dot(n, uSun), 0.0), 0.62);
+  float incidence = max(dot(n, uSun), 0.0);
+  float emergence = max(dot(n, normalize(cameraPosition - vW)), 0.01);
+  float sun = uSunI * lit * (0.58 * incidence + 0.42 * incidence / max(incidence + emergence, 0.01));
   float earth = uEarthI * max(dot(n, uEarth), 0.0);
   vec3 c = alb * (sun * vec3(1.0, 0.965, 0.91) + earth * vec3(0.5, 0.64, 1.0) + uGlow);
   vec3 L = uLampPos - vW; float ld = length(L); L /= ld;
@@ -105,7 +109,9 @@ export class Game {
   private renderer!: THREE.WebGLRenderer;
   private near = new THREE.Scene(); private far = new THREE.Scene();
   private cam = new THREE.PerspectiveCamera(58, 1, 0.25, 16000); private farCam = new THREE.PerspectiveCamera(58, 1, 3000, 900000);
-  private worker!: Worker; private mapId = 0; private mapWait = new Map<number, (d: Uint8Array) => void>();
+  private worker!: Worker; private mapId = 0;
+  private mapWait = new Map<number, { resolve: (d: Uint8Array) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private loadReject: ((e: Error) => void) | null = null;
   private w!: World;
   private raf = 0; private last = 0; private live = true; private ro?: ResizeObserver;
   private state: 'load' | 'brief' | 'play' | 'pause' | 'end' = 'load';
@@ -116,7 +122,7 @@ export class Game {
   };
   private lit: { tex: THREE.DataTexture; half: number }[] = [];
   private litU: number[] | null = null; private litBusy = false;
-  private nearLit = new Uint8Array(LIT_N * LIT_N);
+  private nearLit: Uint8Array = new Uint8Array(LIT_N * LIT_N);
   // rover
   private rover = new THREE.Group(); private tilt = new THREE.Group();
   private wheels: THREE.Group[] = []; private armF = new THREE.Group(); private armR = new THREE.Group(); private drumF = new THREE.Group(); private drumR = new THREE.Group();
@@ -147,13 +153,23 @@ export class Game {
   private tags: Tags | null = null;
   private drag: { x: number; y: number } | null = null;
 
-  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.init().catch((e) => { if (this.live) cb.onError(String(e instanceof Error ? e.message : e)); }); }
+  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.init().catch((e) => this.fail(e)); }
+
+  private fail(e: unknown) {
+    if (!this.live) return;
+    this.dispose();
+    this.cb.onError(e instanceof Error ? e.message : String(e));
+  }
 
   /* ---------------- setup ---------------- */
 
   private ask(u: number[], radiusDeg: number, halfM: number, n: number) {
     const id = ++this.mapId;
-    return new Promise<Uint8Array>((res) => { this.mapWait.set(id, res); this.worker.postMessage({ type: 'map', id, u, radiusDeg, halfM, n, obsM: OBS_M } satisfies Req); });
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const timer = setTimeout(() => { this.mapWait.delete(id); reject(new Error('Terrain visibility took too long. Please retry.')); }, 45000);
+      this.mapWait.set(id, { resolve, reject, timer });
+      this.worker.postMessage({ type: 'map', id, u, radiusDeg, halfM, n, obsM: OBS_M } satisfies Req);
+    });
   }
   /** Moon-fixed unit vectors toward the Sun and Earth from the site at a time. */
   private bodies(t: number) {
@@ -176,15 +192,25 @@ export class Game {
     cb.onStage('Loading the terrain');
     this.worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     const grids = await new Promise<Extract<Res, { type: 'loaded' }>>((res, rej) => {
+      const timer = setTimeout(() => rej(new Error('The terrain download timed out. Check your connection and retry.')), 60000);
+      this.loadReject = (e) => { clearTimeout(timer); rej(e); };
+      const failed = (e: Error) => {
+        this.loadReject?.(e); this.loadReject = null;
+        for (const p of this.mapWait.values()) { clearTimeout(p.timer); p.reject(e); }
+        this.mapWait.clear();
+        this.fail(e);
+      };
+      this.worker.onerror = (ev) => { ev.preventDefault(); failed(new Error(ev.message || 'The terrain worker could not start.')); };
       this.worker.onmessage = (ev: MessageEvent<Res>) => {
         const m = ev.data;
-        if (m.type === 'loaded') res(m); else if (m.type === 'error') rej(new Error(m.message));
-        else { this.mapWait.get(m.id)?.(m.data); this.mapWait.delete(m.id); }
+        if (m.type === 'loaded') { clearTimeout(timer); this.loadReject = null; res(m); }
+        else if (m.type === 'error') failed(new Error(m.message));
+        else { const p = this.mapWait.get(m.id); if (p) { clearTimeout(p.timer); p.resolve(m.data); this.mapWait.delete(m.id); } }
       };
       this.worker.postMessage({ type: 'load', base: o.base, siteId: o.siteId, lat: o.lat, lon: o.lon } satisfies Req);
     });
     if (!this.live) return;
-    if (!grids.hi) { cb.onReady(null); return; }
+    if (!grids.hi) { cb.onReady(null); this.dispose(); return; }
     this.w = makeWorld(grids.hi, grids.cap, o.lat, o.lon);
 
     // slope and height of the ground the mission can use
@@ -210,18 +236,21 @@ export class Game {
       plan = planMission(m, seed);
       if (plan) { t0 = t; break; }
     }
-    if (!plan) { cb.onReady(null); return; }
+    if (!plan) { cb.onReady(null); this.dispose(); return; }
     this.plan = plan; this.quest = newQuest(plan); this.simT = this.t0 = t0;
     this.e = plan.start.e; this.n = plan.start.n;
     this.psi = Math.atan2(plan.charge.e - plan.start.e, plan.charge.n - plan.start.n);
     this.camAz = this.psi / D2R;
+    this.sky = this.look(this.simT, this.e, this.n); this.skyAt = this.simT;
 
     cb.onStage('Building the ground');
     await new Promise((r) => setTimeout(r, 0));
+    if (!this.live) return;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.autoClear = false; this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     o.host.appendChild(this.renderer.domElement);
+    this.renderer.domElement.addEventListener('webglcontextlost', this.onContextLost);
     this.buildTerrain(); this.buildSky(); this.buildEffects();
     cb.onStage('Unpacking the rover');
     await this.buildRover();
@@ -271,7 +300,8 @@ export class Game {
     this.near.add(this.ring(NEAR, 400, 0, true, 0, a.mat), this.ring(MID, 380, NEAR, false, 2.5, b.mat));
     this.far.add(this.ring(FAR, 400, MID, false, 90, c.mat));
     // rocks: looks only, scattered where a rover could drive
-    const rockMat = this.terrainMat(NEAR, 0, 0.17).mat; rockMat.uniforms.uLit.value = a.tex;
+    const rockSurface = this.terrainMat(NEAR, 0, 0.17), rockMat = rockSurface.mat;
+    rockSurface.tex.dispose(); rockMat.uniforms.uLit.value = a.tex;
     const geo = new THREE.IcosahedronGeometry(1, 1), p = geo.getAttribute('position'), v = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const s = 0.78 + 0.4 * Math.sin(v.x * 7.1 + v.y * 3.3) * Math.cos(v.z * 5.7); p.setXYZ(i, v.x * s, v.y * s * 0.7, v.z * s); }
     geo.computeVertexNormals();
@@ -306,7 +336,7 @@ export class Game {
     // light on the rover itself
     this.sunLightN = new THREE.DirectionalLight(0xfff6e6, 0); this.earthLight = new THREE.DirectionalLight(0x9db8ff, 0);
     this.fill = new THREE.PointLight(0xdfe8ff, 0, 6, 1.6);
-    this.near.add(this.sunLightN, this.sunLightN.target, this.earthLight, this.earthLight.target, new THREE.AmbientLight(0xffffff, 0.035));
+    this.near.add(this.sunLightN, this.sunLightN.target, this.earthLight, this.earthLight.target, new THREE.AmbientLight(0xcbd5e5, 0.3));
     const beam = (color: number) => {
       const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]), new THREE.LineDashedMaterial({ color, dashSize: 6, gapSize: 4, transparent: true, opacity: 0.85, depthWrite: false }));
       l.frustumCulled = false; this.near.add(l); return l;
@@ -350,6 +380,11 @@ export class Game {
 
   private async buildRover() {
     const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${this.o.base}models/rassor.glb`);
+    const releaseSource = () => gltf.scene.traverse((x) => {
+      const m = x as THREE.Mesh; m.geometry?.dispose();
+      for (const mat of ([] as THREE.Material[]).concat(m.material ?? [])) mat.dispose();
+    });
+    if (!this.live) { releaseSource(); return; }
     gltf.scene.updateMatrixWorld(true);
     let ex: { pivots: Record<string, number[]>; armDroopFront: number; armDroopRear: number } | null = null;
     gltf.scene.traverse((x) => { if (x.userData?.pivots) ex = x.userData as typeof ex; });
@@ -381,6 +416,7 @@ export class Game {
     this.armF.add(at(this.drumF, 'drum_f', P.arm_f)); this.armR.add(at(this.drumR, 'drum_r', P.arm_r));
     this.fill.position.set(0, 1.3, 0.2); this.tilt.add(this.fill);
     this.rover.add(this.tilt); this.near.add(this.rover);
+    releaseSource();
     this.poseArms(0);
   }
   /** Arms at `armNow` degrees below level (negative = raised). */
@@ -411,21 +447,24 @@ export class Game {
     window.addEventListener('blur', this.onBlur);
   }
   private onBlur = () => { this.keys.clear(); };
+  private onContextLost = (ev: Event) => { ev.preventDefault(); this.fail(new Error('The graphics context was lost. Close other graphics-heavy tabs, then retry.')); };
   private static MAP: Record<string, string> = { arrowup: 'w', arrowdown: 's', arrowleft: 'a', arrowright: 'd', ' ': 'brake' };
   private onKey = (ev: KeyboardEvent) => {
+    if (this.state !== 'play') return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const tag = (ev.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'BUTTON' && (ev.key === ' ' || ev.key === 'Enter'))) return;
     const key = Game.MAP[ev.key.toLowerCase()] ?? ev.key.toLowerCase();
     if (key === 'escape') return; // the HUD owns pause
     // the game owns the keyboard while it is open: the app's shortcuts (space = play, arrows = time) must not fire
-    ev.stopPropagation();
     if (!['w', 'a', 's', 'd', 'brake', 'e', 't', 'f', 'z', 'c', 'l'].includes(key)) return;
+    ev.stopPropagation();
     ev.preventDefault();
     if (ev.type === 'keydown') { if (!ev.repeat) this.press(key, true); } else this.press(key, false);
   };
   /** A control went down or up (keyboard, or the on-screen buttons). */
   press(key: string, down: boolean) {
+    if (down && this.state !== 'play') return;
     if (down) this.keys.add(key); else this.keys.delete(key);
     if (!down || this.state !== 'play') return;
     if (key === 'e') this.act('dig'); else if (key === 't') this.act('tx');
@@ -435,6 +474,7 @@ export class Game {
   }
   private act(kind: 'dig' | 'tx') {
     if (this.busy || this.vit.wh <= 0) return;
+    if (kind === 'dig' && this.quest.phase !== 'ice') { this.say({ from: 'RASSOR', text: 'Complete the current objective before collecting samples.' }); return; }
     if (Math.abs(this.v) > 0.3) { this.say({ from: 'RASSOR', text: kind === 'dig' ? 'Stop before digging.' : 'Stop before transmitting.' }); return; }
     if (kind === 'tx' && !this.sky.earthUp) { this.say({ from: 'RASSOR', text: 'No signal. Earth is behind the terrain.' }); return; }
     if (kind === 'tx' && this.quest.phase !== 'phone' && this.quest.phase !== 'uplink') { this.say({ from: 'RASSOR', text: 'Nothing new to send yet.' }); return; }
@@ -454,10 +494,26 @@ export class Game {
     this.e = c.e; this.n = c.n; this.psi = c.psi; this.v = 0; this.simT = c.simT; this.odo = c.odo; this.busy = null;
     this.vit = { ...c.vit, wh: Math.max(c.vit.wh, SPEC.batteryWh * 0.45), tempC: Math.max(c.vit.tempC, 0) };
     this.quest = { phase: c.quest.phase, found: [...c.quest.found] }; this.skyAt = -1; this.trackLast = null; this.litU = null;
-    this.syncMarkers(); this.state = 'play';
+    this.queue = []; this.flagsSaid.clear(); this.held = 0; this.ff = false; this.keys.clear();
+    this.camOff = 0; this.tgt.set(0, 0, 0); this.heave = this.heaveV = this.pitchD = this.pitchV = this.rollD = this.rollV = 0;
+    this.syncMarkers(); this.state = 'play'; this.last = performance.now();
+    cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(this.frame);
   }
   begin() { if (this.state !== 'brief') return; this.state = 'play'; this.syncMarkers(); this.say(STORY.intro); }
-  pause(on: boolean) { if (this.state === 'play' && on) { this.state = 'pause'; this.keys.clear(); } else if (this.state === 'pause' && !on) { this.state = 'play'; this.last = performance.now(); } }
+  pause(on: boolean) {
+    if (this.state === 'play' && on) { this.state = 'pause'; this.keys.clear(); this.v = 0; this.ff = false; }
+    else if (this.state === 'pause' && !on) { this.state = 'play'; this.last = performance.now(); this.raf = requestAnimationFrame(this.frame); }
+  }
+  pointCamera(body: 'sun' | 'earth') {
+    const az = body === 'sun' ? this.sky.sunAz : this.sky.earthAz;
+    this.camOff = wrap180(az - this.psi / D2R);
+    this.camPitch = this.view === 'mast' ? -(body === 'sun' ? this.sky.sunEl : this.sky.earthEl) : 7;
+  }
+  zoom(amount: number) {
+    if (this.view === 'mast') this.mastFov = clamp(this.mastFov * Math.exp(amount), 8, 75);
+    else this.camDist = clamp(this.camDist * Math.exp(amount), 2.4, 60);
+  }
+  resetCamera() { this.camOff = 0; this.camPitch = 16; this.camDist = 7; this.lensTo = 0; this.view = 'chase'; }
   setTags(t: Tags) { this.tags = t; }
 
   private syncMarkers() {
@@ -466,6 +522,7 @@ export class Game {
     if (ob.target && this.goal.visible) { this.goal.position.set(ob.target.e, groundY(this.w, ob.target.e, ob.target.n, true), -ob.target.n); this.goal.children[1].scale.setScalar(ob.ring); }
     this.zoneRing.visible = this.quest.phase === 'ice';
     if (this.zoneRing.visible) this.drape(this.zoneRing, this.plan.zone.c, this.plan.zone.r);
+    this.flags.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); if (m.isMesh) (m.material as THREE.Material).dispose(); });
     this.flags.clear();
     this.plan.ice.forEach((p, i) => {
       if (!this.quest.found[i]) return;
@@ -500,14 +557,14 @@ export class Game {
 
   private frame = (now: number) => {
     if (!this.live) return;
-    this.raf = requestAnimationFrame(this.frame);
     const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000)); this.last = now;
     if (this.state === 'play') this.step(dt);
-    else if (this.state === 'brief') this.camOff += dt * 6; // a slow orbit behind the briefing card
+    else if (this.state === 'brief' && !this.o.reduce) this.camOff += dt * 6;
     this.place(this.state === 'pause' ? 0 : dt, now);
     this.renderer.clear(); this.renderer.render(this.far, this.farCam); this.renderer.clearDepth(); this.renderer.render(this.near, this.cam);
     if (now - this.hudAt > 110) { this.hudAt = now; this.cb.onHud(this.hud()); }
     if (now - this.mapAt > 260) { this.mapAt = now; this.drawMap(); }
+    if (this.state !== 'pause' && this.state !== 'end') this.raf = requestAnimationFrame(this.frame);
   };
 
   /** Game rules for one frame. */
@@ -517,6 +574,7 @@ export class Game {
     this.ff = K.has('f') && parked && !this.busy;
     const rate = this.ff ? RATE_FF : RATE;
     this.simT = Math.min(this.o.tMax, this.simT + dt * rate * 1000);
+    if (this.simT >= this.o.tMax) { this.state = 'end'; this.cb.onEnd('time', this.stats()); return; }
     this.held = this.ff ? this.held + dt : 0;
 
     // driving
@@ -525,7 +583,10 @@ export class Game {
     this.slope = Math.atan((this.gy(this.e + fx * 0.6, this.n + fn * 0.6) - this.gy(this.e - fx * 0.6, this.n - fn * 0.6)) / 1.2) / D2R;
     const climb = thr >= 0 ? this.slope : -this.slope;
     let vT = thr * SPEC.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
-    if (climb > 25 && thr !== 0) { vT = -Math.sign(thr) * 0.7; this.once('dry' in STORY ? 'cold' : 'cold'); }
+    if (climb > 25 && thr !== 0) {
+      vT = -Math.sign(thr) * 0.7;
+      if (!this.flagsSaid.has('slope')) { this.flagsSaid.add('slope'); this.say({ from: 'RASSOR', text: 'This slope is too steep. Approach along a gentler route.' }); }
+    }
     const acc = K.has('brake') ? 12 : thr === 0 ? 5 : 4.2;
     this.v += clamp((K.has('brake') ? 0 : vT) - this.v, -acc * dt, acc * dt);
     this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / SPEC.vMax), k(8, dt));
@@ -543,7 +604,7 @@ export class Game {
         if (was.sunFrac > 0.5 && this.sky.sunFrac === 0) this.once('noSun');
       }
       this.skyAt = this.simT; this.syncGoalForSignal();
-      void this.refreshLit();
+      void this.refreshLit().catch((e) => this.fail(e));
     }
 
     // battery and heat
@@ -556,10 +617,12 @@ export class Game {
     if (this.vit.wh / SPEC.batteryWh < 0.2 && this.sky.sunFrac < 0.2) this.once('lowBatt');
     if (this.vit.heaterW > SPEC.heaterMaxW * 0.95) this.once('cold');
     if (this.vit.tempC < SPEC.freezeC) { this.state = 'end'; this.cb.onEnd('frozen', this.stats()); return; }
+    if (this.vit.wh <= 0 && this.sky.sunFrac < 0.01) { this.busy = null; this.state = 'end'; this.cb.onEnd('power', this.stats()); return; }
 
     // digging and transmitting
     if (this.busy) {
-      if (this.busy.kind === 'tx' && !this.sky.earthUp) { this.busy = null; this.say({ from: 'RASSOR', text: 'Signal lost. Transmission stopped.' }); }
+      if (this.vit.wh <= 0) { this.busy = null; this.say({ from: 'RASSOR', text: 'Battery depleted. Work stopped until the panels recharge it.' }); }
+      else if (this.busy.kind === 'tx' && !this.sky.earthUp) { this.busy = null; this.say({ from: 'RASSOR', text: 'Signal lost. Transmission stopped.' }); }
       else {
         this.busy.p += dt / (this.busy.kind === 'dig' ? 4 : 3);
         if (this.busy.p >= 1) { const kind = this.busy.kind; this.busy = null; this.event(kind === 'dig' ? { type: 'dug' } : { type: 'sent' }); }
@@ -577,7 +640,7 @@ export class Game {
     if (r.iceFound !== null || r.done) this.syncMarkers();
     if (r.done) {
       this.say(STORY[r.done]); this.saveCheck();
-      if (r.done === 'haven') { this.say(STORY.done); this.cb.onEnd('done', this.stats()); }
+      if (r.done === 'haven') { this.say(STORY.done); this.pause(true); this.cb.onEnd('done', this.stats()); }
     }
   }
   private stats(): Stats { return { odo: this.odo, hours: (this.simT - this.t0) / 3600000, found: this.quest.found.filter(Boolean).length, minTempC: this.minTemp, battPct: (100 * this.vit.wh) / SPEC.batteryWh }; }
@@ -619,7 +682,7 @@ export class Game {
     this.U.uSunI.value = s.sunEl > -2 ? 2.3 : 0; this.U.uEarthI.value = 0.012;
     this.sunLightN.intensity = 3.4 * s.sunFrac; this.sunLightN.position.copy(this.rover.position).addScaledVector(sd, 50); this.sunLightN.target.position.copy(this.rover.position);
     this.earthLight.intensity = s.earthUp ? 0.05 : 0; this.earthLight.position.copy(this.rover.position).addScaledVector(ed, 50); this.earthLight.target.position.copy(this.rover.position);
-    this.fill.intensity = this.lampOn ? 2.2 : 0.5;
+    this.fill.intensity = this.lampOn ? 2.2 : 1.2;
     const lampP = this.rover.localToWorld(new THREE.Vector3(0, 0.35, 0.3)), lampD = new THREE.Vector3(0, -0.2, 1).normalize().transformDirection(this.rover.matrixWorld);
     this.U.uLampPos.value.copy(lampP); this.U.uLampDir.value.copy(lampD); this.U.uLampI.value = this.lampOn && this.vit.wh > 0 ? 5 : 0;
 
@@ -729,7 +792,7 @@ export class Game {
       const floor = this.gy(cam.position.x, -cam.position.z) + 0.45;
       if (cam.position.y < floor) cam.position.y = floor;
       // lean into turns, nod with acceleration
-      this.camRoll = lerp(this.camRoll, this.o.reduce ? 0 : clamp(-this.yawRate * this.v * 0.012, -0.05, 0.05), k(4, d));
+    this.camRoll = lerp(this.camRoll, this.o.reduce ? 0 : clamp(-this.yawRate * this.v * 0.012, -0.05, 0.05), k(4, d));
       cam.up.set(Math.sin(this.camRoll) * Math.cos(az), Math.cos(this.camRoll), Math.sin(this.camRoll) * Math.sin(az));
       cam.lookAt(this.tgt.clone().addScaledVector(look, 2).add(new THREE.Vector3(0, this.pitchD * 4, 0)));
       cam.fov = fov;
@@ -744,12 +807,14 @@ export class Game {
     const put = (el: HTMLElement, world: THREE.Vector3, show: boolean) => {
       if (!show) { el.style.opacity = '0'; return; }
       v.copy(world).project(cam);
-      const behind = v.z > 1; let x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
+      const behind = world.clone().sub(cam.position).dot(cam.getWorldDirection(new THREE.Vector3())) < 0;
+      let x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
       if (behind) { x = W - x; y = H - y; }
-      const m = 46, on = !behind && x > m && x < W - m && y > 70 && y < H - 120;
+      const m = W < 641 ? 52 : 80, top = W < 641 ? 285 : 165, bottom = W < 641 ? 200 : 150;
+      const on = !behind && x > m && x < W - m && y > top && y < H - bottom;
       if (!on) {
         const cx = W / 2, cy = H / 2, dx = x - cx || 1e-3, dy = (behind ? Math.abs(y - cy) + H : y - cy) || 1e-3;
-        const sc = Math.min((cx - m) / Math.abs(dx), (cy - (dy < 0 ? 78 : 130)) / Math.abs(dy));
+        const sc = Math.max(0.05, Math.min((cx - m) / Math.abs(dx), (cy - (dy < 0 ? top : bottom)) / Math.abs(dy)));
         x = cx + dx * sc; y = cy + dy * sc; el.style.setProperty('--ang', `${Math.atan2(dy, dx)}rad`);
       }
       el.classList.toggle('edge', !on); el.style.opacity = '1'; el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
@@ -801,13 +866,17 @@ export class Game {
   }
 
   dispose() {
+    if (!this.live) return;
     this.live = false; cancelAnimationFrame(this.raf); this.ro?.disconnect(); this.worker?.terminate();
+    const cancelled = new Error('The rover session was closed.');
+    this.loadReject?.(cancelled); this.loadReject = null;
+    for (const p of this.mapWait.values()) { clearTimeout(p.timer); p.reject(cancelled); } this.mapWait.clear();
     window.removeEventListener('keydown', this.onKey, true); window.removeEventListener('keyup', this.onKey, true); window.removeEventListener('blur', this.onBlur);
     for (const sc of [this.near, this.far]) sc.traverse((x) => {
       const m = x as THREE.Mesh; m.geometry?.dispose?.();
       for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshBasicMaterial).map?.dispose(); mt.dispose(); }
     });
     this.lit.forEach((l) => l.tex.dispose());
-    if (this.renderer) { this.renderer.dispose(); this.renderer.forceContextLoss(); this.renderer.domElement.remove(); }
+    if (this.renderer) { this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost); this.renderer.dispose(); this.renderer.forceContextLoss(); this.renderer.domElement.remove(); }
   }
 }

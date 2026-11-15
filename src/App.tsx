@@ -123,6 +123,7 @@ const ANALYSIS_TABS: [Deep, string][] = [
 ];
 const MoonView = lazy(() => import('./components/MoonView'));
 const Onboarding = lazy(() => import('./components/Onboarding'));
+const RoverGame = lazy(() => import('./game/RoverGame'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
 
 function readHash() {
@@ -163,6 +164,7 @@ export default function App() {
   const [choosing, setChoosing] = useState(true);
   // the guided tour for a mode opens right after that mode is first chosen, and on request (rail, command menu)
   const [tour, setTour] = useState<Ui | null>(null);
+  const [roverOpen, setRoverOpen] = useState(false);
   const expert = ui === 'expert';
   const L = COPY[ui];
   const [mode, setMode] = useState<Mode>(init.mode);
@@ -197,6 +199,9 @@ export default function App() {
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
   const [palette, setPalette] = useState(false);
+  const openRover = useCallback(() => {
+    setPlaying(false); setTour(null); setPalette(false); setGuide(false); setRoverOpen(true);
+  }, []);
   // mission comparison sidebar: open state and the two missions being compared
   const [missionsOpen, setMissionsOpen] = useState(false);
   const [pair, setPair] = useState<MissionPair>({ a: null, b: null, active: 'a' });
@@ -345,6 +350,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (roverOpen) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (document.querySelector('.chooser-backdrop')) return; // the mode chooser owns the keyboard
@@ -363,15 +369,16 @@ export default function App() {
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [range, closeGuide, toggleMissions]);
+  }, [range, closeGuide, toggleMissions, roverOpen]);
   // ⌘K / Ctrl+K toggles the command menu from anywhere, including inside inputs
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
+      if (roverOpen) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((x) => !x); }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, []);
+  }, [roverOpen]);
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
@@ -404,12 +411,13 @@ export default function App() {
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-tour', group: 'Actions', title: 'Take the tour', keywords: 'tour onboarding tutorial walkthrough intro how to use learn', icon: <Sparkles size={16} />, run: () => setTour(expert ? 'expert' : 'normal') },
+      ...(!expert ? [{ id: 'rover-game', group: 'Views', title: 'Drive a rover', keywords: 'game education RASSOR ice power signal mission', icon: <Play size={16} />, run: openRover }] : []),
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
     // Normal mode leaves out the Scientific-only tools (scenario editor, calculator, launch planner, mission inputs, libration data)
     const EXPERT_ONLY = new Set(['mode-compare', 'mode-calc', 'mode-launch', 'deep-mission', 'deep-libration']);
     return expert ? list : list.filter((c) => !EXPERT_ONLY.has(c.id) && !(c.id.startsWith('preset-') && PRESETS.find((p) => `preset-${p.id}` === c.id)?.mode === 'compare'));
-  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi]);
+  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi, openRover]);
 
   // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
   const helpContext = useMemo<HelpContext>(() => {
@@ -486,6 +494,9 @@ export default function App() {
     else if (a.type === 'site') pickSite(a.id);
   };
 
+  // Release the globe renderer while driving. The parent keeps the selected site, date and analysis state.
+  if (roverOpen) return <Suspense fallback={<div className="fatal wrap"><Loading label="Loading rover mission" /><button onClick={() => setRoverOpen(false)}>Return to map</button></div>}><RoverGame sites={allSites} selectedId={siteId} t={t} tMax={range[1]} onClose={() => { setRoverOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.ct-rover')?.focus()); }} /></Suspense>;
+
   return (
     <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
@@ -522,6 +533,7 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
           </>}
         </nav>
+        {!expert && <button className="ct-tutorial ct-rover" onClick={openRover} aria-label="Drive a rover" title="Drive RASSOR, collect ice samples and keep power and Earth contact"><Play size={15} /><span>Drive a rover</span></button>}
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} aria-label={L.tabs.missions} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /><span>{L.tabs.missions}</span></button>
         <button className="ct-tutorial" aria-label="Tutorial" onClick={() => setTour(ui)} title="Step-by-step tour of every part of the screen"><Sparkles size={15} /><span>Tutorial</span></button>
       </header>
