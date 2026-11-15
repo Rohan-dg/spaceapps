@@ -1218,7 +1218,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
-          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click the surface for light and Earth contact · H home · Esc close</p>}
+          {!probe && <p className="hud-hint">Drag to rotate · scroll to zoom · click the surface for light and Earth contact · double-click to fly in · H home · Esc close</p>}
         </div>
         <div className="hud-panels">
         {probe && (
