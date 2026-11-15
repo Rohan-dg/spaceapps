@@ -1,6 +1,7 @@
 import { CircleCheck, Earth, OctagonX, Sun, SunDim, TriangleAlert } from './Icons';
 import type { Level } from '../config/thresholds';
 import { formatDuration, type Event, type Metrics } from '../lib/metrics';
+import { sphereHorizonDeg } from '../lib/geometry';
 import type { ScenarioResult } from '../lib/useScenario';
 import type { Verdict } from '../lib/verdict';
 import { HelpTip } from './Help';
@@ -80,7 +81,7 @@ const deg = (x: number) => `${x < 0 ? '−' : ''}${Math.abs(x).toFixed(2)}°`;
 const span = (h: number, clipped: boolean) => `${clipped ? '≥ ' : ''}${h >= 48 ? `${(h / 24).toFixed(1)} d` : `${h.toFixed(1)} h`}`;
 
 /** Sun and Earth side by side in one ruled table: the numbers behind the verdicts. */
-export function Readout({ r }: { r: ScenarioResult }) {
+export function Readout({ r, hz }: { r: ScenarioResult; hz?: { profile: number[]; observerM: number } }) {
   const m: Metrics = r.metrics;
   const sunNext = m.sunUp ? m.nextSunset : m.nextSunrise, sunThen = m.sunUp ? m.nextSunrise : m.nextSunset;
   const eNext = m.earthUp ? m.nextEarthset : m.nextEarthrise, eThen = m.earthUp ? m.nextEarthrise : m.nextEarthset;
@@ -110,6 +111,15 @@ export function Readout({ r }: { r: ScenarioResult }) {
           <td>{signed(m.sky.sun.el - m.sunHorizon)}<small>skyline at {deg(m.sunHorizon)}</small></td>
           <td>{signed(m.sky.earth.el - m.earthHorizon)}<small>skyline at {deg(m.earthHorizon)}</small></td>
         </tr>
+        {hz && (
+          <tr>
+            <th scope="row"><Term t="no-refraction">Horizon, no air</Term></th>
+            <td colSpan={2}>
+              terrain skyline {deg(Math.min(...hz.profile))} to {deg(Math.max(...hz.profile))}; a smooth Moon would give {deg(sphereHorizonDeg(hz.observerM))} all round ({hz.observerM} m mast)
+              <small>No atmosphere, so no refraction: the skyline is the highest terrain in each direction, with the Moon's curvature included. From a peak it can drop below the smooth-sphere value. On Earth, refraction would lift the Sun by about 0.57° at the horizon.</small>
+            </td>
+          </tr>
+        )}
         <tr className="lead">
           <th scope="row">Next {m.sunUp ? 'set' : 'rise'} / {m.earthUp ? 'set' : 'rise'}</th>
           <td>{eventText(sunNext, m.t)}<small>{at(sunNext)}</small></td>

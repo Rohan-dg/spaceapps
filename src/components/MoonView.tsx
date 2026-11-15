@@ -102,10 +102,12 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
+  /** Home: the app clears the selection (and bumps homeSignal), so the view returns to the whole Moon. */
+  onHome?: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -120,6 +122,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
+  /** Home: drop the probed point and any pivot, deselect everything, and fly out to the whole Moon. */
+  const homeRef = useRef<() => void>(() => {});
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
   const rangePin = useRef<HTMLDivElement>(null);
@@ -518,9 +522,15 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     }
     function frame() {
       raf = 0;
+      // drag-to-rotate turns the globe about its centre, so the same drag sweeps far more ground when you are close:
+      // scale the rotation with height above the surface (full speed from about 3000 km out, slowest near the ground)
+      if (st.mode === 'globe' && !st.flying) {
+        const alt = Math.max(0, camera.position.length() - R_KM);
+        st.controls.rotateSpeed = 0.6 * Math.min(1, Math.max(0.03, alt / 3000));
+      }
       const moving = st.flying ? false : st.controls.update();
       constrainCamera(camera.position, st.controls.target, surfaceRadius, st.mode === 'site' && !st.flying);
-      camera.lookAt(st.controls.target);
+      if (!st.flying) camera.lookAt(st.controls.target);
       u.uCam.value.copy(camera.position);
       {
         // anchor = ground point under the camera, snapped to whole 2048 m cells; everything here is float64,
@@ -830,25 +840,36 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     controls.enabled = false;
     const p0 = camera.position.clone(), t0 = controls.target.clone(), up0 = camera.up.clone(), fov0 = camera.fov;
     const r0 = p0.length(), r1 = toPos.length();
-    const a0 = Math.max(r0 - st.surfaceRadius(p0), 0.001), a1 = Math.max(r1 - st.surfaceRadius(toPos), 0.001);
+    const sr0 = st.surfaceRadius(p0), sr1 = st.surfaceRadius(toPos);
+    const a0 = Math.max(r0 - sr0, 0.001), a1 = Math.max(r1 - sr1, 0.001);
     const d0 = p0.clone().normalize(), d1 = toPos.clone().normalize();
     const ang = d0.angleTo(d1);
-    const hop = Math.min(2600, Math.max(0, ang * R_KM * 0.5));
+    // Orientation: one direct turn from where the camera looks now to where it should look at the end, along the
+    // shortest rotation. Re-aiming every frame at a moving target with a separately rolled up-vector is what made
+    // the view flick round and back, especially into the near-vertical site views.
+    const q0 = camera.quaternion.clone();
+    const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(toPos, toTarget, up));
     const o = { k: 0 };
     st.mode = mode;
     st.flying = gsap.to(o, {
-      k: 1, duration: dur, ease: 'power3.inOut',
+      k: 1, duration: dur, ease: 'power2.inOut',
       onUpdate: () => {
         const k = o.k;
         const dir = new THREE.Vector3().copy(d0).lerp(d1, k).normalize();
         if (ang > 1e-4) { const q = new THREE.Quaternion().setFromUnitVectors(d0, d1); dir.copy(d0).applyQuaternion(new THREE.Quaternion().slerp(q, k)); }
-        // Interpolate clearance above the actual terrain, including destinations below the reference sphere.
-        const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + hop * Math.sin(Math.PI * k);
-        camera.position.copy(dir.multiplyScalar(st.surfaceRadius(dir) + alt));
-        controls.target.copy(t0).lerp(toTarget, gsap.parseEase('power2.inOut')(k));
-        camera.up.copy(up0).applyQuaternion(new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(up0, up), k));
-        if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * gsap.parseEase('power2.inOut')(k); camera.updateProjectionMatrix(); }
-        camera.lookAt(controls.target);
+        // the shortest way there: along the great circle, height above the ground blended smoothly, no arc or hop
+        // (a gentle lift on long legs only, enough to stay clear of mountains between the two points)
+        const alt = Math.exp(Math.log(a0) * (1 - k) + Math.log(a1) * k) + Math.min(300, ang * R_KM * 0.1) * Math.sin(Math.PI * k);
+        // ground radius: the take-off and landing values blended along the way, easing onto the live terrain only in
+        // the last stretch, so detail that loads mid-flight (site patch, tiles) cannot make the camera jump
+        const w = k < 0.8 ? 0 : (k - 0.8) / 0.2, ws = w * w * (3 - 2 * w);
+        const srPath = sr0 + (sr1 - sr0) * k;
+        const sr = ws > 0 ? srPath + (st.surfaceRadius(dir) - srPath) * ws : srPath;
+        camera.position.copy(dir.multiplyScalar(sr + alt));
+        controls.target.copy(t0).lerp(toTarget, k);
+        camera.quaternion.slerpQuaternions(q0, q1, k);
+        camera.up.copy(up0).lerp(up, k).normalize();
+        if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * k; camera.updateProjectionMatrix(); }
         st.request();
       },
       onComplete: () => {
@@ -923,7 +944,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const quiet = quietPick.current;
     quietPick.current = false;
     const picked = firstSite.current === '\u0000picked' && !quiet;
-    const arrive = (fallback: Scale) => { if (picked) goTo(scale === 'moon' ? fallback : scale); };
+    let arrived = false;
+    const arrive = (fallback: Scale) => { if (picked && !arrived) { arrived = true; goTo(scale === 'moon' ? fallback : scale); } };
+    // fly straight away on the terrain already loaded; the site's fine terrain streams in underneath, so the camera
+    // never waits for a download and then lurches
+    if (sel.lat < -80.5 && !sel.id.startsWith('custom') && pendingClose.current !== sel.id) arrive('site');
     (async () => {
       let meta: HiMeta | null = null;
       if (sel.lat < -80.5 && !sel.id.startsWith('custom')) {
@@ -1022,12 +1047,19 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   // the canvas resizes itself (ResizeObserver) when the view is expanded
   useEffect(() => { if (expanded) S.current?.request(); }, [expanded]);
 
+  homeRef.current = () => {
+    const st = S.current;
+    if (st) { st.probePos = null; st.focus = null; st.request(); }
+    setProbe(null); setPeriod(null); setRangeOpen(false);
+    // the app deselects the site (and bumps homeSignal, which flies to the whole Moon about its centre)
+    if (onHome) onHome(); else goToRef.current('moon');
+  };
   // H or Home key: back to the home view (ignored while typing)
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'h' || e.key === 'H' || e.key === 'Home') { e.preventDefault(); goToRef.current('moon'); }
+      if (e.key === 'h' || e.key === 'H' || e.key === 'Home') { e.preventDefault(); homeRef.current(); }
       if (e.key === 'Escape') escRef.current();
     };
     window.addEventListener('keydown', k);
@@ -1360,7 +1392,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         </dl>
         <div className="hud-bl hud-anim">
           <div className="hud-home-row">
-          <button className="hud-toggle" onClick={() => goTo('moon')} title="Home view: the whole Moon, north up (H)"><Icon name="home" /> Home</button>
+          <button className="hud-toggle" onClick={() => homeRef.current()} title="Home view: the whole Moon, nothing selected, turning about its centre (H)"><Icon name="home" /> Home</button>
           <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
             {SCALES.map((s) => (
               <button key={s.id} role="radio" aria-checked={scale === s.id} disabled={s.id !== 'moon' && !sel} onClick={() => goTo(s.id)}>{s.label}</button>

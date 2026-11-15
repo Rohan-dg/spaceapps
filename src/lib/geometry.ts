@@ -62,3 +62,10 @@ export function terrainElevationAngle(dKm: number, hTargetM: number, hObsM: numb
   const dropM = ((dKm * dKm) / (2 * R)) * 1000;
   return Math.atan2(hTargetM - hObsM - dropM, dKm * 1000) * RAD;
 }
+
+/**
+ * Elevation (deg, negative) of the bare-sphere horizon for an eye `hM` above a smooth Moon: the edge of the
+ * lunar sphere, with no terrain. There is no atmosphere, so no refraction term: the real skyline is purely
+ * geometric, the highest terrain along each line of sight (which from a peak can be below this value).
+ */
+export const sphereHorizonDeg = (hM: number, R = MOON_RADIUS_KM * 1000) => -Math.acos(R / (R + hM)) * 180 / Math.PI;
