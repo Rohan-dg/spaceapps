@@ -27,7 +27,7 @@ import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V, TIL
 import { type TileHeights, type TileIndex, buildTileMesh, tileAt, tileHeight, tileKey, tileOrigin } from '../lib/moon/tiles';
 import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moon/probe';
 import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSurfaceSampler } from '../lib/moon/surface';
-import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
+import { planSunlight, roverReach, validateSpec, type Reach, type RoverSpec, type SunPlan } from '../lib/moon/rover';
 import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
 import { Icon } from './Icons';
 import { introActive, whenIntroDone } from '../lib/intro';
@@ -95,13 +95,26 @@ const fmtLatLon = (lat: number, lon: number) => {
   return `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}  ·  ${l > 180 ? `${(360 - l).toFixed(4)}° W` : `${l.toFixed(4)}° E`}`;
 };
 const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFixed(1)}%`;
-/** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
-const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
 /** A site marker and what was last written to its DOM node, so unchanged frames write nothing. */
 interface Marker { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number; sp?: HTMLElement | null;
   k?: { op: string; tf: string; crowded: boolean; left: boolean; more: string } }
-interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null;
-  missionKm: number; startSunPct: number | null; startEarthUp: boolean | null; earthPct: number | null; longestNoEarthH: number | null }
+/** Rover range inputs (strings, as typed). Defaults follow the mission planner's rover. */
+const RANGE_DEFAULTS = {
+  batteryWh: String(DEFAULT_PLAN.batteryWh), startPct: String(DEFAULT_PLAN.startPct), reservePct: String(DEFAULT_PLAN.reservePct),
+  hotelW: String(DEFAULT_PLAN.hotelW), driveW: String(DEFAULT_PLAN.driveW), solarW: '0',
+  speed: String(DEFAULT_PLAN.speedKmH), maxSlope: String(DEFAULT_PLAN.maxSlopeDeg), derate: String(DEFAULT_PLAN.slopeDerate * 100),
+  massKg: '200', drivetrainPct: '60', detourPct: '15', mission: '1',
+};
+type RangeIn = typeof RANGE_DEFAULTS & { lat: string; lon: string };
+const RANGE_FIELDS: { legend: string; fields: [keyof RangeIn, string, string][] }[] = [
+  { legend: 'Battery', fields: [['batteryWh', 'Capacity (Wh)', 'Nameplate energy of the pack'], ['startPct', 'Charge at start (%)', 'State of charge when the drive begins'], ['reservePct', 'Reserve kept (%)', 'Never drawn below this']] },
+  { legend: 'Power', fields: [['hotelW', 'Hotel load (W)', 'Avionics, heaters and radio, drawn all the time, parked or driving'], ['driveW', 'Drive power, flat (W)', 'Extra draw of the wheels at full speed on flat ground'], ['solarW', 'Solar while driving (W)', 'Average panel output on the way; 0 in the dark']] },
+  { legend: 'Mobility', fields: [['speed', 'Speed, flat (km/h)', 'Top speed on level ground'], ['maxSlope', 'Max slope (°)', 'Steeper ground stops the rover in that direction'], ['derate', 'Speed lost at max slope (%)', 'Speed falls linearly with slope to this loss at the limit'], ['massKg', 'Mass (kg)', 'Climbing costs m·g·Δh, with g = 1.62 m/s²'], ['drivetrainPct', 'Drivetrain efficiency (%)', 'Share of battery energy that becomes height when climbing'], ['detourPct', 'Path detour (%)', 'Extra distance over the straight line: weaving round rocks, wheel slip']] },
+];
+interface RangeShown { spec: RoverSpec; longestDarkH: number | null; missionKm: number; startSunPct: number | null; startEarthUp: boolean | null; earthPct: number | null; longestNoEarthH: number | null }
+const fmtKm = (km: number) => (km < 1 ? `${(km * 1000).toFixed(0)} m` : `${km < 10 ? km.toFixed(2) : km.toFixed(1)} km`);
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const compass = (az: number) => `${COMPASS[Math.round(az / 45) % 8]} (${az.toFixed(0)}°)`;
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
@@ -155,8 +168,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const menuRef = useRef<HTMLDivElement>(null);
   const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH), mission: '5' });
+  const [rangeIn, setRangeIn] = useState<RangeIn>({ lat: '', lon: '', ...RANGE_DEFAULTS });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
+  const [rangeParams, setRangeParams] = useState(true);
   const [rangeShown, setRangeShown] = useState<RangeShown | null>(null);
   const [viewer, setViewer] = useState<string | null>(null);
 
@@ -1256,43 +1270,65 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const st = S.current!; const gg = st.terrainM(lat, lon);
     return { true: gg.h, drawn: gg.h * st.exag };
   };
-  const applyRange = (inp: typeof rangeIn, flyThere: boolean) => {
+  /** Inputs as numbers. The slope loss is typed in %, the model takes a fraction. */
+  const specOf = (inp: RangeIn): RoverSpec => ({
+    lat: Number(inp.lat), lon: Number(inp.lon), batteryWh: Number(inp.batteryWh), startPct: Number(inp.startPct), reservePct: Number(inp.reservePct),
+    hotelW: Number(inp.hotelW), driveW: Number(inp.driveW), solarW: Number(inp.solarW || 0), speedKmH: Number(inp.speed),
+    maxSlopeDeg: Number(inp.maxSlope), slopeDerate: Number(inp.derate) / 100, massKg: Number(inp.massKg),
+    drivetrainPct: Number(inp.drivetrainPct), detourPct: Number(inp.detourPct || 0),
+  });
+  const heightOf = () => { const st = S.current!; return (la: number, lo: number) => st.terrainM(la, lo).h; };
+  const applyRange = (inp: RangeIn, flyThere: boolean) => {
     const st = S.current; if (!st) return;
-    const q = { lat: Number(inp.lat), lon: Number(inp.lon), batteryH: Number(inp.hours), speedKmH: Number(inp.speed) };
-    const err = validateRover(q);
+    if (inp.lat.trim() === '' || inp.lon.trim() === '') { setRangeErr('Enter a start latitude and longitude, or click the Moon.'); return; }
+    const q = specOf(inp);
+    const err = validateSpec(q);
     setRangeErr(err);
     if (err) return;
-    const r = roverRange(q, 4);
     const h0 = groundAt(q.lat, q.lon).true;
-    // can the battery carry the rover through the longest dark stretch here in the next lunar cycle?
+    // Sun and Earth at the start, and the longest dark stretch here in the next lunar cycle
     let longestDarkH: number | null = null, startSunPct: number | null = null, startEarthUp: boolean | null = null, earthPct: number | null = null, longestNoEarthH: number | null = null;
     try {
       const gg = st.terrainM(q.lat, q.lon);
-      const hz = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, h0, gg.resM);
+      const hz = horizonFrom(heightOf(), q.lat, q.lon, h0, gg.resM);
       const per = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000);
       longestDarkH = per.longestDarkH; earthPct = per.earthPct; longestNoEarthH = per.longestNoEarthH;
       const nowStart = probeNow(q.lat, q.lon, h0, hz, t);
       startSunPct = nowStart.sunPct; startEarthUp = nowStart.earthUp;
     } catch { longestDarkH = null; }
     const missionKm = Math.max(0, Number(inp.mission) || 0);
-    setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH, missionKm, startSunPct, startEarthUp, earthPct, longestNoEarthH });
-    // nearest sunlight the rover can drive to (or wait for) on this charge; deferred so the rings draw first
+    setRangeShown({ spec: q, longestDarkH, missionKm, startSunPct, startEarthUp, earthPct, longestNoEarthH });
+    // nearest sunlight the rover can drive to (or wait for, parked) on this charge; deferred so the rings draw first
     setSunPlan('busy');
     const t0 = t;
     setTimeout(() => {
-      const gg = st.terrainM(q.lat, q.lon);
-      const hzStart = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, gg.h, gg.resM);
-      try { setSunPlan(planSunlight((la, lo) => st.terrainM(la, lo).h, q, t0, gg.resM, hzStart)); } catch { setSunPlan(null); }
+      try {
+        const gg = st.terrainM(q.lat, q.lon), h = heightOf();
+        const r = roverReach(h, q, gg.resM);
+        const hzStart = horizonFrom(h, q.lat, q.lon, gg.h, gg.resM);
+        const n = r.rays.length, reachKm = (az: number) => r.rays[Math.round((((az % 360) + 360) % 360) / 360 * n) % n].oneWayKm;
+        // effective speed so that hours × speed covers the flat-ground limit, detour included
+        const plan = planSunlight(h, { lat: q.lat, lon: q.lon, batteryH: r.driveHFlat, speedKmH: r.flatKm / r.driveHFlat }, t0, gg.resM, hzStart, { reachKm, parkedH: r.parkedH });
+        setSunPlan(plan);
+      } catch { setSunPlan(null); }
     }, 30);
     if (flyThere) {
+      const flat = (((q.batteryWh * (q.startPct - q.reservePct)) / 100) / Math.max(1e-6, q.hotelW + q.driveW - (q.solarW ?? 0))) * q.speedKmH;
       const { e, n, u } = enu(q.lat, q.lon);
       const target = v3(posOf(q.lat, q.lon, groundAt(q.lat, q.lon).drawn)), U = v3(u);
       const off = v3(n).multiplyScalar(-Math.cos(1.0)).add(v3(e).multiplyScalar(0.25)).add(U.clone().multiplyScalar(Math.sin(1.0))); // look down at ~57° from the south-east
-      fly(target.clone().addScaledVector(off.normalize(), Math.min(6000, Math.max(3, r.oneWayKm * 3.4))), target, U, 'site');
+      fly(target.clone().addScaledVector(off.normalize(), Math.min(6000, Math.max(3, flat * 3.4))), target, U, 'site');
     }
   };
   const applyRangeRef = useRef(applyRange);
   useEffect(() => { applyRangeRef.current = applyRange; });
+  // terrain-aware reach; recomputed when finer heights load under the start
+  const reach = useMemo<Reach | null>(() => {
+    const st = S.current; if (!st || !rangeShown) return null;
+    const q = rangeShown.spec;
+    try { return roverReach(heightOf(), q, st.terrainM(q.lat, q.lon).resM); } catch { return null; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeShown, hiInfo]);
   // draw the rings on the terrain; redrawn when the relief or the loaded heights change
   useEffect(() => {
     const st = S.current; if (!st) return;
@@ -1300,26 +1336,26 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     grp.children.forEach((o) => { const l = o as THREE.Line; l.geometry.dispose(); (l.material as THREE.Material).dispose(); });
     grp.clear();
     st.rangePos = null;
-    if (rangeShown) {
-      const r = roverRange(rangeShown, 512);
-      const lift = Math.max(25, rangeShown.oneWayKm * 3); // metres above the ground so the ring is not buried in the surface
+    if (rangeShown && reach) {
+      const q = rangeShown.spec;
+      const lift = Math.max(25, reach.flatKm * 3); // metres above the ground so the ring is not buried in the surface
       const ringLine = (pts: { lat: number; lon: number }[], color: number, dashed: boolean) => {
         const arr = new Float32Array(pts.length * 3);
-        pts.forEach((p, i) => { const q = posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift); arr.set(q, i * 3); });
+        pts.forEach((p, i) => { const qq = posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift); arr.set(qq, i * 3); });
         const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
         const m = dashed
-          ? new THREE.LineDashedMaterial({ color, dashSize: Math.max(0.02, rangeShown.returnKm * 0.06), gapSize: Math.max(0.015, rangeShown.returnKm * 0.04), toneMapped: false })
+          ? new THREE.LineDashedMaterial({ color, dashSize: Math.max(0.02, reach.ret.median * 0.06), gapSize: Math.max(0.015, reach.ret.median * 0.04), toneMapped: false })
           : new THREE.LineBasicMaterial({ color, toneMapped: false });
         const line = new THREE.LineLoop(g, m);
         if (dashed) line.computeLineDistances();
         line.frustumCulled = false; line.renderOrder = 3;
         grp.add(line);
       };
-      ringLine(r.ring, 0xffffff, false);
-      ringLine(r.returnRing, 0xffffff, true);
-      st.rangePos = v3(posOf(rangeShown.lat, rangeShown.lon, groundAt(rangeShown.lat, rangeShown.lon).drawn));
+      ringLine(reach.ring, 0xffffff, false);
+      ringLine(reach.returnRing, 0xffffff, true);
+      st.rangePos = v3(posOf(q.lat, q.lon, groundAt(q.lat, q.lon).drawn));
       if (sunPlan && sunPlan !== 'busy' && sunPlan.kind === 'drive') {
-        const a = { lat: rangeShown.lat, lon: rangeShown.lon }, b = sunPlan.target;
+        const a = { lat: q.lat, lon: q.lon }, b = sunPlan.target;
         const pts = Array.from({ length: 129 }, (_, i) => gcInterp(a, b, i / 128));
         const arr = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => arr.set(posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift), i * 3));
@@ -1333,7 +1369,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     if (!rangeShown || !sunPlan || sunPlan === 'busy' || sunPlan.kind !== 'drive') st.sunPos = null;
     st.request();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeShown, relief, hiInfo, sunPlan]);
+  }, [rangeShown, reach, relief, sunPlan]);
   const openRange = () => {
     if (rangeOpen) { setRangeOpen(false); return; }
     setRangeOpen(true);
@@ -1445,7 +1481,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           </div>
         )}
         {expert && rangeOpen && (
-          <form className={`hud-range${rangeMin ? ' min' : ''}`} onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); }}>
+          <form className={`hud-range${rangeMin ? ' min' : ''}`} onSubmit={(e) => { e.preventDefault(); applyRange(rangeIn, true); if (!validateSpec(specOf(rangeIn))) setRangeParams(false); }}>
             <div className="hud-probe-head">
               <button type="button" className="hud-collapse" aria-expanded={!rangeMin} onClick={() => setRangeMin((x) => !x)}><span className="chev" aria-hidden>▾</span>Rover range on battery</button>
               <button type="button" onClick={() => setRangeOpen(false)} aria-label="Close rover range">×</button>
@@ -1453,52 +1489,74 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             <div className="range-grid">
               <label>Latitude °<input id="range-lat" inputMode="decimal" value={rangeIn.lat} onChange={(e) => setRangeIn({ ...rangeIn, lat: e.target.value })} placeholder="-89.45" /></label>
               <label>Longitude ° E<input id="range-lon" inputMode="decimal" value={rangeIn.lon} onChange={(e) => setRangeIn({ ...rangeIn, lon: e.target.value })} placeholder="222.69" /></label>
-              <label>Battery life without sun (h)<input id="range-hours" inputMode="decimal" value={rangeIn.hours} onChange={(e) => setRangeIn({ ...rangeIn, hours: e.target.value })} /></label>
-              <label>Driving speed (km/h)<input id="range-speed" inputMode="decimal" value={rangeIn.speed} onChange={(e) => setRangeIn({ ...rangeIn, speed: e.target.value })} /></label>
-              <label>Mission drive, one way (km)<input id="range-mission" inputMode="decimal" value={rangeIn.mission} onChange={(e) => setRangeIn({ ...rangeIn, mission: e.target.value })} /></label>
+            </div>
+            <details className="range-params" open={rangeParams} onToggle={(e) => setRangeParams((e.currentTarget as HTMLDetailsElement).open)}>
+            <summary>Rover parameters <span className="dim">{rangeIn.batteryWh} Wh · {rangeIn.hotelW}+{rangeIn.driveW} W · {rangeIn.speed} km/h · ≤ {rangeIn.maxSlope}°</span></summary>
+            {RANGE_FIELDS.map((grp) => (
+              <fieldset key={grp.legend} className="range-set">
+                <legend>{grp.legend}</legend>
+                <div className="range-grid">
+                  {grp.fields.map(([k, label, hint]) => (
+                    <label key={k} title={hint}>{label}<input id={`range-${k}`} inputMode="decimal" value={rangeIn[k]} onChange={(e) => setRangeIn({ ...rangeIn, [k]: e.target.value })} /></label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+            </details>
+            <div className="range-grid">
+              <label title="Planned drive out from the start; checked as an out-and-back trip">Mission drive, one way (km)<input id="range-mission" inputMode="decimal" value={rangeIn.mission} onChange={(e) => setRangeIn({ ...rangeIn, mission: e.target.value })} /></label>
             </div>
             <div className="range-actions">
               <button type="submit" className="range-go">Show range</button>
+              <button type="button" className="range-reset" onClick={() => setRangeIn((x) => ({ ...x, ...RANGE_DEFAULTS }))}>Defaults</button>
               <span className="dim">or click the Moon to set the start</span>
             </div>
             {rangeErr && <p className="range-err" role="alert">{rangeErr}</p>}
-            {rangeShown && !rangeErr && (
+            {rangeShown && reach && !rangeErr && (() => {
+              const q = rangeShown.spec, rays = reach.rays;
+              const far = rays.reduce((a, r) => (r.oneWayKm > a.oneWayKm ? r : a)), near = rays.reduce((a, r) => (r.oneWayKm < a.oneWayKm ? r : a));
+              const steep = rays.reduce((a, r) => Math.max(a, r.maxSlopeDeg), 0);
+              const dataEnd = rays.filter((r) => r.stop === 'data').length;
+              const mOk = rangeShown.missionKm > 0 ? rays.filter((r) => r.returnKm >= rangeShown.missionKm) : [];
+              const sunNow = (rangeShown.startSunPct ?? 0) > 50;
+              return (
               <dl aria-live="polite">
-                <dt>Start</dt><dd className="num">{fmtLatLon(rangeShown.lat, rangeShown.lon)}</dd>
-                <dt>Distance on battery</dt><dd><b>{rangeShown.oneWayKm < 10 ? rangeShown.oneWayKm.toFixed(2) : rangeShown.oneWayKm.toFixed(1)} km</b> one way <span className="swatch solid" /><br /><span className="dim">{rangeShown.batteryH} h × {rangeShown.speedKmH} km/h</span></dd>
-                <dt>Travel per hour</dt><dd className="num">{rangeShown.speedKmH} km</dd>
+                <dt>Start</dt><dd className="num">{fmtLatLon(q.lat, q.lon)}</dd>
+                <dt>Usable energy</dt><dd><b>{(reach.usableWh / 1000).toFixed(2)} kWh</b><br /><span className="dim">{q.batteryWh} Wh × ({q.startPct} − {q.reservePct}) %; net draw while driving {(q.hotelW + q.driveW - (q.solarW ?? 0)).toFixed(0)} W</span></dd>
+                <dt>Drive time</dt><dd className="num">{reach.driveHFlat.toFixed(2)} h on flat ground · parked {isFinite(reach.parkedH) ? `${reach.parkedH.toFixed(1)} h` : 'indefinitely'}</dd>
+                <dt>One-way reach</dt><dd><b>{fmtKm(reach.oneWay.median)}</b> median radius <span className="swatch solid" /><br />
+                  <span className="dim">{fmtKm(reach.oneWay.min)} toward {compass(near.bearing)} to {fmtKm(reach.oneWay.max)} toward {compass(far.bearing)}; {reach.oneWay.areaKm2 < 10 ? reach.oneWay.areaKm2.toFixed(2) : reach.oneWay.areaKm2.toFixed(0)} km² reachable. Flat-ground limit {fmtKm(reach.flatKm)}</span></dd>
+                <dt>Out and back</dt><dd><b>{fmtKm(reach.ret.median)}</b> median radius <span className="swatch dashed" /><br />
+                  <span className="dim">{fmtKm(reach.ret.min)} to {fmtKm(reach.ret.max)}; {reach.ret.areaKm2 < 10 ? reach.ret.areaKm2.toFixed(2) : reach.ret.areaKm2.toFixed(0)} km²</span></dd>
+                <dt>Terrain</dt><dd><b className={reach.blocked ? 'part' : 'ok'}>{reach.blocked ? `Slopes over ${q.maxSlopeDeg}° stop ${reach.blocked} of ${rays.length} directions` : `No slope over ${q.maxSlopeDeg}° within reach`}</b><br />
+                  <span className="dim">steepest step met {steep.toFixed(1)}°, sampled every {reach.stepM.toFixed(0)} m on {reach.gridM >= 1000 ? `${(reach.gridM / 1000).toFixed(1)} km` : `${reach.gridM.toFixed(0)} m`} terrain{reach.gridM > 2 * reach.stepM ? ' (coarser than the step: zoom in to load finer heights, then Show range again)' : ''}{dataEnd ? `; terrain data ends in ${dataEnd} directions` : ''}</span></dd>
                 <dt>Reach sunlight?</dt>
                 <dd>{sunPlan === 'busy' || sunPlan === null ? <span className="dim">{sunPlan === 'busy' ? 'Searching the terrain…' : 'Could not check'}</span>
                   : sunPlan.kind === 'here' ? <b className="ok">Yes, the start is in sunlight now</b>
-                  : sunPlan.kind === 'drive' ? <><b className="ok">Yes, {sunPlan.km < 10 ? sunPlan.km.toFixed(2) : sunPlan.km.toFixed(1)} km away</b> <span className="swatch sun" /><br /><span className="dim">{sunPlan.hours.toFixed(1)} h of driving, {sunPlan.spareH.toFixed(1)} h of battery left on arrival · {fmtLatLon(sunPlan.target.lat, sunPlan.target.lon)}</span></>
-                  : sunPlan.kind === 'wait' ? <><b className="part">Only by waiting</b><br /><span className="dim">No sunlit ground within {rangeShown.oneWayKm.toFixed(1)} km, but the Sun rises over the start in {sunPlan.hours.toFixed(1)} h, inside the battery life</span></>
-                  : <><b className="no">No</b><br /><span className="dim">No sunlit ground within {sunPlan.searchedKm.toFixed(1)} km, and no sunrise at the start within {rangeShown.batteryH} h</span></>}</dd>
-                {rangeShown.missionKm > 0 && (() => {
-                  // the mission: drive missionKm out and back. Driving time against battery time, with the Sun and Earth at the start
-                  const driveH = (2 * rangeShown.missionKm) / rangeShown.speedKmH;
-                  const share = driveH / rangeShown.batteryH;
-                  const sunNow = (rangeShown.startSunPct ?? 0) > 50;
-                  return <>
-                    <dt>Mission ({rangeShown.missionKm} km out and back)</dt>
-                    <dd><b className={share <= 1 ? 'ok' : sunNow ? 'part' : 'no'}>
-                      {share <= 1 ? `Completes on battery: ${driveH.toFixed(1)} h of ${rangeShown.batteryH} h (${Math.round(share * 100)} %)`
-                        : sunNow ? `Needs sunlight: ${driveH.toFixed(1)} h of driving, ${(driveH - rangeShown.batteryH).toFixed(1)} h more than the battery`
-                        : `Not possible now: ${driveH.toFixed(1)} h of driving, the battery lasts ${rangeShown.batteryH} h and the start is dark`}</b>
-                      <br /><span className="dim">Sun at the start: {rangeShown.startSunPct === null ? 'unknown' : rangeShown.startSunPct >= 99.5 ? 'fully up, so the panels recharge while driving' : rangeShown.startSunPct > 0.5 ? `${rangeShown.startSunPct.toFixed(0)} % of the disc visible` : 'below the skyline'}</span></dd>
-                    <dt>Earth contact</dt>
-                    <dd><b className={rangeShown.startEarthUp ? 'ok' : 'no'}>{rangeShown.startEarthUp === null ? 'unknown' : rangeShown.startEarthUp ? 'Direct link to Earth now' : 'No direct link now: drive autonomously or via a relay'}</b>
-                      {rangeShown.earthPct !== null && <><br /><span className="dim">Earth in view {rangeShown.earthPct.toFixed(0)} % of the next 29.5 days{rangeShown.longestNoEarthH !== null ? `, longest blackout ${rangeShown.longestNoEarthH >= 708 ? 'the whole cycle' : `${rangeShown.longestNoEarthH.toFixed(0)} h`}` : ''}</span></>}</dd>
-                  </>;
-                })()}
-                <dt>Out and back</dt><dd><b>{rangeShown.returnKm < 10 ? rangeShown.returnKm.toFixed(2) : rangeShown.returnKm.toFixed(1)} km</b> radius <span className="swatch dashed" /></dd>
+                  : sunPlan.kind === 'drive' ? <><b className="ok">Yes, {fmtKm(sunPlan.km)} away</b> <span className="swatch sun" /><br /><span className="dim">about {sunPlan.hours.toFixed(1)} h of driving, {sunPlan.spareH.toFixed(1)} h of flat driving left on arrival · {fmtLatLon(sunPlan.target.lat, sunPlan.target.lon)}</span></>
+                  : sunPlan.kind === 'wait' ? <><b className="part">Only by waiting</b><br /><span className="dim">No sunlit ground in reach, but the Sun rises over the start in {sunPlan.hours.toFixed(1)} h, inside the {reach.parkedH.toFixed(1)} h the rover lasts parked</span></>
+                  : <><b className="no">No</b><br /><span className="dim">No sunlit ground in reach, and no sunrise at the start within {isFinite(reach.parkedH) ? `${reach.parkedH.toFixed(1)} h` : 'the search'} parked</span></>}</dd>
+                {rangeShown.missionKm > 0 && <>
+                  <dt>Mission ({fmtKm(rangeShown.missionKm)} out and back)</dt>
+                  <dd><b className={mOk.length ? 'ok' : sunNow ? 'part' : 'no'}>
+                    {mOk.length === rays.length ? 'Completes on battery in every direction'
+                      : mOk.length ? `Completes on battery in ${mOk.length} of ${rays.length} directions (${Math.round((mOk.length / rays.length) * 100)} %)`
+                      : sunNow ? 'Needs recharging on the way: no direction completes on battery'
+                      : 'Not possible now: no direction completes on battery and the start is dark'}</b>
+                    <br /><span className="dim">Sun at the start: {rangeShown.startSunPct === null ? 'unknown' : rangeShown.startSunPct >= 99.5 ? 'fully up; enter the panel output above to count it' : rangeShown.startSunPct > 0.5 ? `${rangeShown.startSunPct.toFixed(0)} % of the disc visible` : 'below the skyline'}</span></dd>
+                  <dt>Earth contact</dt>
+                  <dd><b className={rangeShown.startEarthUp ? 'ok' : 'no'}>{rangeShown.startEarthUp === null ? 'unknown' : rangeShown.startEarthUp ? 'Direct link to Earth now' : 'No direct link now: drive autonomously or via a relay'}</b>
+                    {rangeShown.earthPct !== null && <><br /><span className="dim">Earth in view {rangeShown.earthPct.toFixed(0)} % of the next 29.5 days{rangeShown.longestNoEarthH !== null ? `, longest blackout ${rangeShown.longestNoEarthH >= 708 ? 'the whole cycle' : `${rangeShown.longestNoEarthH.toFixed(0)} h`}` : ''}</span></>}</dd>
+                </>}
                 {rangeShown.longestDarkH !== null && <>
                   <dt>Longest dark here</dt>
                   <dd>{rangeShown.longestDarkH >= 708 ? 'whole next cycle' : `${rangeShown.longestDarkH.toFixed(1)} h`} in the next 29.5 days<br />
-                    <b className={rangeShown.batteryH >= rangeShown.longestDarkH ? 'ok' : 'no'}>{rangeShown.batteryH >= rangeShown.longestDarkH ? 'Battery outlasts it' : `Battery runs out ${(Math.min(rangeShown.longestDarkH, 708) - rangeShown.batteryH).toFixed(1)} h early`}</b></dd>
+                    <b className={reach.parkedH >= rangeShown.longestDarkH ? 'ok' : 'no'}>{reach.parkedH >= rangeShown.longestDarkH ? `Parked, the battery outlasts it (${isFinite(reach.parkedH) ? `${reach.parkedH.toFixed(1)} h` : 'no hotel load'})` : `Parked, the battery runs out ${(Math.min(rangeShown.longestDarkH, 708) - reach.parkedH).toFixed(1)} h early`}</b></dd>
                 </>}
               </dl>
-            )}
-            <p className="hud-probe-note">Straight-line reach on flat ground at constant speed. Slopes and detours shorten it; the mission planner routes around them.</p>
+              );
+            })()}
+            <p className="hud-probe-note">Each of {reach?.rays.length ?? 180} directions is driven outward over the loaded terrain: time at the slope-derated speed × net power, plus m·g·Δh ÷ efficiency for every climb, no regeneration downhill. Ground steeper than the limit ends that direction. Slopes are measured at the terrain grid spacing, so short steep features finer than it are missed.</p>
           </form>
         )}
         </div>
