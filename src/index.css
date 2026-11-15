@@ -1953,3 +1953,5 @@ html[data-ui-switch]::view-transition-group(ct-bar), html[data-ui-switch]::view-
 @keyframes ui-out { to { opacity: 0; filter: blur(8px); transform: scale(0.992); } }
 @keyframes ui-in { from { opacity: 0; filter: blur(8px); transform: translateY(10px) scale(1.004); } }
 @media (prefers-reduced-motion: reduce) { .app { transition: none; } }
+/* the logo's sun follows the mode accent (coral in Normal, blue in Expert) and blends with it on a switch */
+.app .logo-sun, .app .ct-home .logo-sun { fill: var(--mode); }
