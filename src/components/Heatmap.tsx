@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { bestWindows, dailyStats, type DayStat, type Metric } from '../lib/calendar';
 import type { SiteData } from '../lib/data';
 import { mix, useTheme } from '../lib/theme';
+import { CAL_SYMBOLS } from './calSymbols';
 
 const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -39,7 +40,7 @@ export default function Heatmap({ data, t, onPick }: Props) {
         <div className="seg" role="radiogroup" aria-label="Colour the calendar by">
           {(['sun', 'earth', 'both'] as Metric[]).map((m) => (
             <button key={m} role="radio" aria-checked={metric === m} onClick={() => setMetric(m)}>
-              <span className="swatch" style={{ background: m === 'sun' ? c.sun : m === 'earth' ? c.earth : c.ink }} aria-hidden /> {LABEL[m]}
+              <svg className="cal-sym" viewBox={CAL_SYMBOLS[m].vb} style={{ color: m === 'sun' ? c.sun : m === 'earth' ? c.earth : c.ink }} aria-hidden>{CAL_SYMBOLS[m].d.map((d, i) => <path key={i} d={d} fill="currentColor" />)}</svg> {LABEL[m]}
             </button>
           ))}
         </div>
