@@ -1961,11 +1961,20 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 /* the Sun and Earth edge arrows draw above the HUD text they may cross */
 .moon-markers.sky-ptrs { z-index: 3; }
 
-/* ---------- Normal <-> Expert ----------
-   A switch re-renders the page from scratch (App.tsx keys the root on the mode); the new page fades in once. */
-.app { animation: ui-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes ui-in { from { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .app { animation: none; } }
+/* ---------- Normal <-> Expert transition ----------
+   The page cross-fades through a soft blur (View Transitions API, set up in App.tsx setUi) while the top bar morphs
+   in place, and the mode accent blends between coral and blue. Instant when the OS asks for reduced motion. */
+@property --mode { syntax: '<color>'; inherits: true; initial-value: #63a1ff; }
+@property --mode-tint { syntax: '<color>'; inherits: true; initial-value: #142a4a; }
+.app { transition: --mode 450ms var(--ease-out, ease), --mode-tint 450ms var(--ease-out, ease); }
+html[data-ui-switch] .ct-bar { view-transition-name: ct-bar; }
+html[data-ui-switch] .ct-rail { view-transition-name: ct-rail; }
+html[data-ui-switch]::view-transition-old(root) { animation: ui-out 260ms cubic-bezier(0.4, 0, 1, 1) both; }
+html[data-ui-switch]::view-transition-new(root) { animation: ui-in 460ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both; }
+html[data-ui-switch]::view-transition-group(ct-bar), html[data-ui-switch]::view-transition-group(ct-rail) { animation-duration: 420ms; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes ui-out { to { opacity: 0; filter: blur(8px); transform: scale(0.992); } }
+@keyframes ui-in { from { opacity: 0; filter: blur(8px); transform: translateY(10px) scale(1.004); } }
+@media (prefers-reduced-motion: reduce) { .app { transition: none; } }
 /* the logo's sun follows the mode accent (coral in Normal, blue in Expert) and blends with it on a switch */
 .app .logo-sun, .app .ct-home .logo-sun { fill: var(--mode); }
 
