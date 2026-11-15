@@ -7,6 +7,7 @@ export const GLOSSARY: Record<string, string> = {
   libration: "The Moon's monthly wobble. Seen from the surface, Earth drifts about ±7° up and down, enough to drop behind a nearby ridge.",
   dte: 'Direct-to-Earth: radio straight to dishes on Earth, no relay satellite. Needs Earth above the skyline.',
   'lunar-day': '29.53 Earth days: one full cycle of light and dark anywhere on the Moon.',
+  'no-refraction': 'The Moon has no atmosphere, so light travels in straight lines. The horizon is set only by terrain and the curve of the Moon, with no refraction correction. On a perfectly smooth Moon it would sit about 0.09° below level for a 2 m mast; real terrain raises it near ridges and lowers it from peaks. On Earth, air bends sunlight so the Sun appears about 0.57° higher at the horizon.',
   psr: 'Crater floors near the poles that sunlight never reaches. Cold enough to trap water ice.',
   'axial-tilt': "The Moon's spin axis leans only 1.54° from upright, so at the poles the Sun always skims the horizon.",
   exaggeration: 'The vertical axis is stretched so that one-degree ridges are visible. Real slopes look much flatter.',

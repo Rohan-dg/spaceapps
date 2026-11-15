@@ -18,6 +18,16 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           The tools that compute this exist, but they are hard to use quickly, which makes comparing sites and dates slow.
         </p>
 
+        <h3>No atmosphere, no refraction</h3>
+        <p>
+          On Earth, air bends sunlight near the horizon, so the Sun appears about 0.57° higher than it really is and sunset comes a few minutes late.
+          The Moon has no air, so the app applies no refraction: the Sun or Earth is up exactly when its geometric direction clears the skyline.
+          The skyline in each direction is the highest terrain along that line of sight, traced over LOLA heights up to 150 km away with the Moon's curvature
+          included. On a perfectly smooth Moon it would be the edge of the sphere, about 0.09° below level for the 2 m mast; real terrain raises it
+          near ridges and lowers it from peaks (at Malapert it dips to about −4°). Sunset and Earthset times are refined to about 30 seconds
+          against that skyline, and the Sun's disk is tracked as it is partly cut off by terrain.
+        </p>
+
         <h3>What the tool does</h3>
         <p>
           Pick a site and a time. The app shows where the Sun and Earth sit against the real terrain skyline, how long each stays up,
