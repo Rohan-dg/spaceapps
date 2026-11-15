@@ -68,18 +68,30 @@ const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect }: 
 export default function SiteList({ sites, all, t, selected, onSelect }: { sites: SiteInfo[]; all: (SiteData | null)[]; t: number; selected: string; onSelect: (id: string) => void }) {
   const tq = Math.floor(t / 3600000) * 3600000; // hourly is plenty for the index; keeps playback smooth
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [query, setQuery] = useState('');
+  // search: every word must appear in the site's name, short name, mission, program or region (accents ignored)
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const matches = (s: SiteInfo) => !words.length || words.every((w) => fold(`${s.name} ${s.short} ${s.mission ?? ''} ${s.program ?? ''} ${s.region} ${s.id}`).includes(w));
+  const shown = sites.filter(matches).length;
   return (
     <nav className="site-index" aria-label="Landing sites">
+      <div className="site-search">
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search sites, missions, programs…" aria-label="Search landing sites"
+          onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); if (e.key === 'Enter') { const first = sites.find(matches); if (first) onSelect(first.id); } }} />
+        {query && <span className="site-search-n num" aria-live="polite">{shown} of {sites.length}</span>}
+      </div>
+      {query && !shown && <p className="site-search-none">No site matches "{query}". Try a mission, program or region, like "CLPS", "Apollo" or "pole".</p>}
       <div className="site-index-head">
         <span>Site</span>
         <span title="Sun / Earth above the skyline now">Now</span>
         <span title="Power / comms rating, next lunar day">Rating</span>
       </div>
       {GROUPS.map((g) => {
-        const rows = sites.map((s, i) => ({ s, i, y: yearOf(s) })).filter(({ s }) => groupOf(s) === g.id)
+        const rows = sites.map((s, i) => ({ s, i, y: yearOf(s) })).filter(({ s }) => groupOf(s) === g.id && matches(s))
           .sort((a, b) => (a.y ?? 9999) - (b.y ?? 9999) || a.i - b.i); // oldest first; undated keep file order
         if (!rows.length) return null;
-        const expanded = open[g.id] ?? (!g.collapsed || rows.some(({ s }) => s.id === selected));
+        const expanded = words.length > 0 || (open[g.id] ?? (!g.collapsed || rows.some(({ s }) => s.id === selected)));
         const listId = `site-group-${g.id}`;
         return (
           <section key={g.id} className={`site-group${g.id === 'artemis' ? ' featured' : ''}`} aria-label={g.label}>

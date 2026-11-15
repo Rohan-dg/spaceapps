@@ -171,7 +171,7 @@ export default function App() {
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
   const [homeSignal, setHomeSignal] = useState(0);
   const goHome = useCallback(() => {
-    setMode('explore'); setSiteId(''); setHomeSignal((n) => n + 1);
+    setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   const closeGuide = useCallback(() => setGuide(false), []);
@@ -317,7 +317,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} />
           </Suspense>
         </div>
         {mode === 'explore' && (
