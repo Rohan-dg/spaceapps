@@ -1,0 +1,16 @@
+{
+ "id": "lcross",
+ "dem": "LDEM_80S_20M",
+ "resM": 20.0,
+ "n": 1024,
+ "lat": -84.678,
+ "lon": -48.6926,
+ "siteRow": 512.3019988053147,
+ "siteCol": 511.84308582373706,
+ "row0": 9357,
+ "col0": 8622,
+ "projOffset": 15199.5,
+ "hMinM": -4032.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

@@ -1,25 +1,35 @@
-import { memo, useMemo } from 'react';
 import { Earth, Sun, SunDim } from './Icons';
-import type { SiteData, SiteInfo } from '../lib/data';
+import { memo, useMemo, useState } from 'react';
+import { type SiteData, type SiteInfo, useSiteData } from '../lib/data';
+import { yearOf } from '../lib/missionCompare';
 import { useScenario } from '../lib/useScenario';
 import { findRun } from '../lib/series';
 import { LevelIcon } from './Metrics';
 
 const REGION: Record<string, string> = { 'south-pole': 'pole', 'high-latitude': 'high lat.', 'mid-latitude': 'mid lat.', equatorial: 'equator', 'far-side': 'far side' };
-/** Site-list groups, in display order. Custom points go last. */
-const GROUPS: { id: string; label: string }[] = [
+/** Site-list groups, in display order. Custom points go last. Collapsed groups load their sites only when opened. */
+const GROUPS: { id: string; label: string; collapsed?: boolean }[] = [
   { id: 'artemis', label: 'NASA Artemis III candidate regions (2024)' },
   { id: 'artemis-2022', label: 'Earlier Artemis III candidates (2022)' },
   { id: 'clps', label: 'NASA CLPS (commercial landers)' },
   { id: 'apollo', label: 'Apollo' },
+  { id: 'nasa', label: 'NASA Surveyor' },
   { id: 'international', label: 'Other countries' },
+  { id: 'attempts', label: 'Crashes and impacts', collapsed: true },
   { id: 'reference', label: 'Reference sites' },
   { id: 'custom', label: 'Your points' },
 ];
-const STATUS: Record<string, string> = { planned: 'planned', target: 'target only' };
+const STATUS: Record<string, string> = { planned: 'planned', target: 'target only', crashed: 'crash', impact: 'impact' };
+
+/** A spacecraft that crashed or was deliberately crashed into the Moon. */
+export const isAttempt = (s: SiteInfo) => s.status === 'crashed' || s.status === 'impact';
+const groupOf = (s: SiteInfo) => (s.approximate ? 'custom' : isAttempt(s) ? 'attempts' : s.program ?? 'reference');
 const WORD = { green: 'good', amber: 'marginal', red: 'poor' } as const;
 
-const Row = memo(function Row({ info, data, t, selected, onSelect }: { info: SiteInfo; data: SiteData | null; t: number; selected: boolean; onSelect: (id: string) => void }) {
+const Row = memo(function Row({ info, data: preloaded, t, selected, onSelect }: { info: SiteInfo; data: SiteData | null; t: number; selected: boolean; onSelect: (id: string) => void }) {
+  const own = useSiteData(preloaded ? null : info.id); // sites that aren't preloaded load when their row is shown
+  const data = preloaded ?? own;
+  const year = yearOf(info);
   // ratings cover the next lunar day, so a 3-hour step is plenty; the cheap sunlit / Earth flags follow every hour
   const r0 = useScenario(data, Math.floor(t / 10800000) * 10800000);
   const r = useMemo(() => {
@@ -36,7 +46,7 @@ const Row = memo(function Row({ info, data, t, selected, onSelect }: { info: Sit
       <button className={`site-row${selected ? ' selected' : ''}`} onClick={() => onSelect(info.id)} aria-pressed={selected} aria-label={label}>
         <span className="site-text">
           <span className="site-name">{info.short}{info.status && STATUS[info.status] && <span className="site-status">{STATUS[info.status]}</span>}</span>
-          <span className="site-meta"><span className="num">{Math.abs(info.lat).toFixed(2)}°{info.lat < 0 ? 'S' : 'N'}</span><span>{info.approximate ? 'custom' : REGION[info.region] ?? info.region}</span></span>
+          <span className="site-meta">{year && <span className="num site-year">{year}</span>}<span className="num">{Math.abs(info.lat).toFixed(2)}°{info.lat < 0 ? 'S' : 'N'}</span><span>{info.approximate ? 'custom' : REGION[info.region] ?? info.region}</span></span>
         </span>
         {r ? (
           <>
@@ -57,6 +67,7 @@ const Row = memo(function Row({ info, data, t, selected, onSelect }: { info: Sit
 
 export default function SiteList({ sites, all, t, selected, onSelect }: { sites: SiteInfo[]; all: (SiteData | null)[]; t: number; selected: string; onSelect: (id: string) => void }) {
   const tq = Math.floor(t / 3600000) * 3600000; // hourly is plenty for the index; keeps playback smooth
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   return (
     <nav className="site-index" aria-label="Landing sites">
       <div className="site-index-head">
@@ -65,17 +76,31 @@ export default function SiteList({ sites, all, t, selected, onSelect }: { sites:
         <span title="Power / comms rating, next lunar day">Rating</span>
       </div>
       {GROUPS.map((g) => {
-        const rows = sites.map((s, i) => ({ s, i })).filter(({ s }) => (s.approximate ? 'custom' : s.program ?? 'reference') === g.id);
+        const rows = sites.map((s, i) => ({ s, i, y: yearOf(s) })).filter(({ s }) => groupOf(s) === g.id)
+          .sort((a, b) => (a.y ?? 9999) - (b.y ?? 9999) || a.i - b.i); // oldest first; undated keep file order
         if (!rows.length) return null;
+        const expanded = open[g.id] ?? (!g.collapsed || rows.some(({ s }) => s.id === selected));
+        const listId = `site-group-${g.id}`;
         return (
           <section key={g.id} className={`site-group${g.id === 'artemis' ? ' featured' : ''}`} aria-label={g.label}>
             <h3 className="site-group-h">
-              <span>{g.label}{g.id === 'artemis' && <small>NASA's current crewed landing regions (Oct 2024)</small>}</span>
-              <span className="num">{rows.length}</span>
+              {g.collapsed ? (
+                <button type="button" className="site-group-toggle" aria-expanded={expanded} aria-controls={listId} onClick={() => setOpen({ ...open, [g.id]: !expanded })}>
+                  <span><span className="site-group-caret" aria-hidden>{expanded ? '▾' : '▸'}</span>{g.label}</span>
+                  <span className="num">{rows.length}</span>
+                </button>
+              ) : (
+                <>
+                  <span>{g.label}{g.id === 'artemis' && <small>NASA's current crewed landing regions (Oct 2024)</small>}</span>
+                  <span className="num">{rows.length}</span>
+                </>
+              )}
             </h3>
-            <ul className="site-list">
-              {rows.map(({ s, i }) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={onSelect} />)}
-            </ul>
+            {expanded && (
+              <ul className="site-list" id={listId}>
+                {rows.map(({ s, i }) => <Row key={s.id} info={s} data={all[i]} t={tq} selected={s.id === selected} onSelect={onSelect} />)}
+              </ul>
+            )}
           </section>
         );
       })}

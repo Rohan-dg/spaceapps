@@ -1,0 +1,16 @@
+{
+ "id": "im-2",
+ "dem": "LDEM_80S_20M",
+ "resM": 20.0,
+ "n": 1024,
+ "lat": -84.7906,
+ "lon": 29.1957,
+ "siteRow": 511.83648674841606,
+ "siteCol": 511.9120765194857,
+ "row0": 7788,
+ "col0": 18543,
+ "projOffset": 15199.5,
+ "hMinM": 4593.5,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}
