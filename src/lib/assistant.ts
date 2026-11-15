@@ -18,7 +18,7 @@ export type Action =
   | { type: 'theme'; label: string }
   | { type: 'home'; label: string }
   | { type: 'view'; view: 'panorama' | 'sky' | 'first' | 'shadow'; label: string }
-  | { type: 'deep'; deep: 'calendar' | 'numbers' | 'mission'; label: string }
+  | { type: 'deep'; deep: 'libration' | 'calendar' | 'mission'; label: string }
   | { type: 'site'; id: string; label: string }
   | { type: 'support'; label: string };
 
@@ -76,8 +76,11 @@ export const TOPICS: Topic[] = [
     answer: 'The Horizon panel has three views: Panorama (the skyline with the Sun and Earth at true size), Sky plot (from above) and First person (look around from the mast).',
     actions: [{ type: 'view', view: 'first', label: 'First person' }, { type: 'view', view: 'panorama', label: 'Panorama' }, { type: 'view', view: 'sky', label: 'Sky plot' }] },
   { id: 'export', examples: ['export data', 'download csv', 'json export', 'save the results', 'share a link'],
-    answer: 'Readout has CSV and JSON export. The page address keeps the site, time and comparison, so you can share a link to exactly what you see.',
-    actions: [{ type: 'deep', deep: 'numbers', label: 'Open the Readout' }] },
+    answer: 'CSV and JSON export sit under the Libration & orbit tab in Detailed analysis. The page address keeps the site, time and comparison, so you can share a link to exactly what you see.',
+    actions: [{ type: 'deep', deep: 'libration', label: 'Open export' }] },
+  { id: 'libration', examples: ['libration', 'earth wobble', 'why does earth move in the sky', 'orbital variation', 'perigee apogee', 'earth moon distance', 'lunar seasons', 'does earth stay in view'],
+    answer: 'The Libration & orbit tool (Detailed analysis, first tab) shows Earth\'s wobble in the lunar sky (about ±8° in longitude and ±7° in latitude), the Earth–Moon distance from perigee to apogee, the Sun\'s ±1.5° seasonal swing, and whether libration hides Earth at this site or is the only reason it is ever in view.',
+    actions: [{ type: 'deep', deep: 'libration', label: 'Open Libration & orbit' }] },
   { id: 'data', examples: ['where does the data come from', 'how accurate is this', 'data sources', 'is this real data', 'jpl horizons', 'lola terrain', 'method'],
     answer: 'Terrain is NASA LRO LOLA (40 m near the south pole, about 1.9 km elsewhere). Skylines are traced 150 km out with the Moon\'s curvature. Sun and Earth positions come from astronomy-engine and agree with JPL Horizons to within 0.004°. Coordinates marked to verify are approximate.',
     actions: [{ type: 'about', label: 'About the data and method' }] },
