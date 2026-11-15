@@ -74,7 +74,7 @@ const COPY = {
       good: 'Good power, next lunar day', none: 'None in this window',
     },
     sites: 'Landing sites', review: 'Review site', pick2: 'Click a second site to compare', plan: 'Plan launch', logic: 'Show logic', explain: 'Explain',
-    fPos: 'Position', fElev: 'Elevation', fDem: 'Terrain model', fNow: 'Now', fSrc: 'Source', empty: 'Select a site in the table or on the Moon.',
+    fPos: 'Position', fElev: 'Elevation', fDem: 'Terrain model', fNow: 'Now', empty: 'Select a site in the table or on the Moon.',
     views: { panorama: 'Panorama', sky: 'Sky plot', first: 'First person', shadow: 'Shadow map' } as Record<string, string>,
     hz: ['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth. No air means no refraction: the skyline is pure geometry, the highest terrain in each direction with the Moon\'s curvature.'],
     next: ['Next 30 days', 'When the site is sunlit and when Earth is above the horizon. Click to jump to a time.'],
@@ -95,7 +95,7 @@ const COPY = {
       good: 'Sunniest over the next month', none: 'None at the moment',
     },
     sites: 'Places to land', review: 'About this place', pick2: 'Pick a second place to compare', plan: 'Plan a trip here', logic: 'How it works', explain: 'About the app',
-    fPos: 'Where it is', fElev: 'Height', fDem: 'Map used', fNow: 'Right now', fSrc: 'Where this comes from', empty: 'Pick a place from the list or click a dot on the Moon.',
+    fPos: 'Where it is', fElev: 'Height', fDem: 'Map used', fNow: 'Right now', empty: 'Pick a place from the list or click a dot on the Moon.',
     views: { panorama: 'Skyline', sky: 'Sky map', first: 'Stand here', shadow: 'Shadows nearby' } as Record<string, string>,
     hz: ['What the sky looks like from here', 'The hills around this spot and where the Sun and Earth are. When the Sun is above the hills, it is sunny. There is no air on the Moon, so light is not bent: what you see is exactly what you get.'],
     next: ['The next 30 days', 'Coloured stretches show when this spot is sunny and when Earth is in view. Click to jump to a day.'],
@@ -572,7 +572,6 @@ export default function App() {
                     {expert && <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>{L.fDem}</small></div>}
                     <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '-'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '-'}</b><small>{L.fNow}</small></div>
                   </div>
-                  <p className="ct-src"><small>{L.fSrc}</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
                 </div>
               ) : <p className="ct-empty">{L.empty}</p>}
             </section>
