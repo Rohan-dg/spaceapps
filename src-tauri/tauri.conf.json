@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Lunar Site Compare",
+  "productName": "Sol Teris",
   "version": "0.1.0",
   "identifier": "org.spaceapps.lunarsitecompare",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Lunar Site Compare",
+        "title": "Sol Teris",
         "width": 1440,
         "height": 900,
         "resizable": true,

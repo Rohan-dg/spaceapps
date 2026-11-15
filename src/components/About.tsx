@@ -9,7 +9,7 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="about-h" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <button className="icon-btn modal-close" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        <h2 id="about-h">About Lunar Site Compare</h2>
+        <h2 id="about-h">About Sol Teris</h2>
 
         <h3>The problem</h3>
         <p>
