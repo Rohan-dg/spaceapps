@@ -206,7 +206,13 @@ export default function App() {
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
-  const allSites = useMemo(() => [...(doc?.sites ?? []), ...customs], [doc, customs]);
+  const allSites = useMemo(() => [...(doc?.sites ?? []), ...(expert ? customs : [])], [doc, customs, expert]);
+  // switching to Normal drops any custom point from the selection (it stays saved for Expert)
+  useEffect(() => {
+    if (expert) return;
+    setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
+    setPartner((p) => (p && p.startsWith('custom') ? null : p));
+  }, [expert]);
   const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
   // crash and impact sites load only when their (collapsed) group in the site list is opened
   const lazyIds = useMemo(() => new Set(allSites.filter(isAttempt).map((s) => s.id)), [allSites]);
@@ -445,16 +451,17 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={comparePoint} closeUp={closeUp} onPointClick={mode === 'explore' ? comparePoint : undefined} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} />
           </Suspense>
         </div>
         {mode === 'explore' && (
           <aside className="ct-side">
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span>
-                {customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
+                {expert && customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
               <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} onRemove={removePoint} />
-              <CustomSite doc={doc} onReady={addCustom} />
+              {/* your own points (clicked or typed) are an expert tool; Normal mode works with the listed sites only */}
+              {expert && <CustomSite doc={doc} onReady={addCustom} />}
             </section>
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>{L.review}</h2></header>
