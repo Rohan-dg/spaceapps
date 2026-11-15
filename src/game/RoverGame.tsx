@@ -169,7 +169,6 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     <div className="rg-world" ref={host} aria-label="Interactive lunar terrain. Drag to orbit the camera and scroll to zoom." />
     <header className="rg-bar">
       <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">Rover mission</h1><span>{rover.callsign} · {rover.basis} · {site?.short || site?.name}</span></div></div>
-      {hud && stage !== 'brief' && <div className="rg-score" aria-live="polite"><span>Score</span><strong>{fmt(hud.score)}</strong>{hud.combo > 1 && <em>×{hud.combo} combo</em>}<small>Targets {hud.bonus}/{hud.bonusTotal}</small></div>}
       <div className="rg-clock"><strong>{utc(hud?.t ?? ready?.t ?? t)} UTC</strong><span>{hud?.rate ?? RATE}× simulation time{stage === 'pause' ? ' · Paused' : ''}</span></div>
       <div className="rg-bar-actions"><button onClick={() => { pause(); setHelp(true); }} disabled={stage !== 'play' && stage !== 'pause'}>Controls</button><button onClick={playing ? pause : resume} disabled={stage !== 'play' && stage !== 'pause'} aria-label={playing ? 'Pause mission' : 'Resume mission'}><RoverGlyph kind={playing ? 'pause' : 'play'} /></button><button onClick={close} aria-label="Exit rover mission"><RoverGlyph kind="close" /></button></div>
     </header>
@@ -199,6 +198,12 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       </div>
 
       {hud && !hud.earthUp && (transmit || Date.now() - signalFlash < 5000) && <div className="rg-alert" role="alert"><RoverGlyph kind="earth" /><span><b>No Earth signal</b> Earth is behind the terrain, so you can't transmit. Drive until Earth is in view, or hold <kbd>F</kbd> to wait for it.</span></div>}
+      {hud && <div className={`rg-points${hud.combo > 1 ? ' combo' : ''}`} aria-live="polite" aria-label={`Score ${fmt(hud.score)} points`}>
+        <span className="rg-pts-star" aria-hidden="true">★</span>
+        <span className="rg-pts-n"><strong key={hud.score}>{fmt(hud.score)}</strong><small>points</small></span>
+        {hud.combo > 1 && <em>×{hud.combo} combo!</em>}
+        <span className="rg-pts-t" title="Science targets scanned"><i aria-hidden="true">◆</i> {hud.bonus}/{hud.bonusTotal}</span>
+      </div>}
       {hud?.gain && <div className="rg-gain" key={hud.gain.id}><b>+{fmt(hud.gain.pts)}</b><span>{hud.gain.label}</span></div>}
       {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}

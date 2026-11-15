@@ -496,6 +496,10 @@ export class Game {
   }
   begin() {
     if (this.state !== 'brief') return;
+    // the briefing slowly circles the rover; start driving from straight behind it, looking the way it faces
+    // (toward the first objective), so forward on the keys is forward on screen
+    this.setView('chase'); this.camAz = this.psi / D2R;
+    this.lens = this.lensTo = 0; this.tgt.set(0, 0, 0); this.keys.clear(); this.v = 0; this.yawRate = 0;
     this.state = 'play'; this.syncMarkers(); this.syncBonus(); this.say(STORY.intro);
     this.say({ from: 'Mission control', text: `${this.plan.bonus.length} science targets are marked in red. Drive over one to scan it; scan several in a row for a combo.` });
   }
