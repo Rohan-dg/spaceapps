@@ -86,8 +86,6 @@ const SCALES: { id: Scale; label: string; km: number }[] = [
   { id: 'moon', label: 'Moon', km: 7200 },
   { id: 'region', label: '200 km', km: 260 },
   { id: 'site', label: '10 km', km: 9 },
-  { id: 'ground', label: '50 m', km: 0.06 },
-  { id: 'boots', label: '1 m', km: 0.0016 },
 ];
 
 const v3 = (a: V3) => new THREE.Vector3(a[0], a[1], a[2]);
