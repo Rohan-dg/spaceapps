@@ -1,8 +1,11 @@
-/* Saans (Displaay Type Foundry, commercial). Self-hosted from public/fonts/ once licensed files are added
-   (Saans-Regular/Medium/SemiBold.woff2); a locally installed Saans is used too. Until then Inter takes over. */
-@font-face { font-family: 'Saans'; src: local('Saans Regular'), local('Saans-Regular'), url('/fonts/Saans-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Saans'; src: local('Saans Medium'), local('Saans-Medium'), url('/fonts/Saans-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Saans'; src: local('Saans SemiBold'), local('Saans-SemiBold'), url('/fonts/Saans-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+/* Saans (Displaay Type Foundry), used with the foundry's permission for the NASA Space Apps entry. The files in
+   public/fonts/ are shipped exactly as supplied (no conversion or renaming). Weights on hand: Light 300, Bold 700,
+   Heavy 900 (+ italics); text at 400-500 renders in Light and 600 in Bold until Regular/Medium are added. */
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Light'), url('/fonts/Saans-TRIAL-Light.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Bold'), url('/fonts/Saans-TRIAL-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Bold Italic'), url('/fonts/Saans-TRIAL-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Heavy'), url('/fonts/Saans-TRIAL-Heavy.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Saans'; src: local('Saans-TRIAL Heavy Italic'), url('/fonts/Saans-TRIAL-HeavyItalic.ttf') format('truetype'); font-weight: 900; font-style: italic; font-display: swap; }
 
 /*
  * Launcher-style styling: dark first, near-black window with hairline borders, rounded panels,
@@ -28,8 +31,8 @@
   --panel-shadow: rgba(255, 255, 255, 0.05) 0 1px 0 0 inset, rgba(255, 255, 255, 0.07) 0 0 0 1px, rgba(0, 0, 0, 0.2) 0 -1px 0 0 inset;
   --glass: rgba(4, 5, 6, 0.72);
   color-scheme: dark;
-  --font-display: 'Saans', 'Saans Trial', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-body: 'Saans', 'Saans Trial', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Saans', 'Saans-TRIAL', 'Saans TRIAL', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Saans', 'Saans-TRIAL', 'Saans TRIAL', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --r: 8px; --r-lg: 16px;
 }
