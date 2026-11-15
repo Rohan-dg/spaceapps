@@ -2008,3 +2008,6 @@ html[data-ui-switch]::view-transition-group(ct-bar), html[data-ui-switch]::view-
 .sv-diff dd { margin: 4px 0 6px; font-size: 20px; font-weight: 500; color: var(--ink); }
 .sv-diff p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
 @media (max-width: 720px) { .sv { padding-top: 20px; } .sv-hero h2 { font-size: 28px; } .sv-big { font-size: 20px; } .sv-diff { grid-template-columns: 1fr; gap: 16px; } }
+
+/* HUD panels sit above the Sun / Earth edge arrows and site labels, so nothing draws over their text */
+.moon-hud { z-index: 4; }
