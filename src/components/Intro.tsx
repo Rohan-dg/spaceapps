@@ -118,6 +118,8 @@ export default function Intro() {
         </svg>
         <span className="intro-word">Sol Teris</span>
       </div>
+      {/* Space Apps rule: SI-generated images carry a visible watermark (the emblem's SVG was written with Claude) */}
+      <span className="intro-si">SI-generated artwork: emblem drawn in code written with Claude (Anthropic)</span>
     </div>
   );
 }
