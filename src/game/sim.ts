@@ -35,13 +35,22 @@ export const newVitals = (pct = 55): Vitals => ({ wh: (SPEC.batteryWh * pct) / 1
 
 /** Advance battery and temperature by dtH hours of game time. A flat battery runs nothing, heater included. */
 export function stepVitals(v: Vitals, dtH: number, l: Loads): Vitals {
+  if (!Number.isFinite(dtH) || dtH <= 0) return { ...v };
+  // Substep long waits so the thermostat and battery cannot overshoot at high time acceleration.
+  if (dtH > 1 / 120) {
+    const n = Math.ceil(dtH * 120);
+    let out = v;
+    for (let i = 0; i < n; i++) out = stepVitals(out, dtH / n, l);
+    return out;
+  }
   const alive = v.wh > 0;
   const heaterW = alive ? Math.max(0, Math.min(SPEC.heaterMaxW, (SPEC.heaterOnC - v.tempC) * (SPEC.heaterMaxW / 5))) : 0;
-  const work = alive ? l.drive * SPEC.driveW + (l.dig ? SPEC.digW : 0) + (l.tx ? SPEC.txW : 0) : 0;
+  const work = alive ? Math.max(0, Math.min(2, l.drive)) * SPEC.driveW + (l.dig ? SPEC.digW : 0) + (l.tx ? SPEC.txW : 0) : 0;
   const loadW = alive ? SPEC.idleW + work + (l.lamp ? SPEC.lampW : 0) + heaterW : 0;
-  const solarW = SPEC.solarW * l.sunFrac;
+  const sunFrac = Math.max(0, Math.min(1, l.sunFrac));
+  const solarW = SPEC.solarW * sunFrac;
   const wh = Math.max(0, Math.min(SPEC.batteryWh, v.wh + (solarW - loadW) * dtH));
-  const env = SPEC.envDarkC + (SPEC.envSunC - SPEC.envDarkC) * l.sunFrac;
+  const env = SPEC.envDarkC + (SPEC.envSunC - SPEC.envDarkC) * sunFrac;
   const tempC = v.tempC + ((env - v.tempC) / SPEC.tauH + heaterW * SPEC.heaterCPerWh + work * SPEC.wasteCPerWh) * dtH;
   return { wh, tempC, heaterW, solarW, loadW };
 }
@@ -63,6 +72,7 @@ export const distance = dist;
  */
 export function planMission(m: Maps, seed = 1): MissionPlan | null {
   const { n, halfM } = m, step = (2 * halfM) / n;
+  if (n < 2 || halfM <= 0 || [m.sun, m.earth, m.slope, m.elev].some((a) => a.length !== n * n)) return null;
   const at = (k: number): Pt => ({ e: -halfM + ((k % n) + 0.5) * step, n: halfM - (Math.floor(k / n) + 0.5) * step });
   const all = Array.from({ length: n * n }, (_, k) => k);
   const nearest = (to: Pt, ok: (k: number, p: Pt) => boolean) => {
@@ -74,24 +84,37 @@ export function planMission(m: Maps, seed = 1): MissionPlan | null {
   const O = { e: 0, n: 0 };
   const start = nearest(O, (k) => flat(k, 10));
   if (!start || dist(start, O) > 150) return null;
-  const charge = nearest(start, (k, p) => lit(k) && flat(k) && dist(p, start) >= 60 && dist(p, O) < 620)
-    ?? nearest(start, (k, p) => lit(k) && flat(k) && dist(p, O) < 620);
+  // A flat destination across an impassable ridge is not a playable objective.
+  const startK = all.reduce((a, b) => dist(at(a), start) < dist(at(b), start) ? a : b);
+  const reachable = new Uint8Array(n * n), todo = [startK]; reachable[startK] = 1;
+  while (todo.length) {
+    const k = todo.pop()!, i = k % n, j = Math.floor(k / n);
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const x = i + di, y = j + dj, a = y * n + x;
+      if (x < 0 || y < 0 || x >= n || y >= n || reachable[a] || !flat(a, 23) || dist(at(a), O) > 680) continue;
+      if (!Number.isFinite(m.elev[a]) || Math.abs(m.elev[a] - m.elev[k]) / step > Math.tan(23 * Math.PI / 180)) continue;
+      reachable[a] = 1; todo.push(a);
+    }
+  }
+  const driveable = (k: number, deg = 12) => !!reachable[k] && flat(k, deg);
+  const charge = nearest(start, (k, p) => lit(k) && driveable(k) && dist(p, start) >= 60 && dist(p, O) < 620)
+    ?? nearest(start, (k, p) => lit(k) && driveable(k) && dist(p, O) < 620);
   if (!charge) return null;
-  const phone = nearest(charge, (k, p) => m.earth[k] >= 128 && flat(k) && dist(p, O) < 650);
+  const phone = nearest(charge, (k, p) => m.earth[k] >= 128 && driveable(k) && dist(p, O) < 650);
   if (!phone) return null;
 
   // patches of shadow: connected texels with no Sun at all on ground a rover can drive
   const seen = new Uint8Array(n * n);
   let zone: { cells: number[]; c: Pt } | null = null, zs = Infinity;
   for (const k0 of all) {
-    if (seen[k0] || m.sun[k0] > 10 || !flat(k0, 15)) continue;
+    if (seen[k0] || m.sun[k0] > 10 || !driveable(k0, 15)) continue;
     const cells: number[] = [], q = [k0]; seen[k0] = 1;
     while (q.length) {
       const k = q.pop()!; cells.push(k);
       const i = k % n, j = Math.floor(k / n);
       for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const a = i + di, b = j + dj, kk = b * n + a;
-        if (a < 0 || b < 0 || a >= n || b >= n || seen[kk] || m.sun[kk] > 10 || !flat(kk, 15)) continue;
+        if (a < 0 || b < 0 || a >= n || b >= n || seen[kk] || m.sun[kk] > 10 || !driveable(kk, 15)) continue;
         seen[kk] = 1; q.push(kk);
       }
     }
@@ -109,7 +132,7 @@ export function planMission(m: Maps, seed = 1): MissionPlan | null {
   // ice: three shadowed spots near the zone centre, spread apart, picked in a repeatable shuffled order
   let s = seed >>> 0 || 1;
   const rnd = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
-  const cand = zone.cells.filter((k) => flat(k)).map(at).filter((p) => dist(p, zone!.c) < 95).map((p) => ({ p, r: rnd() })).sort((a, b) => a.r - b.r);
+  const cand = zone.cells.filter((k) => driveable(k)).map(at).filter((p) => dist(p, zone!.c) < 95).map((p) => ({ p, r: rnd() })).sort((a, b) => a.r - b.r);
   const ice: Pt[] = [];
   for (const { p } of cand) { if (ice.every((q) => dist(p, q) >= 28)) ice.push(p); if (ice.length === 3) break; }
   if (ice.length < 2) return null;
@@ -118,9 +141,10 @@ export function planMission(m: Maps, seed = 1): MissionPlan | null {
   let haven: Pt | null = null, hh = -Infinity;
   for (const k of all) {
     const p = at(k);
-    if (lit(k) && m.earth[k] >= 128 && flat(k, 10) && dist(p, O) < 660 && dist(p, zone.c) > 100 && m.elev[k] > hh) { hh = m.elev[k]; haven = p; }
+    if (lit(k) && m.earth[k] >= 128 && driveable(k, 10) && dist(p, O) < 660 && dist(p, zone.c) > 100 && m.elev[k] > hh) { hh = m.elev[k]; haven = p; }
   }
-  return { start, charge, phone, zone: { c: zone.c, r }, ice, haven: haven ?? phone };
+  if (!haven) return null;
+  return { start, charge, phone, zone: { c: zone.c, r }, ice, haven };
 }
 
 /* ---------- the quest ---------- */
@@ -152,13 +176,14 @@ export function advance(q: Quest, plan: MissionPlan, c: QuestCtx, ev: QuestEvent
   const next = (p: Phase) => ({ q: { ...q, phase: PHASES[PHASES.indexOf(p) + 1] }, done: p, iceFound: null, dry: false });
   const same = { q, done: null, iceFound: null, dry: false };
   if (ev.type === 'dug') {
+    if (q.phase !== 'ice' || !c.parked || c.battPct <= 0) return same;
     const i = plan.ice.findIndex((p, k) => !q.found[k] && dist(p, c.pos) <= DIG_M);
     if (i < 0) return { ...same, dry: true };
     const found = q.found.map((f, k) => f || k === i), all = found.every(Boolean);
     return { q: { phase: q.phase === 'ice' && all ? 'uplink' : q.phase, found }, done: q.phase === 'ice' && all ? 'ice' : null, iceFound: i, dry: false };
   }
-  if (ev.type === 'sent') return q.phase === 'phone' || q.phase === 'uplink' ? next(q.phase) : same;
-  if (q.phase === 'charge' && c.battPct >= CHARGE_PCT && dist(c.pos, plan.charge) <= REACH_M * 1.5) return next('charge');
+  if (ev.type === 'sent') return c.earthUp && c.parked && c.battPct > 0 && (q.phase === 'phone' || q.phase === 'uplink') ? next(q.phase) : same;
+  if (q.phase === 'charge' && c.parked && c.sunFrac > 0.5 && c.battPct >= CHARGE_PCT && dist(c.pos, plan.charge) <= REACH_M * 1.5) return next('charge');
   if (q.phase === 'haven' && c.parked && c.earthUp && c.sunFrac > 0.5 && dist(c.pos, plan.haven) <= REACH_M) return next('haven');
   return same;
 }
@@ -172,7 +197,7 @@ export function iceSignal(q: Quest, plan: MissionPlan, pos: Pt): number {
 
 /** What mission control says. Shown as radio messages; ones marked `link` wait until Earth is in view. */
 export const STORY: Record<'intro' | Phase | 'ice1' | 'dry' | 'lowBatt' | 'cold' | 'noSignal' | 'signalBack' | 'noSun', { from: string; text: string; link?: boolean }> = {
-  intro: { from: 'Mission control', text: 'Good morning, RASSOR. The Sun has just cleared the hills. Your battery is low after the long night: get into the light.', link: true },
+  intro: { from: 'Stored mission brief', text: 'RASSOR, your survey begins here. Reach the charging point, report to Earth, then investigate the shadowed ground. You have enough power to get moving.' },
   charge: { from: 'RASSOR', text: 'Battery charged. Solar panels are only useful where the Sun clears the terrain.' },
   phone: { from: 'Mission control', text: 'We hear you loud and clear. Orbiters saw hydrogen in the shadow near you. That could be water ice. Go and look. Watch your battery: there is no sunlight in there.', link: true },
   ice: { from: 'RASSOR', text: 'All deposits sampled. The data is stored on board. It is worth nothing until Earth has it.' },

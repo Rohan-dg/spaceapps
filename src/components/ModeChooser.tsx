@@ -22,7 +22,7 @@ export default function ModeChooser({ last, onChoose }: { last: Ui | null; onCho
           <button ref={first} className={`chooser-card${last === 'normal' ? ' last' : ''}`} onClick={() => onChoose('normal')}>
             <span className="chooser-k">Education</span>
             <b>Learn how we pick where to land</b>
-            <span>Spin a 3D Moon built from real NASA measurements, watch shadows move through a month-long lunar day, stand on a crater rim to see what blocks the Sun and Earth, and compare two landing sites. A guided tour explains the science at each step, with questions to think about.</span>
+            <span>Explore a 3D Moon built from NASA measurements, compare landing sites, and drive a rover through an ice-survey mission. Manage its battery and temperature while finding sunlight and Earth contact. A guided tour explains the science at each step.</span>
             <small>For students in grades 5 to 12, teachers and classrooms, and science outreach</small>
             {last === 'normal' && <em>Last used</em>}
           </button>

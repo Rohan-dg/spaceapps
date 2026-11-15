@@ -27,6 +27,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 - **3D terrain.** 24 × 24 km around each polar site, lit from the true Sun direction.
 - **3D Moon.** The whole Moon down to 5 m LOLA detail at polar sites. A *Light dark areas* switch floodlights the night side and shadowed craters, and clicking any point shows its coordinates, how much of the Sun is visible, whether Earth is in view, and the share of the next lunar cycle with each.
 - **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point, and searches the terrain for the nearest spot that will be sunlit when the rover gets there (or whether sunrise reaches the start first). Clicking a point on the 3D Moon glides the camera to a top-down view over it (north up); double-clicking flies down for a close-up.
+- **Playable rover mission.** In Education mode, choose **Drive a rover** to operate NASA's RASSOR model on LOLA terrain. Charge in sunlight, establish Earth contact, collect fictional ice samples, transmit the results and park at a safe haven. Battery, temperature, terrain visibility, a north-up map and mission checkpoints support the five objectives. Keyboard and touch controls include chase and mast cameras, perspective zoom, headlights, and accelerated waiting. See [the game notes](docs/ROVER_GAME.md) for controls and scientific limits.
 - **Sun and Earth pointers, Home view.** Rings mark the Sun and Earth when they are on screen; arrows at the edge point the way when they are not. *Home* (or the H key) returns to the whole Moon, north up.
 - **Launch planner.** For the next good landing days at any site or any point on the Moon (Sun up ≥ 70 % and Earth in view ≥ 90 % of the day, or sunlight only for the far side), the best launch time from a NASA launch centre in the United States (Kennedy Space Center or Wallops Flight Facility), with azimuth and orbit inclination. First-order geometry: the parking orbit must contain the Moon's arrival direction.
   Each launch also has an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with times, a speed-change (Δv) budget and a diagram of the transfer (patched conics, timed to meet the Moon at arrival).
@@ -89,6 +90,7 @@ python scripts/build_terrain_tiles.py
 | 3D Moon terrain | [NASA SVS CGI Moon Kit](https://svs.gsfc.nasa.gov/4720): LOLA `ldem_64` (64 px/deg, about 474 m) streamed as 5° mesh tiles, LROC WAC colour 16k |
 | 3D polar terrain | LOLA `LDEM_80S_80M` (148 m cap) and 5, 10, 20 m windows around each polar site |
 | Sun and Earth positions | [astronomy-engine](https://github.com/cosinekitty/astronomy) |
+| Rover model | NASA's [RASSOR model collection](https://github.com/nasa/NASA-3D-Resources), adapted into articulated, compressed GLB geometry |
 | Validation | JPL Horizons (DE441) |
 | Site coordinates | Published papers and releases, see [References](#references) |
 
