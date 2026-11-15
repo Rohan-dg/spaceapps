@@ -754,18 +754,16 @@ kbd {
 
 /* 3D Moon: Sun and Earth pointers, home row */
 .hud-home-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
-.sky-ptrs .sky-ptr { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; will-change: transform; color: var(--ptr); }
+.sky-ptrs .sky-ptr { position: absolute; z-index: 3; left: 0; top: 0; width: 0; height: 0; opacity: 0; will-change: transform; color: var(--ptr); }
 .sky-ptr.sun { --ptr: #fff; }
 .sky-ptr.earth { --ptr: #63a1ff; }
-.sky-ptr i { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ptr); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55); }
-.sky-ptr b { display: none; position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; transform: rotate(var(--ang, 0rad)); }
-.sky-ptr b::before { content: ''; position: absolute; left: 3px; top: 3px; border: 6px solid transparent; border-left: 11px solid var(--ptr); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
-.sky-ptr span { position: absolute; left: 15px; top: -8px; font: 600 11px/1 var(--font-body); white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 6px #000; }
-.sky-ptr em { display: none; font-style: normal; font-weight: 400; color: #c9c9c9; }
-.sky-ptr.edge i { display: none; }
-.sky-ptr.edge b { display: block; }
-.sky-ptr.edge span { left: -20px; top: 12px; }
-.sky-ptr.blocked i { border-style: dashed; opacity: 0.7; }
+/* edge arrow: a chevron on a stem, drawn as a stroke so it stays crisp at any angle */
+.sky-ptr b { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; transform: rotate(var(--ang, 0rad)); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9)); }
+.sky-ptr svg { display: block; width: 24px; height: 24px; fill: none; stroke: var(--ptr); stroke-width: 2.2; stroke-linecap: square; stroke-linejoin: miter; }
+.sky-ptr span { position: absolute; left: 0; top: 0; transform: translate(calc(-50% + var(--lx, 0px)), calc(-50% + var(--ly, 0px)));
+  font: 600 11.5px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; padding: 3px 5px; background: rgba(0, 0, 0, 0.62); }
+.sky-ptr em { display: none; font-style: normal; font-weight: 400; letter-spacing: 0.04em; color: #c9c9c9; }
+.sky-ptr.blocked b { opacity: 0.6; }
 .sky-ptr.blocked em { display: inline; }
 
 /* Launch planner: flight path */
@@ -1008,9 +1006,9 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 
 .hero { padding: 14px 16px 0; }
 .ct-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 34%); gap: 14px; padding: 14px 16px 0; align-items: stretch; }
-.ct-split .moon { height: calc(100vh - 196px); min-height: 520px; border-radius: 0; }
+.ct-split .moon { height: calc(100vh - 252px); min-height: 480px; border-radius: 0; }
 .ct-map { min-width: 0; }
-.ct-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; max-height: calc(100vh - 196px); min-height: 520px; }
+.ct-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; max-height: calc(100vh - 252px); min-height: 480px; }
 .ct-side .ct-panel:first-child { flex: 1 1 55%; min-height: 0; overflow: auto; }
 .ct-side .ct-panel:last-child { flex: 1 1 45%; min-height: 0; overflow: auto; }
 .ct-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 0; display: flex; flex-direction: column; }
@@ -1938,3 +1936,5 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .moon.expanded, .ct-split .moon.expanded { position: fixed; inset: 0; z-index: 900; width: 100vw; height: 100dvh; min-height: 0; max-height: none; border-radius: 0; margin: 0; }
 /* Normal mode: no launch planning from the 3D view's probed point */
 .ui-normal .hud-probe-launch { display: none; }
+/* the Sun and Earth edge arrows draw above the HUD text they may cross */
+.moon-markers.sky-ptrs { z-index: 3; }
