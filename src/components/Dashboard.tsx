@@ -33,7 +33,7 @@ const WORD: Record<Level, string> = { green: 'Good', amber: 'Marginal', red: 'Po
 const BARS: Record<Level, number> = { green: 3, amber: 2, red: 1 };
 const sgn = (x: number, d = 2) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(d)}`;
 
-/** Big dot-matrix countdown. Leading zeros are dimmed, like an idle segment display. */
+/** Big light-weight countdown. Leading zeros are dimmed. */
 function DotClock({ e, now }: { e: Event | null; now: number }) {
   let groups: [string, string][];
   if (!e || e.t === null) groups = [['--', 'hrs'], ['--', 'min']];
@@ -226,7 +226,7 @@ export default function Dashboard(p: DashProps) {
           <button key={x.id} className={p.sheet === x.id ? 'on' : ''} aria-pressed={p.sheet === x.id} aria-label={x.label} disabled={!data && x.id !== 'sites'}
             onClick={() => p.onSheet(p.sheet === x.id ? null : x.id)}>{x.icon}<span className="dock-tip">{x.label}</span></button>
         ))}
-        <span className="dock-sep" aria-hidden />
+        {p.utils.length > 0 && <span className="dock-sep" aria-hidden />}
         {p.utils.map((x) => (
           <button key={x.label} className="util" aria-label={x.label} onClick={x.onClick}>{x.icon}<span className="dock-tip">{x.label}</span></button>
         ))}
@@ -290,7 +290,7 @@ export default function Dashboard(p: DashProps) {
         </section>
 
         {m && earthE && (
-          <section className={`dg dash-alert${m.earthUp ? '' : ' down'}`} aria-label="Earth contact">
+          <section className="dg glass dash-alert" aria-label="Earth contact">
             <header className="dg-h"><p><b>{m.earthUp ? 'Earthset' : 'Earthrise'}</b> {m.earthUp ? 'end of direct contact' : 'blackout ends'}</p><Open onClick={() => p.onSheet('slip')} label="Open Date slip" /></header>
             <p className="da-big">
               {eLeft === null ? <b className="da-none">{m.earthUp ? 'Always in view' : 'Never in view'}<small>{earthE.beyondRange ? 'no change before the data ends' : 'a relay is needed'}</small></b> : eLeft >= DAY
@@ -299,7 +299,7 @@ export default function Dashboard(p: DashProps) {
             </p>
             <p className="da-sub num">Earth in view {m.earthPct.toFixed(0)}% of the lunar day{m.longestNoCommH > 0 ? ` · longest gap ${formatDuration(m.longestNoCommH * 3600_000)}` : ''}</p>
             {eFrac !== null && <div className="da-track" aria-hidden><Ticks frac={eFrac} n={40} /></div>}
-            <button className="da-cta" onClick={() => p.onSheet('slip')}><span>If the landing slips</span><span className="da-go"><Icon name="arrowUpRight" size={15} /></span></button>
+            <button className="da-link" onClick={() => p.onSheet('slip')}>If the landing slips <Icon name="arrowUpRight" size={13} /></button>
           </section>
         )}
       </aside>

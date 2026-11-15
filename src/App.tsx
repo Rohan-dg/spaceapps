@@ -615,6 +615,12 @@ export default function App() {
         </nav>
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} aria-label={L.tabs.missions} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /><span>{L.tabs.missions}</span></button>
         <button className="ct-tutorial" aria-label="Tutorial" onClick={() => setTour(ui)} title="Step-by-step tour of every part of the screen"><Sparkles size={15} /><span>Tutorial</span></button>
+        {dash && <div className="ct-utils">
+          <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={16} /></button>
+          <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={16} /></button>
+          <button aria-label="Help" title="Help (?)" onClick={() => setGuide(true)}><CircleHelp size={16} /></button>
+          <button aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark" onClick={theme.toggle}><Contrast size={16} /></button>
+        </div>}
       </header>
       {!dash && <section className="kp" aria-label="Best sites over the next lunar day">
         <div className="kp-good">
@@ -633,7 +639,7 @@ export default function App() {
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} />
           </Suspense>
         </div>
         {dash && (
@@ -643,13 +649,7 @@ export default function App() {
             partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null} onCompare={openCompare}
             onPlanLaunch={() => info && planLaunchTo(info.lat, info.lon)} onLogic={() => setMode('calc')} busy={pointBusy}
             sheet={sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
-            utils={[
-              { label: 'Missions (M)', icon: <Satellite size={18} />, onClick: toggleMissions },
-              { label: 'Search (Ctrl K)', icon: <Search size={18} />, onClick: () => setPalette(true) },
-              { label: 'About', icon: <Info size={18} />, onClick: () => setAbout(true) },
-              { label: 'Help', icon: <CircleHelp size={18} />, onClick: () => setGuide(true) },
-              { label: theme.name === 'dark' ? 'Light theme' : 'Dark theme', icon: <Contrast size={18} />, onClick: theme.toggle },
-            ]} />
+            utils={[]} />
         )}
         {mode === 'explore' && !dash && (
           <aside className="ct-side">

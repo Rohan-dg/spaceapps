@@ -120,7 +120,7 @@ interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM:
 const DBL_MS = 260;
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -132,6 +132,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   onPointClick?: (lat: number, lon: number) => void;
   /** Scientific mode: rover range and other engineering tools appear. */
   expert?: boolean;
+  /** start the probed-point panel collapsed (the Scientific dashboard already shows the selected site) */
+  probeCollapsed?: boolean;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
 }) {
@@ -168,7 +170,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [expanded, setExpanded] = useState(false);
   const expandedRef = useRef(false);
   expandedRef.current = expanded;
-  const [probeMin, setProbeMin] = useState(false);
+  const [probeMin, setProbeMin] = useState(probeCollapsed);
+  const [probeColl0, setProbeColl0] = useState(probeCollapsed);
+  if (probeColl0 !== probeCollapsed) { setProbeColl0(probeCollapsed); setProbeMin(probeCollapsed); }
+  const probeCollRef = useRef(probeCollapsed);
+  useEffect(() => { probeCollRef.current = probeCollapsed; }, [probeCollapsed]);
   const [rangeMin, setRangeMin] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
@@ -1208,7 +1214,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       // a click that becomes one of your points is marked by its orange diamond alone, not the probe ring
       st.probePos = pointRef.current ? null : v3(posOf(lat, lon, g.h * st.exag));
       setPeriod(null);
-      setProbeMin(false); setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
+      setProbeMin(probeCollRef.current); setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
       st.request();
       if (rangeOpen) {
         const next = { ...rangeIn, lat: lat.toFixed(4), lon: (((lon % 360) + 360) % 360).toFixed(4) };
@@ -1610,7 +1616,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
           {/* a direct switch in both modes, not tucked in the Display menu */}
           <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
-            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Light dark areas</button>
+            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (
