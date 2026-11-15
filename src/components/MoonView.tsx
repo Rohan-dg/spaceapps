@@ -822,7 +822,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     st.markers = siteList.map((s) => {
       const b = document.createElement('button');
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
-      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id === secondId ? ' pair' : ''}`;
+      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') ? ' mine' : ''}${s.id === secondId ? ' pair' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
