@@ -812,7 +812,7 @@ kbd {
 .hud-probe .hud-probe-head .hud-collapse { flex: 1; justify-content: flex-start; }
 .hud-probe-sum { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 11px; color: #9a9a9a; }
 .hud-probe-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 320ms cubic-bezier(0.32, 0.72, 0, 1), opacity 240ms; }
-.hud-probe-body > div { overflow: hidden; min-height: 0; padding-top: 6px; }
+.hud-probe-body > div { overflow: hidden; min-height: 0; padding-bottom: 6px; }
 .hud-probe.min .hud-probe-body { grid-template-rows: 0fr; opacity: 0; }
 .hud-probe.min { overflow: hidden; }
 .hud-probe.min .hud-probe-head, .hud-range.min .hud-probe-head { margin-bottom: 0; }
@@ -1084,3 +1084,8 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .ct-panel .site-row.selected, .site-row.selected { background: rgba(11, 61, 145, 0.45); box-shadow: inset 3px 0 0 #0071BC; }
 .ct-tabs button[aria-selected='true'] { color: #0071BC; }
 .ct-tabs button::after { background: #0071BC; }
+
+/* Probed point opens upward: the panels sit at the bottom of the HUD column and the probe's header stays at the
+   bottom, so its details unfold from the bottom to the top */
+.moon-hud > .hud-panels { justify-content: flex-end; }
+.hud-panels .hud-probe { display: flex; flex-direction: column-reverse; }
