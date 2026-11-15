@@ -362,6 +362,7 @@ kbd {
 .cal-body { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
 /* Calendar: year view in the manner of a desktop calendar app. Plain numbers, round day marks, red month titles. */
 .cal-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 22px 28px; max-height: 640px; overflow: auto; padding: 4px 6px 8px; align-content: start; }
+.cal-sym { width: 13px; height: 13px; flex: none; vertical-align: -2px; margin-right: 2px; }
 .cal-month { display: flex; flex-direction: column; gap: 4px; }
 .cal-month h4 { display: flex; align-items: baseline; gap: 6px; margin: 0 0 2px; font: 600 17px/1.2 'SF Pro Display', var(--font-num); letter-spacing: -0.01em; color: var(--accent); }
 .cal-month h4 .num { font: 400 13px var(--font-num); color: var(--ink-2); }
