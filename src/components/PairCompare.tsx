@@ -28,7 +28,36 @@ function win(l: Line): Better {
   return (l.a.v > l.b.v) === l.higher ? 'a' : 'b';
 }
 
-export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, onCloseUp }: { a: SiteData; b: SiteData; t: number; onSwap: () => void; onClear: () => void; expert?: boolean; onCloseUp?: (id: string) => void }) {
+/** Inputs for a clicked point: what is already known (filled, read-only) and what the user can set, then recalculate. */
+function PointForm({ d, tag, range, t, busy, onRecompute }: { d: SiteData; tag: 'A' | 'B'; range?: { start: string; end: string }; t: number; busy?: string | null; onRecompute?: (lat: number, lon: number, mastM: number, slot: 'A' | 'B') => void }) {
+  const [lat, setLat] = useState(String(d.info.lat));
+  const [lon, setLon] = useState(String(((d.info.lon % 360) + 360) % 360));
+  const [mast, setMast] = useState(String(d.horizon.observerHeightM ?? 2));
+  const la = Number(lat), lo = Number(lon), m = Number(mast);
+  const err = !(la >= -90 && la <= 90) ? 'Latitude must be between −90 and 90.' : !(lo >= -180 && lo <= 360) ? 'Longitude must be between −180 and 360 (east positive).' : !(m >= 0 && m <= 100) ? 'Mast height must be between 0 and 100 m.' : null;
+  const outOfRange = range && (t < Date.parse(range.start) || t > Date.parse(range.end));
+  return (
+    <form className="pair-point" onSubmit={(e) => { e.preventDefault(); if (!err) onRecompute?.(la, lo, m, tag); }} aria-label={`Point ${tag} inputs`}>
+      <div className="pair-lander-h"><b>Point {tag}: your inputs</b><small>Filled from NASA data where it exists. Change the editable values and recalculate.</small></div>
+      <label><span>Latitude (° north)</span><span className="pair-in"><input type="number" step="any" value={lat} onChange={(e) => setLat(e.target.value)} /><em>°</em></span></label>
+      <label><span>Longitude (° east)</span><span className="pair-in"><input type="number" step="any" value={lon} onChange={(e) => setLon(e.target.value)} /><em>°</em></span></label>
+      <label><span>Panel / antenna height above ground</span><span className="pair-in"><input type="number" step="any" min={0} value={mast} onChange={(e) => setMast(e.target.value)} /><em>m</em></span></label>
+      <dl className="pair-known">
+        <dt>Ground elevation</dt><dd>{Math.round(d.info.siteHeightM)} m <small>from {d.info.dem}</small></dd>
+        <dt>Terrain resolution</dt><dd>{d.info.demResolutionM ? `${d.info.demResolutionM} m per sample` : 'n/a'}</dd>
+        <dt>Sun and Earth positions</dt><dd>computed for every {Math.round(d.series.stepMs / 60000)} min, {range ? `${range.start.slice(0, 10)} to ${range.end.slice(0, 10)}` : 'data range'}</dd>
+      </dl>
+      {outOfRange && <p className="pair-err">The selected time is outside the data range; pick a date between {range!.start.slice(0, 10)} and {range!.end.slice(0, 10)}.</p>}
+      {err && <p className="pair-err" role="alert">{err}</p>}
+      <button type="submit" className="pair-recalc" disabled={!!err || !!busy}>{busy ? busy : 'Recalculate this point'}</button>
+    </form>
+  );
+}
+
+export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, onCloseUp, range, onRecompute, busy }: {
+  a: SiteData; b: SiteData; t: number; onSwap: () => void; onClear: () => void; expert?: boolean; onCloseUp?: (id: string) => void;
+  range?: { start: string; end: string }; onRecompute?: (lat: number, lon: number, mastM: number, slot: 'A' | 'B') => void; busy?: string | null;
+}) {
   const [lander, setLander] = useState<Lander>(DEFAULT_LANDER);
   const landerErr = validateLander(lander);
   const la = useMemo(() => (landerErr ? null : simulateLander(a.series, t, lander)), [a, t, lander, landerErr]);
@@ -126,6 +155,13 @@ export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, 
         {v.reasons.length > 0 && <> {v.reasons.join('. ')}.</>}
         <small> Success rate weights: sunlight 35 %, Earth contact 25 %, surviving the night 20 %, radio blackouts 10 %, landing opportunities 10 %.</small>
       </p>
+
+      {(a.info.approximate || b.info.approximate) && (
+        <div className="pair-points">
+          {a.info.approximate && <PointForm key={a.info.id} d={a} tag="A" range={range} t={t} busy={busy} onRecompute={onRecompute} />}
+          {b.info.approximate && <PointForm key={b.info.id} d={b} tag="B" range={range} t={t} busy={busy} onRecompute={onRecompute} />}
+        </div>
+      )}
 
       {expert && (
         <form className="pair-lander" onSubmit={(e) => e.preventDefault()} aria-label="Your lander">

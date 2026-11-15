@@ -14,6 +14,8 @@ import { decodeI16, encodeRuns } from '../lib/series';
 
 export interface CustomRequest {
   lat: number; lon: number; demUrl: string; start: string; n: number; stepMin: number;
+  /** Height of the panels / antenna above the ground, m (default 2). */
+  mastM?: number;
   eq: { url: string; hMin: number; quantum: number };
 }
 export const POLAR_LIMIT = -80.5;
@@ -49,7 +51,7 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
         dem = { data: decodeI16(meta.data), size: meta.size, resM: meta.resM, scaleFactor: meta.scaleFactor };
       }
       self.postMessage({ progress: 'Tracing the skyline…' });
-      const h = computeHorizon(dem, q.lat, q.lon, 2, 150);
+      const h = computeHorizon(dem, q.lat, q.lon, q.mastM ?? 2, 150);
       hz = { horizonDeg: h.horizonDeg, siteHeightM: h.siteHeightM, horizonDistKm: h.horizonDistKm, resM: dem.resM, source: 'LDEM_80S_40M → 400 m (in-browser)' };
     } else {
       if (!eq) { self.postMessage({ progress: 'Fetching global LOLA terrain (10 MB)…' }); eq = await loadEq(q.eq); }
@@ -57,7 +59,7 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
       const grid = eq, resM = (Math.PI * 1737400) / grid.hgt;
       const H = (la: number, lo: number) => sampleEq(grid, la, lo);
       const h0 = H(q.lat, q.lon);
-      hz = { horizonDeg: horizonFrom(H, q.lat, q.lon, h0, resM, 150).map((v) => Math.round(v * 1000) / 1000), siteHeightM: h0, horizonDistKm: null, resM, source: `LOLA global, ${(resM / 1000).toFixed(1)} km/px (in-browser)` };
+      hz = { horizonDeg: horizonFrom(H, q.lat, q.lon, h0, resM, 150, q.mastM ?? 2).map((v) => Math.round(v * 1000) / 1000), siteHeightM: h0, horizonDistKm: null, resM, source: `LOLA global, ${(resM / 1000).toFixed(1)} km/px (in-browser)` };
     }
     const key = `${q.start}|${q.n}|${q.stepMin}`;
     if (key !== geomKey) {
@@ -70,7 +72,7 @@ self.onmessage = async (e: MessageEvent<CustomRequest>) => {
       geomKey = key;
     }
     self.postMessage({ progress: 'Marking when each is in view…' });
-    const site = { lat: q.lat, lon: q.lon, heightM: hz.siteHeightM + 2 };
+    const site = { lat: q.lat, lon: q.lon, heightM: hz.siteHeightM + (q.mastM ?? 2) };
     const basis = enuBasis(site);
     const sunEl = new Int16Array(q.n), earthEl = new Int16Array(q.n), sunFrac = new Uint8Array(q.n);
     const sunUp = new Uint8Array(q.n), earthUp = new Uint8Array(q.n);

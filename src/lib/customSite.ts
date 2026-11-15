@@ -18,14 +18,14 @@ export function validateLatLon(lat: number, lon: number): string | null {
 }
 
 /** Runs one point at a time; resolves with a registered SiteData. */
-export function computeSite(doc: SitesDoc, lat: number, lon: number, onProgress: (msg: string) => void): Promise<SiteData> {
+export function computeSite(doc: SitesDoc, lat: number, lon: number, onProgress: (msg: string) => void, mastM = 2): Promise<SiteData> {
   const run = () => new Promise<SiteData>((resolve, reject) => {
     worker ??= new Worker(new URL('../workers/customSite.ts', import.meta.url), { type: 'module' });
     const stepMin = doc.range.stepMin;
     const n = Math.floor((Date.parse(doc.range.end) - Date.parse(doc.range.start)) / (stepMin * 60000)) + 1;
     const base = new URL(import.meta.env.BASE_URL, location.href).href;
     const req: CustomRequest = {
-      lat, lon, demUrl: `${base}dem/south_polar_400m.json`, start: doc.range.start, n, stepMin,
+      lat, lon, mastM, demUrl: `${base}dem/south_polar_400m.json`, start: doc.range.start, n, stepMin,
       eq: { url: `${base}moon/height_4k.png`, hMin: -8982, quantum: 4 },
     };
     worker.onmessage = (e) => {
@@ -34,7 +34,7 @@ export function computeSite(doc: SitesDoc, lat: number, lon: number, onProgress:
       if (m.error) reject(new Error(m.error));
       if (m.done) {
         const { hz, sunEl, earthEl, sunFrac, sunUp, earthUp } = m.done;
-        const id = `custom_${lat.toFixed(3)}_${(((lon % 360) + 360) % 360).toFixed(3)}`;
+        const id = `custom_${lat.toFixed(3)}_${(((lon % 360) + 360) % 360).toFixed(3)}${mastM !== 2 ? `_m${mastM}` : ''}`;
         const series: Series = { id, t0: Date.parse(doc.range.start), stepMs: stepMin * 60000, n, synthetic: false, sunUp, earthUp, sunEl, earthEl, sunFrac };
         const res = Math.round(hz.resM);
         const name = fmtLatLon(lat, lon);
@@ -46,7 +46,7 @@ export function computeSite(doc: SitesDoc, lat: number, lon: number, onProgress:
             source: 'User input', verify: false, siteHeightM: hz.siteHeightM, dem: hz.source, demResolutionM: res, synthetic: false, approximate: true,
             stats: { sunPct: upFraction(sunUp, 0, n) * 100, sunDiskPct: NaN, earthPct: upFraction(earthUp, 0, n) * 100 },
           },
-          horizon: { id, lat, lon, synthetic: false, dem: hz.source, demResolutionM: res, siteHeightM: hz.siteHeightM, observerHeightM: 2, maxRangeKm: 150, horizonDeg: hz.horizonDeg, horizonDistKm: hz.horizonDistKm },
+          horizon: { id, lat, lon, synthetic: false, dem: hz.source, demResolutionM: res, siteHeightM: hz.siteHeightM, observerHeightM: mastM, maxRangeKm: 150, horizonDeg: hz.horizonDeg, horizonDistKm: hz.horizonDistKm },
           series,
         };
         registerSite(d);
