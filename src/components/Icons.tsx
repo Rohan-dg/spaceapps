@@ -80,5 +80,9 @@ const extra: Record<string, ReactNode> = {
   rover: <><rect x="4" y="8" width="16" height="7" rx="1.5" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /><path d="M12 8V4.5M10 4.5h4" /></>,
   lamp: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></>,
   scope: <><circle cx="12" cy="12" r="7.5" /><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" /></>,
+  arrowUpRight: <path d="M7 17 17 7M8.5 7H17v8.5" />,
+  bars: <path d="M4 7.5h9M4 12h16M4 16.5h6" />,
+  slip: <path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" />,
+  gauge: <><path d="M4.6 16.5a8 8 0 1 1 14.8 0" /><path d="m12 13 3.5-4" /></>,
 };
 export const Icon = ({ name, ...p }: P & { name: keyof typeof extra | string }) => <Svg {...p}>{extra[name]}</Svg>;

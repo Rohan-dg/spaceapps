@@ -3,7 +3,7 @@ import { formatDuration, inWords, type Event, type Metrics } from '../lib/metric
 import { findRun, indexAt, timeAt, type Runs, type Series } from '../lib/series';
 
 /** Start of the current lit (or dark) stretch at time t, from the run-length series; null if before the data. */
-function stretchStart(runs: Runs, s: Series, t: number): number | null {
+export function stretchStart(runs: Runs, s: Series, t: number): number | null {
   const i = Math.floor(indexAt(s, t));
   const k = findRun(runs, i);
   if (k >= 0) return timeAt(s, runs[2 * k]);
