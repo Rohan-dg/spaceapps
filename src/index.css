@@ -190,13 +190,13 @@ kbd {
   background: none; color: #fff; font: 500 11px/1 var(--font-body); transition: opacity 200ms; will-change: transform; white-space: nowrap;
 }
 .moon-marker:hover { background: none; }
-.moon-marker i { width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6); flex: none; }
+.moon-marker i { width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6); flex: none; }
 .moon-marker span { opacity: 0.8; text-shadow: 0 1px 2px #000, 0 0 6px #000; }
 .moon-marker:hover span, .moon-marker.on span { opacity: 1; }
 .moon-marker span { transition: opacity 200ms; }
 .moon-marker.crowded span { opacity: 0; pointer-events: none; }
 .moon-marker.crowded:hover span { opacity: 1; }
-.moon-marker.on i { background: #fff; box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff; }
+.moon-marker.on i { background: #ff6b6b; box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff; }
 
 .moon-hud { position: absolute; inset: 0; pointer-events: none; }
 .moon-hud > * { pointer-events: auto; position: absolute; }
