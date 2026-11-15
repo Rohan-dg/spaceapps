@@ -30,6 +30,7 @@ import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSur
 import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
 import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
 import { Icon } from './Icons';
+import { introActive, whenIntroDone } from '../lib/intro';
 const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
 const base = import.meta.env.BASE_URL;
@@ -321,10 +322,15 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.minDistance = R_KM + 60; controls.maxDistance = 40000; controls.enablePan = false;
 
-    let raf = 0, fresh = true;
+    let raf = 0, fresh = true, held = false;
     // request() from anything that changes the picture restarts the antialiasing accumulation;
     // request(false) is the accumulation itself asking for its next frame
-    const request = (reset: unknown = true) => { if (reset !== false) fresh = true; if (!raf) raf = requestAnimationFrame(frame); };
+    const request = (reset: unknown = true) => {
+      if (reset !== false) fresh = true;
+      // nothing is visible behind the opening sting, so draw nothing until it fades (see lib/intro.ts)
+      if (introActive()) { held = true; return; }
+      if (!raf) raf = requestAnimationFrame(frame);
+    };
     const st = {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
@@ -717,8 +723,10 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     // pause rendering work when the Moon is scrolled out of view
     const io = new IntersectionObserver(([en]) => { if (en.isIntersecting) request(); });
     io.observe(el);
+    // start drawing once the opening sting fades, if anything asked for a frame meanwhile
+    const unhold = whenIntroDone(() => { if (held) { held = false; request(); } });
     return () => {
-      alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf);
+      alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf); unhold();
       renderer.domElement.removeEventListener('pointerdown', onDown);
       box.removeEventListener('wheel', onWheel); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
       renderer.domElement.removeEventListener('pointerup', onUp);
@@ -997,10 +1005,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   // first visit: drift in from deep space (runs once per mount; the ref keeps the latest goTo)
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
+  // it waits for the opening sting to fade so the drift-in is actually seen, and the GPU is free while it draws
   useEffect(() => {
-    goToRef.current('moon', 3.4);
-    const tw = hud.current ? gsap.from(hud.current.querySelectorAll('.hud-anim'), { opacity: 0, y: 14, duration: 1.1, ease: 'power3.out', stagger: 0.08, delay: 0.6 }) : null;
-    return () => { tw?.progress(1).kill(); };
+    let tw: ReturnType<typeof gsap.from> | null = null;
+    const cancel = whenIntroDone(() => {
+      goToRef.current('moon', 3.4);
+      tw = hud.current ? gsap.from(hud.current.querySelectorAll('.hud-anim'), { opacity: 0, y: 14, duration: 1.1, ease: 'power3.out', stagger: 0.08, delay: 0.6 }) : null;
+    });
+    return () => { cancel(); tw?.progress(1).kill(); };
   }, []);
 
   /* ---------- toggles ---------- */

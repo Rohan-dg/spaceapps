@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { setIntroActive } from '../lib/intro';
 
 /**
  * Opening sting, on black: the full Sol Teris emblem draws itself line by line, like an instrument being sketched.
@@ -53,9 +54,17 @@ function emblem() {
 }
 
 export default function Intro() {
-  const [show, setShow] = useState(() => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [show, setShow] = useState(() => {
+    const on = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    setIntroActive(on); // the 3D Moon holds its rendering until this clears
+    return on;
+  });
   const [leaving, setLeaving] = useState(false);
   const e = useMemo(emblem, []);
+
+  // the page starts to show through as the fade begins, so let the 3D Moon start then
+  useEffect(() => { if (leaving || !show) setIntroActive(false); }, [leaving, show]);
+  useEffect(() => () => setIntroActive(false), []);
 
   useEffect(() => {
     if (!show) return;
