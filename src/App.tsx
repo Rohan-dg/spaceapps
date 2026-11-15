@@ -44,7 +44,8 @@ function readHash() {
   const t = Number(p.get('t'));
   const cmp = p.get('cmp');
   return {
-    site: p.get('site')?.startsWith('custom') ? 'connecting-ridge' : p.get('site') ?? 'connecting-ridge',
+    // no site is selected until the user picks one
+    site: p.get('site')?.startsWith('custom') ? '' : p.get('site') ?? '',
     t: isFinite(t) && t > 0 ? t : DEFAULT_T,
     mode: (p.get('mode') as Mode) ?? 'explore',
     scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
