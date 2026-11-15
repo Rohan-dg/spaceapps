@@ -238,17 +238,17 @@ export default function App() {
                 </div>
 
                 <div className="instrument">
-                  <h3 className="sec-h step">Epoch</h3>
+                  <header className="pnl-h"><h3>Time</h3><p>The date and time being evaluated. Everything below updates to match.</p></header>
                   <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
                 </div>
                 <div className="instrument">
-                  <h3 className="sec-h step">Status at epoch</h3>
+                  <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
                   <Summary r={res} />
                 </div>
 
                 <div className="instrument">
-                  <div className="view-head">
-                    <h3 className="sec-h step">Horizon</h3>
+                  <div className="view-head pnl-h">
+                    <div><h3>Horizon</h3><p>The terrain skyline seen from the site, with the paths of the Sun and Earth.</p></div>
                     <div className="seg" role="radiogroup" aria-label="View">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
@@ -260,8 +260,8 @@ export default function App() {
                 </div>
 
                 <div className="instrument">
-                  <div className="view-head">
-                    <h3 className="sec-h step">Next 30 days</h3>
+                  <div className="view-head pnl-h">
+                    <div><h3>Next 30 days</h3><p>When the site is sunlit and when Earth is above the horizon. Click to jump to a time.</p></div>
                     <ul className="chart-legend" aria-label="Legend">
                       <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
                       <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
@@ -272,13 +272,13 @@ export default function App() {
                 </div>
 
                 <section className="deep" aria-label="Detail">
-                  <div className="view-head">
-                  <h3 className="sec-h step">Analysis</h3>
-                  <div className="seg" role="tablist" aria-label="Detail panels">
-                    <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
-                    <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>Readout</button>
-                    <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission variables</button>
-                  </div>
+                  <div className="view-head pnl-h">
+                    <div><h3>Detailed analysis</h3><p>{deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'numbers' ? 'Every computed figure for this site and time, with CSV and JSON export.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
+                    <div className="seg" role="tablist" aria-label="Detail panels">
+                      <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
+                      <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
+                      <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
+                    </div>
                   </div>
                   {deep === 'calendar' ? (
                     <Heatmap data={data} t={t} onPick={(x) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }} />

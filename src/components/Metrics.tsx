@@ -37,7 +37,7 @@ export function Summary({ r }: { r: ScenarioResult }) {
   return (
     <section className="answer" aria-label="Status">
       <div className="answer-now">
-        <span className="answer-kind">Now</span>
+        <span className="answer-kind">At this time</span>
         <p className={`now-line${m.sunUp ? ' on-sun' : ''}`}>
           {m.sunUp ? <Sun size={20} className="ico-sun on" aria-hidden /> : <SunDim size={20} className="ico-off" aria-hidden />}
           <span><b>{m.sunUp ? 'In sunlight' : 'In shadow'}</b><small>{m.sunUp ? 'Sun sets' : 'Sun rises'} {eventText(sunNext, m.t)}</small></span>
@@ -48,9 +48,9 @@ export function Summary({ r }: { r: ScenarioResult }) {
         </p>
       </div>
       <AnswerCard title="Power" v={r.power} />
-      <AnswerCard title="DTE comms" v={r.comms} />
+      <AnswerCard title="Radio to Earth" v={r.comms} />
       <p className="answer-foot">
-        <span>Window <span className="num">{m.windowDays.toFixed(1)} d</span>{m.windowTruncated ? ', truncated at data end' : ''}</span>
+        <span>Ratings cover the next <span className="num">{m.windowDays.toFixed(1)} days</span> (one lunar day){m.windowTruncated ? ', cut short where the data ends' : ''}</span>
         <HelpTip label="Rating thresholds" align="right">
           <b>Good</b>: power needs sun at least 70% of the time and no dark spell over about 4 days; radio needs Earth in view at least 90% of the time and no gap over 24 hours.
           <b> Marginal</b>: workable with planning. <b>Poor</b>: needs a different site, date or a relay satellite.
