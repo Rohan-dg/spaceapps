@@ -1140,7 +1140,7 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .site-status { margin-left: 6px; padding: 0 5px; border-radius: 0; border: 1px solid var(--line); font-size: 10.5px; font-weight: 600; color: var(--ink-2); vertical-align: 1px; }
 
 /* ---------- Mission comparison sidebar (toggle: Missions button, rail satellite, M key) ---------- */
-.ct-missions { margin-left: 8px; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; }
+.ct-missions, .ct-tutorial { margin-left: 8px; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; }
 .ct-missions.on { background: var(--accent-fill, var(--accent)); border-color: transparent; color: var(--accent-ink, #fff); }
 .mc {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; width: min(480px, 100vw); overflow-y: auto; overscroll-behavior: contain;
@@ -1708,7 +1708,7 @@ input[type='text'], input[type='number'], input[type='datetime-local'], input[ty
 .ct-bar { top: 8px; margin: 8px 8px 0; border: 1px solid var(--hair); border-radius: var(--r); background: var(--glass);
   -webkit-backdrop-filter: saturate(140%) blur(48px); backdrop-filter: saturate(140%) blur(48px); }
 .ct-tabs button { font-size: 13px; font-weight: 600; }
-.ct-missions { border-color: var(--hair); }
+.ct-missions, .ct-tutorial { border-color: var(--hair); }
 
 /* buttons: neutral light fill with iron text for primary; dark ghost with a slate edge for the rest */
 .btn-primary, .ct-primary:not(:disabled), .ct-missions.on, .as-launch, .as-support-btn, .hud-probe-launch, .range-go { background: var(--mist); color: var(--iron); border-color: transparent; }
@@ -2089,3 +2089,6 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .tour-ghost:hover { background: rgba(255, 255, 255, 0.08); }
 @media (max-width: 640px) { .tour-card { width: calc(100vw - 24px); } .tour-card h2 { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .tour, .tour.closing, .tour-card-in, .tour-card-in > *, .tour-spot.lit::after { animation: none; } .tour-bar i { transition: none; } }
+.ct-tutorial:hover, .ct-missions:not(.on):hover { background: var(--btn-hover, rgba(255, 255, 255, 0.08)); }
+/* narrow screens: Missions and Tutorial go icon-only and the tabs drop their icons, so the top bar fits */
+@media (max-width: 1000px) { .ct-tutorial, .ct-missions { padding: 0 9px; } .ct-tutorial span, .ct-missions span { display: none; } .ct-tabs button svg { display: none; } }

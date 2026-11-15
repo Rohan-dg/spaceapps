@@ -508,7 +508,8 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
           </>}
         </nav>
-        <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> {L.tabs.missions}</button>
+        <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} aria-label={L.tabs.missions} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /><span>{L.tabs.missions}</span></button>
+        <button className="ct-tutorial" aria-label="Tutorial" onClick={() => setTour(ui)} title="Step-by-step tour of every part of the screen"><Sparkles size={15} /><span>Tutorial</span></button>
       </header>
       <section className="kp" aria-label="Best sites over the next lunar day">
         <div className="kp-good">

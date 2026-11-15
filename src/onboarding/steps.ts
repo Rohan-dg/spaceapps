@@ -92,8 +92,8 @@ const NORMAL: TourStep[] = [
     body: 'The guide knows what is on your screen and uses the live numbers. It can also take you places, like "show me Apollo 15".' },
   { target: q('.ct-rail button[aria-label="Search sites and actions"]'), prep: top, kicker: 'Search', title: 'Jump to anything',
     body: 'One search box for every place, preset and action.', keys: [['⌘ K / Ctrl K', 'Open search'], ['?', 'Help']] },
-  { target: q('.ct-rail button[aria-label="Take the tour"]'), prep: top, kicker: 'Replay', title: 'Take the tour again',
-    body: 'This button (or Take the tour in search) brings the tour back whenever you want it.' },
+  { target: q('.ct-tutorial'), prep: top, kicker: 'Replay', title: 'Take the tour again',
+    body: 'Tutorial brings this tour back whenever you want it. The sparkle button in the left rail and Take the tour in search do the same.' },
   { kicker: 'Done', title: 'You are ready',
     body: 'That is everything in Normal mode. Pick a place and start exploring.' },
 ];
@@ -166,8 +166,8 @@ const EXPERT: TourStep[] = [
     body: 'It reads the live numbers on screen, explains them, and can drive the app ("open the launch planner").' },
   { target: q('.ct-rail button[aria-label="Search sites and actions"]'), prep: top, kicker: 'Command menu', title: 'Everything from the keyboard',
     body: 'Every site, preset, view and action in one list.', keys: [['⌘ K / Ctrl K', 'Open'], ['?', 'Help']] },
-  { target: q('.ct-rail button[aria-label="Take the tour"]'), prep: top, kicker: 'Replay', title: 'Take the tour again',
-    body: 'This button (or Take the tour in the command menu) brings the tour back whenever you want it.' },
+  { target: q('.ct-tutorial'), prep: top, kicker: 'Replay', title: 'Take the tour again',
+    body: 'Tutorial brings this tour back whenever you want it. The sparkle button in the left rail and Take the tour in the command menu do the same.' },
   { kicker: 'Done', title: 'You are ready',
     body: 'That is every tool in Expert mode. Pick a site and start planning.' },
 ];
