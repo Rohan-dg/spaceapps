@@ -18,8 +18,8 @@ import { bodyFixedGeometry, eqjToMoonFixed } from '../lib/ephemeris';
 import { type EqGrid, type PolarGrid, R_KM, type V3, dirOf, enu, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from '../lib/moon/frames';
 import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V } from '../lib/moon/shaders';
 import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moon/probe';
-import { roverRange, validateRover } from '../lib/moon/rover';
-import { DEFAULT_PLAN } from '../lib/mission';
+import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
+import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
 import { Icon } from './Icons';
 const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
@@ -112,6 +112,8 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
   const rangePin = useRef<HTMLDivElement>(null);
+  const sunPin = useRef<HTMLDivElement>(null);
+  const [sunPlan, setSunPlan] = useState<SunPlan | 'busy' | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeIn, setRangeIn] = useState({ lat: '', lon: '', hours: DEFAULT_BATTERY_H.toFixed(1), speed: String(DEFAULT_PLAN.speedKmH) });
   const [rangeErr, setRangeErr] = useState<string | null>(null);
@@ -124,7 +126,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
     request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[]; meta: TexMeta | null;
-    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null;
+    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
   } | null>(null);
 
@@ -238,7 +240,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
       flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3 }[], meta: null as TexMeta | null,
-      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null,
+      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null,
     };
     S.current = st;
     if (import.meta.env.DEV) Object.assign(window as object, { __moon: st, __gsap: gsap });
@@ -324,7 +326,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         m.el.style.transform = `translate(${sx}px, ${sy}px)`;
       }
       // probe and rover-range pins
-      for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos]] as const) {
+      for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos], [sunPin.current, st.sunPos]] as const) {
         if (!pin) continue;
         let show = false;
         if (pp) {
@@ -656,6 +658,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       st.probePos = v3(posOf(lat, lon, g.h * (g.src.includes('site patch') ? 1 : st.exag)));
       setPeriod(null);
       setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
+      recenter(lat, lon);
       st.request();
       if (rangeOpen) {
         const next = { ...rangeIn, lat: lat.toFixed(4), lon: (((lon % 360) + 360) % 360).toFixed(4) };
@@ -663,7 +666,25 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         applyRangeRef.current(next, false);
       }
     };
+    // recenter only touches refs and the stable fly()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, rangeOpen, rangeIn]);
+  /** Turn the globe (or pan, when zoomed in) so a point sits at the centre of the view, keeping the zoom. */
+  const recenter = (lat: number, lon: number) => {
+    const st = S.current; if (!st || st.flying) return;
+    const gg = st.terrainM(lat, lon);
+    const P = v3(posOf(lat, lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag)));
+    const cam = st.camera.position.clone(), tgt = st.controls.target.clone();
+    if (st.mode === 'globe') {
+      const dir = P.clone().normalize();
+      const up = st.camera.up.clone().projectOnPlane(dir);
+      if (up.lengthSq() < 1e-6) up.copy(new THREE.Vector3(0, 1, 0).projectOnPlane(dir));
+      fly(dir.multiplyScalar(cam.length()), new THREE.Vector3(), up.normalize(), 'globe', 1.3);
+    } else {
+      fly(P.clone().add(cam.sub(tgt)), P, st.camera.up.clone(), 'site', 1.1);
+    }
+  };
+
   /* ---------- rover range on battery ---------- */
   const groundAt = (lat: number, lon: number) => {
     const st = S.current!; const gg = st.terrainM(lat, lon);
@@ -685,6 +706,14 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       longestDarkH = probePeriod(q.lat, q.lon, h0, hz, Math.round(t / 1800000) * 1800000).longestDarkH;
     } catch { longestDarkH = null; }
     setRangeShown({ lat: q.lat, lon: q.lon, batteryH: q.batteryH, speedKmH: q.speedKmH, oneWayKm: r.oneWayKm, returnKm: r.returnKm, longestDarkH });
+    // nearest sunlight the rover can drive to (or wait for) on this charge; deferred so the rings draw first
+    setSunPlan('busy');
+    const t0 = t;
+    setTimeout(() => {
+      const gg = st.terrainM(q.lat, q.lon);
+      const hzStart = horizonFrom((la, lo) => st.terrainM(la, lo).h, q.lat, q.lon, gg.h, gg.resM);
+      try { setSunPlan(planSunlight((la, lo) => st.terrainM(la, lo).h, q, t0, gg.resM, hzStart)); } catch { setSunPlan(null); }
+    }, 30);
     if (flyThere) {
       const { e, n, u } = enu(q.lat, q.lon);
       const target = v3(posOf(q.lat, q.lon, groundAt(q.lat, q.lon).drawn)), U = v3(u);
@@ -719,10 +748,22 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       ringLine(r.ring, 0x7cc4ff, false);
       ringLine(r.returnRing, 0x7cc4ff, true);
       st.rangePos = v3(posOf(rangeShown.lat, rangeShown.lon, groundAt(rangeShown.lat, rangeShown.lon).drawn));
+      if (sunPlan && sunPlan !== 'busy' && sunPlan.kind === 'drive') {
+        const a = { lat: rangeShown.lat, lon: rangeShown.lon }, b = sunPlan.target;
+        const pts = Array.from({ length: 129 }, (_, i) => gcInterp(a, b, i / 128));
+        const arr = new Float32Array(pts.length * 3);
+        pts.forEach((p, i) => arr.set(posOf(p.lat, p.lon, groundAt(p.lat, p.lon).drawn + lift), i * 3));
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffd166, toneMapped: false }));
+        line.frustumCulled = false; line.renderOrder = 3;
+        grp.add(line);
+        st.sunPos = v3(posOf(b.lat, b.lon, groundAt(b.lat, b.lon).drawn));
+      }
     }
+    if (!rangeShown || !sunPlan || sunPlan === 'busy' || sunPlan.kind !== 'drive') st.sunPos = null;
     st.request();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeShown, relief, hiInfo]);
+  }, [rangeShown, relief, hiInfo, sunPlan]);
   const openRange = () => {
     if (rangeOpen) { setRangeOpen(false); return; }
     setRangeOpen(true);
@@ -758,7 +799,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     <section className="moon" aria-label="3D Moon">
       <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point." />
       <div ref={labels} className="moon-markers" />
-      <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div></div>
+      <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div ref={hud} className="moon-hud">
         <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
@@ -821,6 +862,13 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
               <dl aria-live="polite">
                 <dt>Start</dt><dd className="num">{fmtLatLon(rangeShown.lat, rangeShown.lon)}</dd>
                 <dt>Distance on battery</dt><dd><b>{rangeShown.oneWayKm < 10 ? rangeShown.oneWayKm.toFixed(2) : rangeShown.oneWayKm.toFixed(1)} km</b> one way <span className="swatch solid" /><br /><span className="dim">{rangeShown.batteryH} h × {rangeShown.speedKmH} km/h</span></dd>
+                <dt>Travel per hour</dt><dd className="num">{rangeShown.speedKmH} km</dd>
+                <dt>Reach sunlight?</dt>
+                <dd>{sunPlan === 'busy' || sunPlan === null ? <span className="dim">{sunPlan === 'busy' ? 'Searching the terrain…' : 'Could not check'}</span>
+                  : sunPlan.kind === 'here' ? <b className="ok">Yes, the start is in sunlight now</b>
+                  : sunPlan.kind === 'drive' ? <><b className="ok">Yes, {sunPlan.km < 10 ? sunPlan.km.toFixed(2) : sunPlan.km.toFixed(1)} km away</b> <span className="swatch sun" /><br /><span className="dim">{sunPlan.hours.toFixed(1)} h of driving, {sunPlan.spareH.toFixed(1)} h of battery left on arrival · {fmtLatLon(sunPlan.target.lat, sunPlan.target.lon)}</span></>
+                  : sunPlan.kind === 'wait' ? <><b className="part">Only by waiting</b><br /><span className="dim">No sunlit ground within {rangeShown.oneWayKm.toFixed(1)} km, but the Sun rises over the start in {sunPlan.hours.toFixed(1)} h, inside the battery life</span></>
+                  : <><b className="no">No</b><br /><span className="dim">No sunlit ground within {sunPlan.searchedKm.toFixed(1)} km, and no sunrise at the start within {rangeShown.batteryH} h</span></>}</dd>
                 <dt>Out and back</dt><dd><b>{rangeShown.returnKm < 10 ? rangeShown.returnKm.toFixed(2) : rangeShown.returnKm.toFixed(1)} km</b> radius <span className="swatch dashed" /></dd>
                 {rangeShown.longestDarkH !== null && <>
                   <dt>Longest dark here</dt>

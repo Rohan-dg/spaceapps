@@ -709,3 +709,6 @@ kbd {
   .hud-range .range-grid { gap: 6px; }
   .hud-range .hud-probe-note { display: none; }
 }
+.moon-probe-pin.sun i { border-color: #ffd166; border-radius: 3px; transform: rotate(45deg); }
+.hud-range .swatch.sun { border-top-color: #ffd166; }
+.hud-range b.part { color: #e0b44a; }
