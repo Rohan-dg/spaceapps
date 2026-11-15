@@ -228,11 +228,14 @@ export default function App() {
   const dashRef = useRef<HTMLDivElement>(null);
   const rightW = useRef<number | null>(null);
   const prevMode = useRef<string | null>(null);
+  const endWidthAnim = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     const host = dashRef.current;
     if (!dash || !host) return;
-    const el = host.querySelector<HTMLElement>(':scope > .dash-wide, :scope > .dash-side, .dash-wide, .dash-side');
+    // the glass box that changes: the site card in Explore, the tool panel elsewhere (both share the card's top and height)
+    const el = host.querySelector<HTMLElement>('.dash-wide, .dash-side > .dash-site');
     if (!el) return;
+    endWidthAnim.current?.(); // a switch mid-animation: settle the last one first so the new width is measured cleanly
     const to = el.getBoundingClientRect().width, from = rightW.current;
     rightW.current = to;
     // the incoming panel's content slides in from the side it was travelling toward in the tab bar
@@ -241,9 +244,29 @@ export default function App() {
     prevMode.current = mode;
     const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (from === null || Math.abs(from - to) < 1 || reduce || innerWidth <= 900) return;
-    // the panel is pinned on the right, so animating its width moves only its left edge: it grows or shrinks
-    // leftward from exactly where the previous section's panel was
-    el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: 520, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+    // the box is pinned on the right, so animating its width moves only its left edge. Its contents are laid out once
+    // at the final width and held there, so no frame re-lays out the tool or the card: only the glass edge moves.
+    const kids = [...el.children] as HTMLElement[];
+    const fixed = kids.map((k) => k.getBoundingClientRect().width);
+    kids.forEach((k, i) => { k.style.width = `${fixed[i]}px`; k.style.flexShrink = '0'; k.style.boxSizing = 'border-box'; });
+    // the site card sits in a column: let it overflow to the left while it is wider than the column
+    const col = el.classList.contains('dash-site') ? el.parentElement : null;
+    if (col) { col.style.overflow = 'visible'; el.style.alignSelf = 'flex-end'; }
+    el.style.alignItems = 'flex-end'; // contents stay where they end up; the moving edge reveals or covers them
+    const anim = el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: 520, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+    const done = () => {
+      kids.forEach((k) => { k.style.width = ''; k.style.flexShrink = ''; k.style.boxSizing = ''; });
+      if (col) { col.style.overflow = ''; el.style.alignSelf = ''; }
+      el.style.alignItems = '';
+    };
+    let ended = false;
+    const end = (settled = false) => {
+      if (ended) return; ended = true; clearTimeout(timer); anim.cancel(); done(); endWidthAnim.current = null;
+      if (settled && el.isConnected) rightW.current = el.getBoundingClientRect().width;
+    };
+    const timer = setTimeout(() => end(true), 560);
+    anim.onfinish = () => end(true);
+    endWidthAnim.current = end;
   }, [mode, dash]);
   useEffect(() => {
     const host = dashRef.current;
@@ -255,6 +278,7 @@ export default function App() {
       const h = host.getBoundingClientRect(), c = card.getBoundingClientRect();
       host.style.setProperty('--card-top', `${Math.round(c.top - h.top)}px`);
       host.style.setProperty('--card-h', `${Math.round(c.height)}px`);
+      if (!endWidthAnim.current) rightW.current = c.width; // where the next section's panel starts from
       if (!ro) { ro = new ResizeObserver(measure); ro.observe(card); ro.observe(host); }
     };
     measure();
