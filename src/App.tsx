@@ -227,6 +227,7 @@ export default function App() {
   // only widens the box (leftward) and never changes its length. The card's box is tracked while Explore is shown.
   const dashRef = useRef<HTMLDivElement>(null);
   const rightW = useRef<number | null>(null);
+  const prevMode = useRef<string | null>(null);
   useLayoutEffect(() => {
     const host = dashRef.current;
     if (!dash || !host) return;
@@ -234,6 +235,10 @@ export default function App() {
     if (!el) return;
     const to = el.getBoundingClientRect().width, from = rightW.current;
     rightW.current = to;
+    // the incoming panel's content slides in from the side it was travelling toward in the tab bar
+    const order = ['explore', 'compare', 'calc', 'launch'], mi = order.indexOf(mode);
+    host.style.setProperty('--dx', String(prevMode.current !== null && mi < order.indexOf(prevMode.current) ? -1 : 1));
+    prevMode.current = mode;
     const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (from === null || Math.abs(from - to) < 1 || reduce || innerWidth <= 900) return;
     // the panel is pinned on the right, so animating its width moves only its left edge: it grows or shrinks

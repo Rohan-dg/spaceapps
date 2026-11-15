@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Level } from '../config/thresholds';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { formatDuration, type Event, type Metrics } from '../lib/metrics';
@@ -232,6 +232,30 @@ export default function Dashboard(p: DashProps) {
   const eFrac = earthE?.t != null && eStart != null ? Math.max(0, Math.min(1, (earthE.t - t) / (earthE.t - eStart))) : null;
   const eLeft = earthE?.t != null ? Math.max(0, earthE.t - t) : null;
   const goodIds = new Set(p.goodSites.map((x) => x.d.info.id));
+  // the section box on the left: opens from the Sites card's width, animates its width between sections (and back
+  // to the card's width as it closes), with the content sliding in the direction of travel along the dock
+  const sheetEl = useRef<HTMLElement>(null);
+  const prev = useRef<{ w: number; i: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = sheetEl.current;
+    if (!el) { prev.current = null; return; }
+    const reduce = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || innerWidth <= 900;
+    const cardW = el.parentElement?.querySelector<HTMLElement>('.dash-sites')?.getBoundingClientRect().width;
+    const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    if (!p.sheet) {
+      if (prev.current && cardW && !reduce) el.animate([{ width: `${prev.current.w}px` }, { width: `${cardW}px` }], { duration: 260, easing: ease, fill: 'forwards' });
+      prev.current = null;
+      return;
+    }
+    const i = DASH_TABS.findIndex((x) => x.id === p.sheet);
+    el.getAnimations().forEach((a) => { if (!(a instanceof CSSAnimation)) a.cancel(); });
+    const to = el.getBoundingClientRect().width;
+    const from = prev.current ? prev.current.w : cardW ?? to;
+    el.style.setProperty('--dy', String(prev.current && i < prev.current.i ? -1 : 1));
+    prev.current = { w: to, i };
+    if (Math.abs(from - to) < 1 || reduce) return;
+    el.animate([{ width: `${from}px` }, { width: `${to}px` }], { duration: 520, easing: ease });
+  }, [p.sheet]);
 
   return (
     <>
@@ -336,7 +360,7 @@ export default function Dashboard(p: DashProps) {
       <TimeBar s={data?.series ?? null} t={t} t0={p.t0} t1={p.t1} onT={p.onT} playing={p.playing} onPlaying={p.onPlaying} speed={p.speed} onSpeed={p.onSpeed} onOpen={() => p.onSheet('conditions')} />
 
       {cur && (
-        <section className={`dash-sheet glass${closing ? ' closing' : ''}`} role="dialog" aria-label={cur.label}>
+        <section ref={sheetEl} className={`dash-sheet glass sh-${cur.id}${closing ? ' closing' : ''}`} role="dialog" aria-label={cur.label}>
           <header className="sh-head">
             <span className="sh-ico" aria-hidden>{cur.icon}</span>
             <div className="sh-title">
