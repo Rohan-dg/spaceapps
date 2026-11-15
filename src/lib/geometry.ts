@@ -50,7 +50,7 @@ export function azElFromBodyFixed(targetKm: Vec3, site: Site, basis = enuBasis(s
   const rel = sub(targetKm, siteVector(site));
   const d = norm(rel);
   const E = dot(rel, basis.e), N = dot(rel, basis.n), U = dot(rel, basis.u);
-  return { az: wrap360(Math.atan2(E, N) * RAD), el: Math.asin(U / d) * RAD, distKm: d };
+  return { az: wrap360(Math.atan2(E, N) * RAD), el: Math.asin(Math.max(-1, Math.min(1, U / d))) * RAD, distKm: d };
 }
 
 /**

@@ -17,7 +17,7 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 - **Custom coordinates.** Any point south of 80.5°S, computed in the browser from a 400 m terrain model (approximate).
 - **3D terrain.** 24 × 24 km around each polar site, lit from the true Sun direction.
 - **3D Moon.** The whole Moon down to 5 m LOLA detail at polar sites. A *Light dark areas* switch floodlights the night side and shadowed craters, and clicking any point shows its coordinates, how much of the Sun is visible, whether Earth is in view, and the share of the next lunar cycle with each.
-- **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point.
+- **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point, and searches the terrain for the nearest spot that will be sunlit when the rover gets there (or whether sunrise reaches the start first). Clicking any point turns the globe so that point is at the centre.
 - **Export and share.** CSV or JSON export. The URL keeps the site, time and comparison.
 
 ## Sites

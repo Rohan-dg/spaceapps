@@ -25,3 +25,28 @@ describe('rover range on battery', () => {
     expect(validateRover({ lat: 0, lon: 0, batteryH: 8, speedKmH: 1 })).toBeNull();
   });
 });
+
+describe('reaching sunlight', async () => {
+  const { planSunlight } = await import('../moon/rover');
+  const { bodyFixedGeometry } = await import('../ephemeris');
+  const t = Date.parse('2027-07-08T00:00:00Z');
+  const s = bodyFixedGeometry(new Date(t)).sunKm;
+  const subLat = (Math.asin(s[2] / Math.hypot(...s)) * 180) / Math.PI, subLon = (Math.atan2(s[1], s[0]) * 180) / Math.PI;
+  const flat = () => 0;
+
+  it('under a high Sun on flat ground the start is already lit', () => {
+    expect(planSunlight(flat, { lat: subLat, lon: subLon, batteryH: 5, speedKmH: 1 }, t, 1000, null).kind).toBe('here');
+  });
+
+  it('just past the terminator, driving sunward finds light within range', () => {
+    // 1.5° of arc (about 45 km) into the night from the sunrise line
+    const r = planSunlight(flat, { lat: 0, lon: subLon - 91.5, batteryH: 80, speedKmH: 1 }, t, 1000, null);
+    expect(r.kind).toBe('drive');
+    if (r.kind === 'drive') { expect(r.km).toBeLessThanOrEqual(80); expect(r.spareH).toBeGreaterThanOrEqual(0); }
+  });
+
+  it('deep in the night with a small battery there is no sunlight in reach', () => {
+    const r = planSunlight(flat, { lat: 0, lon: subLon + 180, batteryH: 5, speedKmH: 0.5 }, t, 1000, new Array(360).fill(0));
+    expect(r.kind).toBe('none');
+  });
+});
