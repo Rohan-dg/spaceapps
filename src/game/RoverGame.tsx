@@ -78,6 +78,8 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const engine = useRef<Game | null>(null), serial = useRef(0);
   const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
   const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
+  const pickRoverRef = useRef(pickRover);
+  useEffect(() => { pickRoverRef.current = pickRover; });
   const stageRef = useRef(stage);
   useEffect(() => { stageRef.current = stage; }, [stage]);
   const send = useCallback((key: string, down: boolean) => engine.current?.press(key, down), []);
@@ -127,6 +129,19 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     return () => { document.body.style.overflow = previous; window.removeEventListener('keydown', keyboard, true); window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', visibility); };
   }, [pause]);
 
+  // in the garage, the left and right arrow keys flip through the rovers too
+  useEffect(() => {
+    if (stage !== 'brief') return;
+    const k = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const tag = (e.target as HTMLElement).tagName; if (tag === 'SELECT' || tag === 'INPUT') return;
+      e.preventDefault();
+      const i = ROVERS.findIndex((x) => x.id === roverRef.current), next = ROVERS[(i + (e.key === 'ArrowRight' ? 1 : -1) + ROVERS.length) % ROVERS.length];
+      pickRoverRef.current(next.id);
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [stage]);
   useEffect(() => { if (stage !== 'play') root.current?.querySelector<HTMLButtonElement>('.rg-dialog .rg-primary, .rg-dialog button')?.focus(); }, [stage, confirmExit, help, log]);
 
   const close = () => { if (stage === 'play' || stage === 'pause') { pause(); setConfirmExit(true); } else onClose(); };
@@ -214,7 +229,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
             <span className="rg-mission-no">Rover garage</span>
             <h2 id="rg-dialog-title">Pick your rover!</h2>
             <p className="rg-pick-lead">Every rover here is based on a real Moon rover. Each one is good at something different.</p>
-            <RoverCard r={rover} base={modelBase} onStep={(d) => pickRover(ROVERS[(ROVERS.findIndex((x) => x.id === roverId) + d + ROVERS.length) % ROVERS.length].id)} />
+            <RoverCard r={rover} base={modelBase} onStep={(d) => pickRover(ROVERS[(ROVERS.findIndex((x) => x.id === roverRef.current) + d + ROVERS.length) % ROVERS.length].id)} />
             <div className="rg-rovers" role="radiogroup" aria-label="Rover">
               {ROVERS.map((r) => <button key={r.id} role="radio" aria-checked={r.id === roverId} className={r.id === roverId ? 'on' : ''} onClick={() => pickRover(r.id)}>
                 <i aria-hidden="true">{r.callsign[0]}</i><b>{r.callsign}</b><small>{r.tag}</small>{Number(stored(bestKey(r.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id))))}</em>}

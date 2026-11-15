@@ -1,6 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
+import EduView from './components/EduView';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -671,6 +672,20 @@ export default function App() {
 
   // Release the globe renderer while driving, while keeping the map and dashboard state.
   if (roverOpen) return <Suspense fallback={<div className="fatal wrap"><Loading label="Loading rover mission" /><button onClick={() => setRoverOpen(false)}>Return to map</button></div>}><RoverGame sites={allSites} selectedId={siteId} t={t} tMax={range[1]} onClose={() => { setRoverOpen(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.ct-rover')?.focus()); }} /></Suspense>;
+
+  // Education: the 3D Moon fills the screen; mission points open pop-up cards and can be joined into a rover path
+  if (!expert) return (
+    <div className="app ui-normal is-edu">
+      <EduView doc={doc} sites={allSites} t={t} range={range} selectedId={siteId} onSelect={chooseSite}
+        onScientific={() => setUi('expert')} onTour={() => setTour('normal')} onAbout={() => setAbout(true)} onRover={openRover}
+        onTheme={theme.toggle} themeName={theme.name} />
+      {about && <About doc={doc} onClose={() => setAbout(false)} />}
+      {guide && <Guide onClose={closeGuide} />}
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => { setChoosing(false); if (!tourSeen(u)) setTour(u); })} />}
+      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
+    </div>
+  );
 
   return (
     <div className={`app ${expert ? 'ui-expert' : 'ui-normal'}${dash ? ' is-dash' : ''}`}>
