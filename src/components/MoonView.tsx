@@ -286,9 +286,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       scene.add(l);
       return l;
     };
-    const earthLine = sightLine(0x0071bc);
+    const earthLine = sightLine(0x34c759);
     // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
-    const sunLine = sightLine(0xffffff);
+    const sunLine = sightLine(0xffd23f);
     scene.add(rangeGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
@@ -1362,6 +1362,18 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   }, [g, sel]);
 
   const now = useMemo(() => (probe ? probeNow(probe.lat, probe.lon, probe.groundM, probe.hz, t) : null), [probe, t]);
+  // the selected site (preset or one of your points) is probed too, so its lines to the Sun and Earth follow the selection
+  // instead of staying on an earlier clicked point
+  const probeAt = useRef<{ lat: number; lon: number } | null>(null);
+  probeAt.current = probe ? { lat: probe.lat, lon: probe.lon } : null;
+  useEffect(() => {
+    if (!sel) return;
+    const p0 = probeAt.current;
+    if (p0 && Math.abs(p0.lat - sel.lat) < 1e-3 && Math.abs((((p0.lon - sel.lon) % 360) + 540) % 360 - 180) < 1e-3) return;
+    const at = v3(dirOf(sel.lat, sel.lon)).multiplyScalar(R_KM);
+    const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (idle) idle(() => pickRef.current(at), { timeout: 400 }); else setTimeout(() => pickRef.current(at), 60);
+  }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // lines of sight from the probed point to Earth and toward the Sun follow the point, the time and the relief setting
   useEffect(() => {
     const st = S.current; if (!st) return;
@@ -1377,8 +1389,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         l.computeLineDistances();
         (l.material as THREE.LineDashedMaterial).color.set(color);
       };
-      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x0071bc : 0x6b6b72);
-      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct > 0.5 ? 0xffffff : 0x6b6b72);
+      set(st.earthLine, new THREE.Vector3().setFromMatrixPosition(st.earth.matrix), now.earthUp ? 0x34c759 : 0xff453a);
+      set(st.sunLine, a.clone().addScaledVector(st.u.uSun.value as THREE.Vector3, 1e6), now.sunPct >= 99.5 ? 0xffd23f : now.sunPct > 0.5 ? 0xff9f0a : 0xff453a);
     }
     st.request();
   }, [probe, now, earthLineOn, sunLineOn, relief, hiInfo]);
@@ -1522,8 +1534,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
                   ['shadow', 'Shadows', shadows, () => setShadows((x) => !x), 'Cast shadows, ray-traced on the LOLA heights'],
                   ['mountain', 'Relief ×3', relief > 1, () => setRelief((x) => (x > 1 ? 1 : 3)), 'Exaggerate the relief 3×'],
                   ['sparkle', 'Fine detail', detail, () => setDetail((x) => !x), 'Procedural craters and rocks below the resolution of the real data. Illustrative only.'],
-                  ['compass', 'Line to Earth', earthLineOn, () => setEarthLineOn((x) => !x), 'Dotted line from the probed point to Earth: blue when Earth is in view, red when terrain blocks it'],
-                  ['lamp', 'Line to Sun', sunLineOn, () => setSunLineOn((x) => !x), 'Dotted line from the probed point toward the Sun: yellow when the whole disc is visible, orange when partly blocked, red when blocked'],
+                  ['compass', 'Line to Earth', earthLineOn, () => setEarthLineOn((x) => !x), 'Dotted line from the selected point to Earth: green when Earth is in view, red when terrain blocks it'],
+                  ['lamp', 'Line to Sun', sunLineOn, () => setSunLineOn((x) => !x), 'Dotted line from the selected point toward the Sun: yellow when the whole disc is visible, orange when partly blocked, red when blocked'],
                 ] as const).map(([icon, label, on, toggle, title]) => (
                   <button key={label} role="menuitemcheckbox" aria-checked={on} className="hud-menu-item" onClick={toggle} title={title}>
                     <Icon name={icon} /><span>{label}</span><span className={`hud-switch${on ? ' on' : ''}`} aria-hidden />
