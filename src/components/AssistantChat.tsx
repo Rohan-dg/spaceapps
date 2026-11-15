@@ -102,7 +102,7 @@ function QueueWindow({ onLeave }: { onLeave: () => void }) {
   );
 }
 
-export default function AssistantChat({ sites, onAction, context }: Props) {
+export default function AssistantChat({ sites, onAction, context, toggleSignal = 0 }: Props & { toggleSignal?: number }) {
   const model = useMemo(() => buildModel(), []);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -122,6 +122,13 @@ export default function AssistantChat({ sites, onAction, context }: Props) {
 
   const show = () => { setClosing(false); setOpen(true); };
   const hide = () => { setClosing(true); setTimeout(() => { setOpen(false); setClosing(false); }, 260); };
+  // the ? button in the top bar opens (or closes) the assistant
+  const sig = useRef(toggleSignal);
+  useEffect(() => {
+    if (toggleSignal === sig.current) return;
+    sig.current = toggleSignal;
+    if (open && !closing) hide(); else show();
+  }, [toggleSignal]); // eslint-disable-line react-hooks/exhaustive-deps
   const push = (m: Omit<Msg, 'id'>) => setMsgs((list) => [...list, { ...m, id: nextId.current++ }]);
 
   const ask = (text: string) => {

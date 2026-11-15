@@ -19,7 +19,7 @@ import Countdown from './components/Countdown';
 import SlipPanel from './components/SlipPanel';
 import MoonEarth from './components/MoonEarth';
 import SimpleView from './components/SimpleView';
-import Dashboard, { type DashTab } from './components/Dashboard';
+import Dashboard, { WIDTH_EASE, WIDTH_MS, type DashTab } from './components/Dashboard';
 import TimeLeft from './components/TimeLeft';
 import Term from './components/Term';
 import { sphereHorizonDeg } from './lib/geometry';
@@ -219,6 +219,7 @@ export default function App() {
   const [deep, setDeep] = useState<Deep>('horizon');
   // Scientific Explore is a dashboard over the Moon; its panels open one sheet at a time
   const [sheet, setSheet] = useState<DashTab | null>(null);
+  const [askSig, setAskSig] = useState(0);
   // every Scientific workspace uses the dashboard layout; Explore has the full set of floating panels,
   // Compare, Calculator and Launch put their tool in a widened right-hand glass panel
   const dash = expert;
@@ -227,6 +228,14 @@ export default function App() {
   // only widens the box (leftward) and never changes its length. The card's box is tracked while Explore is shown.
   const dashRef = useRef<HTMLDivElement>(null);
   const rightW = useRef<number | null>(null);
+  // the tool inside the panel mounts once the box has finished changing width, so its first render never lands
+  // in the middle of the animation
+  const [bodyMode, setBodyMode] = useState(mode);
+  useEffect(() => {
+    if (bodyMode === mode) return;
+    const k = setTimeout(() => setBodyMode(mode), dash && innerWidth > 900 ? WIDTH_MS - 60 : 0);
+    return () => clearTimeout(k);
+  }, [mode, dash, bodyMode]);
   const prevMode = useRef<string | null>(null);
   const endWidthAnim = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
@@ -253,7 +262,7 @@ export default function App() {
     const col = el.classList.contains('dash-site') ? el.parentElement : null;
     if (col) { col.style.overflow = 'visible'; el.style.alignSelf = 'flex-end'; }
     el.style.alignItems = 'flex-end'; // contents stay where they end up; the moving edge reveals or covers them
-    const anim = el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: 520, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+    const anim = el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: WIDTH_MS, easing: WIDTH_EASE });
     const done = () => {
       kids.forEach((k) => { k.style.width = ''; k.style.flexShrink = ''; k.style.boxSizing = ''; });
       if (col) { col.style.overflow = ''; el.style.alignSelf = ''; }
@@ -264,7 +273,7 @@ export default function App() {
       if (ended) return; ended = true; clearTimeout(timer); anim.cancel(); done(); endWidthAnim.current = null;
       if (settled && el.isConnected) rightW.current = el.getBoundingClientRect().width;
     };
-    const timer = setTimeout(() => end(true), 560);
+    const timer = setTimeout(() => end(true), WIDTH_MS + 40);
     anim.onfinish = () => end(true);
     endWidthAnim.current = end;
   }, [mode, dash]);
@@ -691,12 +700,12 @@ export default function App() {
           <button role="radio" aria-checked={expert} onClick={() => setUi('expert')} title="Full mission-planning tools">Scientific</button>
         </div>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> {L.tabs.explore}</button>
+          <button role="tab" aria-selected={mode === 'explore'} title={expert ? 'Explore (1)' : undefined} onClick={() => setMode('explore')}><Globe size={15} /> {L.tabs.explore}</button>
           {expert && <>
-          <button role="tab" aria-selected={mode === 'compare'}
+          <button role="tab" aria-selected={mode === 'compare'} title="Compare (2)"
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}><Columns2 size={15} /> {L.tabs.compare}</button>
-          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}><CalcIcon size={15} /> {L.tabs.calc}</button>
-          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
+          <button role="tab" aria-selected={mode === 'calc'} title="Calculator (3)" onClick={() => setMode('calc')}><CalcIcon size={15} /> {L.tabs.calc}</button>
+          <button role="tab" aria-selected={mode === 'launch'} title="Launch (4)" onClick={() => setMode('launch')}><CalendarSync size={15} /> {L.tabs.launch}</button>
           </>}
         </nav>
         {!expert && <button className="ct-tutorial ct-rover" onClick={openRover} aria-label="Drive a rover" title="Drive RASSOR, collect ice samples and keep power and Earth contact"><Play size={15} /><span>Drive a rover</span></button>}
@@ -705,7 +714,7 @@ export default function App() {
         {dash && <div className="ct-utils">
           <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={16} /></button>
           <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={16} /></button>
-          <button aria-label="Help" title="Help (?)" onClick={() => setGuide(true)}><CircleHelp size={16} /></button>
+          <button aria-label="AI help" title="AI help" onClick={() => setAskSig((n) => n + 1)}><CircleHelp size={16} /></button>
           <button aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark" onClick={theme.toggle}><Contrast size={16} /></button>
         </div>}
       </header>
@@ -735,18 +744,19 @@ export default function App() {
           <Dashboard data={data} res={res} info={info} updating={updating} t={t} tl={tl} t0={range[0]} t1={range[1]} onT={onT}
             playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed}
             goodSites={goodSites} activeCount={active.length} onPickSite={chooseSite}
-            partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null} onCompare={openCompare}
+            partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null}
+            onCompare={partnerData ? openCompare : () => { setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}
             onPlanLaunch={planLaunchHere} onLogic={() => setMode('calc')} busy={pointBusy}
             sheet={dashExplore && sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
             utils={[]}
             right={dashExplore ? undefined : (
               <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
                 <header className="dw-head"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b><span>{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</span></header>
-                <div className="dw-body" key={mode}>
+                <div className="dw-body" key={bodyMode === mode ? mode : 'wait'}>{bodyMode === mode && <>
                   {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} onTargetUsed={clearLaunchTarget} />
                     : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
                     : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
-                </div>
+                </>}</div>
               </section>
             )} />
         )}
@@ -890,7 +900,7 @@ export default function App() {
       </footer>}
       </div>
       {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} onPlanLaunch={(id) => { setMissionsOpen(false); setSiteId(id); setMode('launch'); window.scrollTo({ top: 0 }); }} />}
-      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} />
+      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} toggleSignal={askSig} />
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
