@@ -14,10 +14,13 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 - **Countdowns and verdicts.** Time to the next sunrise, sunset, Earthrise and Earthset, with a power and comms rating for the next lunar day.
 - **Calendar.** A 30-day strip and a three-year heat map (2027 to 2029) that marks the best landing windows.
 - **Compare.** Two to four site-and-date scenarios side by side.
-- **Custom coordinates.** Any point south of 80.5°S, computed in the browser from a 400 m terrain model (approximate).
+- **Any point on the Moon.** Enter coordinates (or double-click the 3D Moon and choose *Plan a launch to here*). The skyline is traced in the browser: 400 m polar terrain south of 80.5°S, the global LOLA map (about 2.7 km/px) elsewhere, so results are approximate.
 - **3D terrain.** 24 × 24 km around each polar site, lit from the true Sun direction.
 - **3D Moon.** The whole Moon down to 5 m LOLA detail at polar sites. A *Light dark areas* switch floodlights the night side and shadowed craters, and clicking any point shows its coordinates, how much of the Sun is visible, whether Earth is in view, and the share of the next lunar cycle with each.
 - **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point, and searches the terrain for the nearest spot that will be sunlit when the rover gets there (or whether sunrise reaches the start first). Clicking any point turns the globe so that point is at the centre.
+- **Sun and Earth pointers, Home view.** Rings mark the Sun and Earth when they are on screen; arrows at the edge point the way when they are not. *Home* (or the H key) returns to the whole Moon, north up.
+- **Launch planner.** For the next good landing days at any site or any point on the Moon (Sun up ≥ 70 % and Earth in view ≥ 90 % of the day, or sunlight only for the far side), the best launch time from a NASA launch centre in the United States (Kennedy Space Center or Wallops Flight Facility), with azimuth and orbit inclination. First-order geometry: the parking orbit must contain the Moon's arrival direction.
+  Each launch also has an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with times, a speed-change (Δv) budget and a diagram of the transfer (patched conics, timed to meet the Moon at arrival).
 - **Export and share.** CSV or JSON export. The URL keeps the site, time and comparison.
 
 ## Sites
