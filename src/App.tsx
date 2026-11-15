@@ -13,6 +13,7 @@ import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import ModeChooser, { type Ui } from './components/ModeChooser';
 import { tourSeen } from './onboarding/seen';
+import type { TourApi } from './onboarding/steps';
 import { computeSite } from './lib/customSite';
 import Countdown from './components/Countdown';
 import SlipPanel from './components/SlipPanel';
@@ -308,6 +309,13 @@ export default function App() {
     pickSite(id);
   }, [missionsOpen, pickSite]);
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
+  // what the guided tour may do: steps about a site's panels need one selected and Explore showing
+  const tourApi = useMemo<TourApi>(() => ({
+    ensureSite: () => {
+      if (siteId && mode === 'explore') return;
+      pickSite(siteId || (allSites.find((x) => /mouton/i.test(x.name)) ?? allSites[0])?.id);
+    },
+  }), [siteId, mode, pickSite, allSites]);
   const goHome = useCallback(() => {
     setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -730,7 +738,7 @@ export default function App() {
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => { setChoosing(false); if (!tourSeen(u)) setTour(u); })} />}
-      {tour && <Suspense fallback={null}><Onboarding ui={tour} onClose={() => setTour(null)} /></Suspense>}
+      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
       <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
