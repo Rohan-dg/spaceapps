@@ -2529,10 +2529,9 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash .hud-tr, .dash .hud-bl, .dash .hud-br { transition: opacity 320ms ease; }
 .dash:not(.dash-explore) .hud-tr, .dash:not(.dash-explore) .hud-bl { opacity: 0; pointer-events: none; }
 .dash:not(.dash-explore) .hud-tr *, .dash:not(.dash-explore) .hud-bl * { pointer-events: none !important; }
-/* the Moon controls (Rover range, Terrain 3D, Remove shadows, Display) stay available: one row in the free strip
-   above the tool panel, right-aligned with it; the Display menu opens downward from there */
-.dash:not(.dash-explore) .hud-br { top: var(--T); bottom: auto; right: var(--gap); left: auto; max-width: calc(100% - var(--L) - var(--leftCol) - var(--gap) * 3); flex-wrap: nowrap; }
-.dash:not(.dash-explore) .hud-br .hud-menu { top: calc(100% + 6px); bottom: auto; z-index: 20; }
+/* the Moon controls (Rover range, Terrain 3D, Remove shadows, Display) stay available in the bottom-right corner,
+   below the tool panel; the Display menu opens upward over it */
+.dash:not(.dash-explore) .hud-br { top: auto; bottom: var(--gap); right: var(--gap); left: auto; max-width: calc(var(--R) - var(--gap) * 2); flex-wrap: wrap; justify-content: flex-end; }
 
 @media (max-width: 900px) { .dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: auto; } .dash:not(.dash-explore) .dash-wide { height: auto; } }
 /* the panel header already names the tool: no second title inside it */
