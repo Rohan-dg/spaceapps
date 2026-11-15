@@ -12,6 +12,8 @@ export interface MoonSurface {
   hi: PolarGrid | null;
   exag: number;
   capHalfM: number;
+  /** Height (m) of a drawn real-terrain tile at a point, NaN where none is drawn (the globe is hidden there). */
+  tileH?: (lat: number, lon: number) => number;
 }
 
 /** Match the rendered triangles, rather than the finer DEM used for lighting and science. */
@@ -54,6 +56,10 @@ export function createSurfaceSampler(state: () => MoonSurface) {
     const lat = Math.asin(Math.max(-1, Math.min(1, ray.direction.z))) * 180 / Math.PI;
     const lon = Math.atan2(ray.direction.y, ray.direction.x) * 180 / Math.PI;
     let radius = R_KM - CORE_DEPTH_KM * s.exag;
+    if (s.tileH && lat > -80) {
+      const th = s.tileH(lat, lon);
+      if (!isNaN(th)) return Math.max(radius, R_KM + (th * s.exag) / 1000);
+    }
     if (!s.cap || lat >= -80.05) {
       const step = 360 / GLOBE_SEGMENTS;
       const col = Math.min(GLOBE_SEGMENTS - 1, Math.floor((lon + 180) / step));

@@ -3,20 +3,28 @@
  *
  * Data, coarse to fine (all NASA LRO):
  *   globe   LROC WAC colour (8k) + LOLA 64 px/deg relief normals + LOLA 16 px/deg heights
+ *   tiles   NASA SVS CGI Moon Kit LOLA ldem_64 (64 px/deg, ~474 m) meshes + LROC 16k colour, 5° tiles streamed
+ *           around the view when zoomed in (90°N to 80°S)
  *   cap     LOLA LDEM_80S_80M, 80°S to the pole, resampled to 148 m
  *   patch   LOLA polar DEM around the site: 5 m (87.5°S+), 10 m (85°S+) or 20 m
- *   below the patch resolution: procedural craters, boulders and regolith (illustrative, labelled in the HUD)
+ *   below the patch resolution: optional procedural detail (off by default, labelled in the HUD)
+ * Antialiasing: every frame is supersampled with jittered sub-pixel samples, and refines to 32 samples once the
+ * camera stops, so shading does not flicker while zooming.
  * Lighting uses the true Sun and Earth directions at the selected time; shadows are ray-marched on the heights.
  */
 import gsap from 'gsap';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { TAARenderPass } from 'three/examples/jsm/postprocessing/TAARenderPass.js';
 import * as Astro from 'astronomy-engine';
 import type { SiteInfo } from '../lib/data';
 import { bodyFixedGeometry, eqjToMoonFixed } from '../lib/ephemeris';
 import { type EqGrid, type PolarGrid, R_KM, type V3, dirOf, enu, posOf, sampleEq, sampleGrid, stereoLatLon, stereoXY } from '../lib/moon/frames';
-import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V } from '../lib/moon/shaders';
+import { CAP_F, CAP_V, EARTH_F, EARTH_V, GLOBE_F, GLOBE_V, PATCH_F, PATCH_V, TILE_F, TILE_V } from '../lib/moon/shaders';
+import { type TileHeights, type TileIndex, buildTileMesh, tileAt, tileHeight, tileKey, tileOrigin } from '../lib/moon/tiles';
 import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moon/probe';
 import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSurfaceSampler } from '../lib/moon/surface';
 import { planSunlight, roverRange, validateRover, type SunPlan } from '../lib/moon/rover';
@@ -25,6 +33,12 @@ import { Icon } from './Icons';
 const TerrainViewport = lazy(() => import('./TerrainViewport'));
 
 const base = import.meta.env.BASE_URL;
+/** Spacing of the ldem_64 tile samples: 5 degrees / 320 on a 1737.4 km sphere. */
+const TILE_RES_M = ((5 / 320) * Math.PI / 180) * R_KM * 1000;
+/** Field of view of the flattened (near-orthographic) close-up that a double-click flies to. */
+const FLAT_FOV = 10;
+/** Normal field of view (the scale presets and site flights use it). */
+const SCALE_FOV = 32;
 
 interface HiMeta { id: string; dem: string; resM: number; n: number; lat: number; lon: number; siteRow: number; siteCol: number; row0: number; col0: number; projOffset: number; hMinM: number; quantumM: number }
 interface TexMeta { height_4k: { w: number; h: number; hMinM: number; quantumM: number }; south: { n: number; resM: number; halfM: number; hMinM: number; quantumM: number } }
@@ -101,7 +115,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   const [status, setStatus] = useState('Loading the LROC mosaic');
   const [scale, setScale] = useState<Scale>('moon');
   const [shadows, setShadows] = useState(true);
-  const [detail, setDetail] = useState(true);
+  const [detail, setDetail] = useState(false);
   const [relief, setRelief] = useState(1);
   const [hiInfo, setHiInfo] = useState<HiMeta | null>(null);
   const [fail, setFail] = useState<string | null>(null);
@@ -139,7 +153,8 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
     } catch { setFail('WebGL is not available in this browser, so the 3D Moon cannot be shown.'); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // supersampling (below) does the antialiasing, so the canvas itself can stay at up to 1.5x
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -152,7 +167,23 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     camera.up.set(0, 0, 1);
     camera.position.set(0, -16000, -6000);
 
+    // Antialiasing: jittered supersampling every frame (2 samples on high-density screens, 4 otherwise), then,
+    // once nothing moves, progressive accumulation up to 32 samples per pixel. Shading detail below a pixel
+    // averages out instead of flipping between light and dark from frame to frame.
+    const composer = new EffectComposer(renderer);
+    composer.setPixelRatio(renderer.getPixelRatio());
+    const taa = new TAARenderPass(scene, camera, 0x000000, 1);
+    taa.unbiased = true;
+    taa.sampleLevel = window.devicePixelRatio > 1.25 ? 1 : 2;
+    composer.addPass(taa);
+    composer.addPass(new OutputPass());
+    const TAA_SAMPLES = 32;
+
     const blank = floatTex(new Float32Array([0]), 1, 1, false);
+    // one texel per 5-degree tile (72 x 36): the globe skips ground that a real-terrain tile is drawing
+    const maskData = new Uint8Array(72 * 36);
+    const tileMask = new THREE.DataTexture(maskData, 72, 36, THREE.RedFormat, THREE.UnsignedByteType);
+    tileMask.magFilter = tileMask.minFilter = THREE.NearestFilter; tileMask.needsUpdate = true;
     const loader = new THREE.TextureLoader();
     const grey = new THREE.DataTexture(new Uint8Array([140, 138, 134, 255]), 1, 1); grey.needsUpdate = true; grey.colorSpace = THREE.SRGBColorSpace;
     const flat = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1); flat.needsUpdate = true;
@@ -163,7 +194,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       uCap: { value: blank }, uCapHalf: { value: 304000 }, uCapRes: { value: 148.4 }, uCapOn: { value: 0 },
       uHi: { value: blank }, uHiOn: { value: 0 }, uHiRes: { value: 5 }, uHiOff: { value: 0 }, uHiRC0: { value: new THREE.Vector2() }, uHiN: { value: 1 },
       uRelief: { value: 1 }, uShadows: { value: 1 }, uExag: { value: 1 }, uCam: { value: new THREE.Vector3() },
-      uCamLocal: { value: new THREE.Vector3() }, uDetail: { value: 1 },
+      uCamLocal: { value: new THREE.Vector3() }, uDetail: { value: 0 }, uTileMask: { value: tileMask },
       // precision anchor for the globe and cap shaders (see shaders.ts): a 2048 m lattice point under the camera
       uAnchorIdx: { value: new THREE.Vector3() }, uAnchorKm: { value: new THREE.Vector3() },
       uAnchorCorr: { value: new THREE.Vector3() }, uCamRel: { value: new THREE.Vector3() },
@@ -234,8 +265,10 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.minDistance = R_KM + 60; controls.maxDistance = 40000; controls.enablePan = false;
 
-    let raf = 0;
-    const request = () => { if (!raf) raf = requestAnimationFrame(frame); };
+    let raf = 0, fresh = true;
+    // request() from anything that changes the picture restarts the antialiasing accumulation;
+    // request(false) is the accumulation itself asking for its next frame
+    const request = (reset: unknown = true) => { if (reset !== false) fresh = true; if (!raf) raf = requestAnimationFrame(frame); };
     const st = {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
@@ -243,7 +276,108 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
     };
-    const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000 }));
+    // the drawn tile mesh uses every 2nd sample; taking the higher of both keeps the camera above either surface
+    const tileSurfaceH = (la: number, lo: number) => Math.max(tileH(la, lo, 1), tileH(la, lo, 2));
+    const surfaceRadius = createSurfaceSampler(() => ({ eq: st.eq, cap: st.cap, hi: st.hi, exag: st.exag, capHalfM: st.meta?.south.halfM ?? 304000, tileH: tileSurfaceH }));
+
+    /* ---------- real-terrain tiles (CGI Moon Kit ldem_64), streamed around the view ---------- */
+    interface LiveTile { key: string; r: number; c: number; heights: TileHeights | null; mesh: THREE.Mesh | null; loading: boolean; failed: boolean; used: number }
+    const tiles = new Map<string, LiveTile>();
+    let tIdx: TileIndex | null = null, inflight = 0, tilesShown = 0;
+    const MAX_SHOWN = 36, MAX_CACHED = 90, MAX_INFLIGHT = 6;
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+    fetch(`${base}tiles/index.json`).then((r) => (r.ok ? r.json() : null)).then((j: TileIndex | null) => { tIdx = j; request(); }).catch(() => {});
+    /** Height (m) from a drawn tile, at grid stride `step`, or NaN where no tile is drawn. */
+    function tileH(lat: number, lon: number, step = 1) {
+      if (!tIdx) return NaN;
+      const rc = tileAt(tIdx, lat, lon); if (!rc) return NaN;
+      const t = tiles.get(tileKey(rc[0], rc[1]));
+      if (!t?.heights || !t.mesh?.visible) return NaN;
+      return tileHeight(tIdx, t.heights, lat, lon, step);
+    }
+    function setMask(t: LiveTile, on: boolean) { maskData[t.r * 72 + t.c] = on ? 255 : 0; tileMask.needsUpdate = true; }
+    function dropTile(t: LiveTile) {
+      if (t.mesh) {
+        scene.remove(t.mesh); t.mesh.geometry.dispose();
+        const m = t.mesh.material as THREE.ShaderMaterial;
+        (m.uniforms.uTH.value as THREE.Texture).dispose(); (m.uniforms.uTC.value as THREE.Texture).dispose(); m.dispose();
+      }
+      setMask(t, false); tiles.delete(t.key);
+    }
+    async function loadTile(t: LiveTile) {
+      const idx = tIdx; if (!idx) return;
+      t.loading = true; inflight++;
+      try {
+        const [dec, ctex] = await Promise.all([
+          decodeHeights(`${base}tiles/h/${t.key}.png`, idx.hMinM[t.r][t.c], idx.quantumM),
+          new Promise<THREE.Texture>((res, rej) => loader.load(`${base}tiles/c/${t.key}.jpg`, res, undefined, rej)),
+        ]);
+        if (S.current !== st) { ctex.dispose(); return; }
+        ctex.colorSpace = THREE.SRGBColorSpace; ctex.anisotropy = maxAniso; ctex.flipY = false;
+        t.heights = { r: t.r, c: t.c, n: idx.n, h: dec.data };
+        const md = buildTileMesh(idx, t.heights, 2, 2);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(md.position, 3));
+        geo.setAttribute('aUp', new THREE.BufferAttribute(md.up, 3));
+        geo.setAttribute('aUV', new THREE.BufferAttribute(md.uv, 2));
+        geo.setAttribute('aH', new THREE.BufferAttribute(md.h, 1));
+        geo.setIndex(new THREE.BufferAttribute(md.index, 1));
+        geo.computeBoundingSphere();
+        const [la0, lo0] = tileOrigin(idx, t.r, t.c), rad = Math.PI / 180;
+        const mt = new THREE.ShaderMaterial({
+          vertexShader: TILE_V, fragmentShader: TILE_F, side: THREE.DoubleSide,
+          uniforms: { ...u, uTH: { value: floatTex(dec.data, dec.w, dec.h, linearFloat, false, dec.mips) }, uTC: { value: ctex },
+            uTileLL: { value: new THREE.Vector3(la0 * rad, lo0 * rad, idx.deg * rad) }, uTileN: { value: idx.n } },
+        });
+        const mesh = new THREE.Mesh(geo, mt);
+        mesh.position.set(md.center[0], md.center[1], md.center[2]);
+        mesh.visible = false;
+        scene.add(mesh); t.mesh = mesh;
+      } catch { t.failed = true; }
+      finally { t.loading = false; inflight--; request(); }
+    }
+    /** Pick the tiles around the centre of the view when the globe maps are coarser than the screen. */
+    function updateTiles() {
+      const idx = tIdx; if (!idx) return;
+      const cam = camera.position, camR = cam.length(), now = performance.now();
+      const dv = st.controls.target.clone().sub(cam).normalize();
+      const b = cam.dot(dv), disc = b * b - (camR * camR - R_KM * R_KM);
+      const tHit = disc > 0 ? -b - Math.sqrt(disc) : -1;
+      const P = tHit > 0 ? cam.clone().addScaledVector(dv, tHit) : cam.clone().setLength(R_KM);
+      const dist = cam.distanceTo(P), half = Math.tan((camera.fov * Math.PI) / 360);
+      const mpp = (2 * dist * 1000 * half) / (renderer.domElement.clientHeight || 1);
+      const want = new Set<LiveTile>();
+      if (mpp < 1500 && camR - R_KM < 3000) {
+        const a = Math.min((dist * half * Math.max(camera.aspect, 1) * 1.5) / R_KM + (idx.deg * Math.PI) / 180 * 0.75, 1.2);
+        const cosA = Math.cos(a), Pn = P.clone().normalize(), horizon = R_KM / camR;
+        const cand: [number, number, number][] = [];
+        for (let r = 0; r < idx.rows; r++) for (let c = 0; c < idx.cols; c++) {
+          const [la0, lo0] = tileOrigin(idx, r, c);
+          const d = dirOf(la0 - idx.deg / 2, lo0 + idx.deg / 2);
+          const dp = d[0] * Pn.x + d[1] * Pn.y + d[2] * Pn.z;
+          if (dp < cosA || (d[0] * cam.x + d[1] * cam.y + d[2] * cam.z) / camR < horizon - 0.08) continue;
+          cand.push([r, c, dp]);
+        }
+        cand.sort((x, y) => y[2] - x[2]);
+        for (const [r, c] of cand.slice(0, MAX_SHOWN)) {
+          const key = tileKey(r, c);
+          let t = tiles.get(key);
+          if (!t) { t = { key, r, c, heights: null, mesh: null, loading: false, failed: false, used: 0 }; tiles.set(key, t); }
+          t.used = now; want.add(t);
+        }
+      }
+      tilesShown = 0;
+      for (const t of tiles.values()) {
+        const vis = want.has(t) && !!t.mesh;
+        if (vis) tilesShown++;
+        if (t.mesh && t.mesh.visible !== vis) { t.mesh.visible = vis; setMask(t, vis); }
+      }
+      for (const t of want) if (!t.mesh && !t.loading && !t.failed && inflight < MAX_INFLIGHT) void loadTile(t);
+      if (tiles.size > MAX_CACHED) {
+        const old = [...tiles.values()].filter((t) => !want.has(t) && !t.loading).sort((x, y) => x.used - y.used);
+        for (const t of old.slice(0, tiles.size - MAX_CACHED)) dropTile(t);
+      }
+    }
     S.current = st;
     if (import.meta.env.DEV) Object.assign(window as object, { __moon: st, __gsap: gsap });
 
@@ -255,6 +389,8 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         if (st.hi) { const h = sampleGrid(st.hi, x, y); if (!isNaN(h)) return { h, resM: st.hi.resM, src: `LOLA ${st.hi.resM} m site patch` }; }
         if (st.cap) { const h = sampleGrid(st.cap, x, y); if (!isNaN(h)) return { h, resM: st.cap.resM, src: `LOLA polar ${Math.round(st.cap.resM)} m` }; }
       }
+      const th = tileH(lat, lon);
+      if (!isNaN(th)) return { h: th, resM: TILE_RES_M, src: 'LOLA 64 px/deg (CGI Moon Kit)' };
       if (st.eq) return { h: sampleEq(st.eq, lat, lon), resM: (Math.PI * R_KM * 1000) / st.eq.hgt, src: `LOLA global ${((Math.PI * R_KM) / st.eq.hgt).toFixed(1)} km` };
       return { h: 0, resM: 5000, src: 'reference sphere (heights still loading)' };
     }
@@ -308,7 +444,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       }
       if (st.patch) u.uCamLocal.value.copy(camera.position).sub(st.patch.position);
       st.sun.position.copy(camera.position).addScaledVector(u.uSun.value, 1e5);
-      renderer.render(scene, camera);
+      updateTiles();
+      const still = !moving && !st.flying, wasFresh = fresh;
+      fresh = false;
+      taa.accumulate = still && !wasFresh;
+      composer.render();
       // markers
       const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
       // declutter: the selected site first, then any marker whose label would overlap one already shown
@@ -349,10 +489,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       if (ro.src) {
         const hiRes = st.hi?.resM ?? Infinity;
         const near = st.mode === 'site' && st.patch && dist < 40;
-        ro.src.textContent = !near ? (alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
+        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
           : mpp < hiRes / 3 && u.uDetail.value > 0 ? `LOLA ${hiRes} m + procedural below ${hiRes} m` : `LOLA ${hiRes} m/px`;
       }
       if (moving) request();
+      else if (still && (wasFresh || (taa as unknown as { accumulateIndex: number }).accumulateIndex < TAA_SAMPLES)) request(false);
     }
     controls.addEventListener('change', request);
 
@@ -366,13 +507,22 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) pickRef.current(hit);
     };
+    // a double-click zooms in on that point with the flattened close-up view
+    const onDbl = (e: MouseEvent) => {
+      if (st.flying) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      if (hit) zoomRef.current(hit);
+    };
     renderer.domElement.addEventListener('pointerdown', onDown);
     renderer.domElement.addEventListener('pointerup', onUp);
+    renderer.domElement.addEventListener('dblclick', onDbl);
     if (import.meta.env.DEV) (window as unknown as { __moonFrame: () => void }).__moonFrame = frame;
 
     const ro = new ResizeObserver(() => {
       const w = el.clientWidth, h = el.clientHeight;
       renderer.setSize(w, h, true);
+      composer.setSize(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix(); request();
     });
     ro.observe(el);
@@ -380,6 +530,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     /* progressive data loading: small textures first, then the 8k mosaic and the height maps */
     const texture = (path: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => loader.load(`${base}${path}`, (tx) => {
       tx.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      // the shaders put north at v = 0 (row 0 of the image), like the height maps; the loader's default
+      // flipY would mirror colour and relief north-south against the heights and the lighting
+      tx.flipY = false;
       tx.wrapS = THREE.RepeatWrapping; tx.anisotropy = renderer.capabilities.getMaxAnisotropy();
       res(tx);
     }, undefined, rej));
@@ -418,8 +571,11 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf);
       renderer.domElement.removeEventListener('pointerdown', onDown);
       renderer.domElement.removeEventListener('pointerup', onUp);
+      renderer.domElement.removeEventListener('dblclick', onDbl);
       st.flying?.kill(); st.controls.dispose();
       scene.traverse((o) => { const m = o as THREE.Mesh; m.geometry?.dispose(); const mm = m.material as THREE.Material | undefined; mm?.dispose?.(); });
+      for (const t of [...tiles.values()]) dropTile(t);
+      composer.dispose(); tileMask.dispose();
       renderer.dispose(); renderer.domElement.remove(); S.current = null;
     };
   }, []);
@@ -456,21 +612,23 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       const b = document.createElement('button');
       b.className = `moon-marker${s.id === selectedId ? ' on' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
-      b.setAttribute('aria-label', `Fly to ${s.name}`);
-      b.onclick = () => { onSelect(s.id); if (s.lat < -80.5 && !s.id.startsWith('custom')) setViewer(s.id); };
+      b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
+      // click selects the site without moving the camera; double-click zooms in with the flattened view
+      b.onclick = () => { if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } };
+      b.ondblclick = (e) => { e.preventDefault(); zoomRef.current(v3(posOf(s.lat, s.lon, s.siteHeightM ?? 0))); };
       layer.appendChild(b);
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) + 30)) };
     });
     st.request();
-  }, [siteList, selectedId, onSelect]); // setViewer is stable
+  }, [siteList, selectedId, onSelect]);
 
   /* ---------- camera flights ---------- */
-  const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6) => {
+  const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6, fov = SCALE_FOV) => {
     const st = S.current; if (!st) return;
     st.flying?.kill();
     const { camera, controls } = st;
     controls.enabled = false;
-    const p0 = camera.position.clone(), t0 = controls.target.clone(), up0 = camera.up.clone();
+    const p0 = camera.position.clone(), t0 = controls.target.clone(), up0 = camera.up.clone(), fov0 = camera.fov;
     const r0 = p0.length(), r1 = toPos.length();
     const a0 = Math.max(r0 - st.surfaceRadius(p0), 0.001), a1 = Math.max(r1 - st.surfaceRadius(toPos), 0.001);
     const d0 = p0.clone().normalize(), d1 = toPos.clone().normalize();
@@ -489,6 +647,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         camera.position.copy(dir.multiplyScalar(st.surfaceRadius(dir) + alt));
         controls.target.copy(t0).lerp(toTarget, gsap.parseEase('power2.inOut')(k));
         camera.up.copy(up0).applyQuaternion(new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(up0, up), k));
+        if (fov !== fov0) { camera.fov = fov0 + (fov - fov0) * gsap.parseEase('power2.inOut')(k); camera.updateProjectionMatrix(); }
         camera.lookAt(controls.target);
         st.request();
       },
@@ -547,6 +706,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
 
   /* ---------- site patch: real high-resolution LOLA terrain ---------- */
   const firstSite = useRef(selectedId);
+  const quietPick = useRef(false);
   useEffect(() => {
     const st = S.current; if (!st || !sel) return;
     let live = true;
@@ -557,7 +717,9 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
     clear();
     // fly only when the user picked this site; the first load keeps the whole-Moon intro
     if (selectedId !== firstSite.current) firstSite.current = '\u0000picked';
-    const picked = firstSite.current === '\u0000picked';
+    const quiet = quietPick.current;
+    quietPick.current = false;
+    const picked = firstSite.current === '\u0000picked' && !quiet;
     const arrive = (fallback: Scale) => { if (picked) goTo(scale === 'moon' ? fallback : scale); };
     (async () => {
       let meta: HiMeta | null = null;
@@ -663,7 +825,6 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
       st.probePos = v3(posOf(lat, lon, g.h * (g.src.includes('site patch') ? 1 : st.exag)));
       setPeriod(null);
       setProbe({ lat, lon, groundM: g.h, hz, resM: g.resM, src: g.src, distKm });
-      recenter(lat, lon);
       st.request();
       if (rangeOpen) {
         const next = { ...rangeIn, lat: lat.toFixed(4), lon: (((lon % 360) + 360) % 360).toFixed(4) };
@@ -671,28 +832,28 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
         applyRangeRef.current(next, false);
       }
     };
-    // recenter only touches refs and the stable fly()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, rangeOpen, rangeIn]);
   /**
-   * Make a clicked point the pivot of the camera: it glides to the centre of the view, and from then on
-   * dragging orbits around that point (about its local vertical) and scrolling zooms toward it.
+   * Double-click: zoom in on a point and flatten the perspective. The camera looks straight down (tipped 0.6°
+   * so orbiting keeps a heading, north up) through a narrow 10° field of view from proportionally further
+   * away, so the ground reads like a map instead of a wide-angle view.
    */
-  const recenter = (lat: number, lon: number) => {
-    const st = S.current; if (!st || st.flying) return;
-    const gg = st.terrainM(lat, lon);
-    const P = v3(posOf(lat, lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag)));
+  const zoomFlat = useCallback((P: THREE.Vector3) => {
+    const st = S.current; if (!st) return;
     const U = P.clone().normalize();
-    const cam = st.camera.position.clone();
-    // keep the viewing distance: from the old pivot when zoomed in, from the surface point on the globe view
-    const dist = Math.min(8500, st.mode === 'globe' ? cam.distanceTo(P) : cam.distanceTo(st.controls.target));
-    // keep the viewing direction, but never from below ~15° elevation or from exactly overhead
-    const dir = cam.sub(P).normalize();
-    const elev = dir.dot(U);
-    if (elev < 0.26) dir.addScaledVector(U, 0.26 - elev).normalize();
-    if (dir.dot(U) > 0.985) dir.addScaledVector(v3(enu(lat, lon).n), -0.18).normalize();
-    fly(P.clone().addScaledVector(dir, dist), P, U, 'site', 1.3);
-  };
+    const lat = Math.asin(U.z) * 180 / Math.PI, lon = Math.atan2(U.y, U.x) * 180 / Math.PI;
+    const N = v3(enu(lat, lon).n);
+    // keep 30% of the ground width now in view, seen through the narrow lens from proportionally further away
+    const half = (f: number) => Math.tan((f * Math.PI) / 360);
+    const width = st.camera.position.distanceTo(P) * half(st.camera.fov) * 0.3;
+    const d = Math.min(Math.max(width / half(FLAT_FOV), 0.05), 8500);
+    const tilt = (0.6 * Math.PI) / 180;
+    const dir = U.clone().multiplyScalar(Math.cos(tilt)).addScaledVector(N, -Math.sin(tilt)).normalize();
+    fly(P.clone().addScaledVector(dir, d), P, U, 'site', 1.4, FLAT_FOV);
+  }, [fly]);
+  const zoomRef = useRef(zoomFlat);
+  zoomRef.current = zoomFlat;
 
   /* ---------- rover range on battery ---------- */
   const groundAt = (lat: number, lon: number) => {
@@ -806,7 +967,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
   if (fail) return <div className="moon-fail">{fail}</div>;
   return (
     <section className="moon" aria-label="3D Moon">
-      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point." />
+      <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to probe a point, double-click to zoom in." />
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
       <div ref={hud} className="moon-hud">
