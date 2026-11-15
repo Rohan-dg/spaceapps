@@ -1858,9 +1858,11 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .pair-group label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
 .pair-hint { color: var(--ink-2); font-size: 10.5px; line-height: 1.3; }
 
-/* your own points: teal, never the red of NASA's candidates or the blue of missions */
-.moon-marker.mine i { background: #2dd4bf; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 2px; transform: rotate(45deg); }
-.moon-marker.mine span { color: #b8f5ea; font-weight: 600; }
-.moon-marker.mine.on i { background: #2dd4bf; }
-.ct-clear { margin-left: 8px; height: 26px; padding: 0 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid color-mix(in srgb, #2dd4bf 50%, var(--line)); background: transparent; color: var(--ink); }
-.ct-clear:hover { background: color-mix(in srgb, #2dd4bf 14%, transparent); }
+/* your own points: orange, never the red of NASA's candidates or the blue of missions */
+.moon-marker.mine i { background: #ff8a00; box-shadow: 0 0 0 2px #000; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 2px; transform: rotate(45deg); }
+.moon-marker.mine span { color: #ff8a00; font-weight: 700; opacity: 1 !important; }
+.moon-marker.mine.on i { background: #ff8a00; box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff; }
+.ct-clear { margin-left: 8px; height: 26px; padding: 0 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid color-mix(in srgb, #ff8a00 55%, var(--line)); background: transparent; color: var(--ink); }
+.ct-clear:hover { background: color-mix(in srgb, #ff8a00 16%, transparent); }
+
+.moon-marker.mine.crowded span { opacity: 1; }

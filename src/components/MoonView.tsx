@@ -575,7 +575,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       // Labels never overlap: every visible point is placed first, then each label tries the right of its point, then
       // the left, and only if both collide does it fade out. A shown label then counts its hidden neighbours ("+3").
       // Order: the selected site, then NASA's Artemis III candidate regions, then everything else.
-      const rank = (m: (typeof st.markers)[number]) => (m.el.classList.contains('on') ? 0 : m.el.classList.contains('nasa') ? 1 : 2);
+      const rank = (m: (typeof st.markers)[number]) => (m.el.classList.contains('on') ? 0 : m.el.classList.contains('mine') ? 1 : m.el.classList.contains('nasa') ? 2 : 3);
       const order = [...st.markers].sort((a, b) => rank(a) - rank(b));
       const boxes: [number, number, number, number][] = [];
       const hit = (x0: number, y0: number, x1: number, y1: number) => boxes.some(([a0, b0, a1, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0);
@@ -605,7 +605,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         // a label may cover points of its own cluster (within 30 px; it speaks for them with "+N") but never another
         // label or a point outside the cluster; the selected site is always labelled
         const free = (b: [number, number, number, number]) => !hit(...b) || (!hitLabel(...b) && !hitFarDot(b, sx, sy));
-        const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') ? right : null;
+        // the selected site and your own points are always labelled
+        const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') || m.el.classList.contains('mine') ? right : null;
         m.el.classList.toggle('crowded', !side);
         m.el.classList.toggle('left', side === left);
         // a left-hand label: the row is reversed and shifted left so the point stays on the site

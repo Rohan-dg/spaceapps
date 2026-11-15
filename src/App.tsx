@@ -189,8 +189,7 @@ export default function App() {
   }, []);
   const addCustom = useCallback((d: SiteData) => {
     if (d.info.id.startsWith('custom') && !/^Point [A-Z]+$/.test(d.info.short)) letterPoint(d, nextLetter());
-    // keep the last eight points so clicking around does not flood the list
-    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8));
+    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]);
     setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
   }, []);
   const [pointBusy, setPointBusy] = useState<string | null>(null);
@@ -372,7 +371,7 @@ export default function App() {
           const old = customs.find((c) => c.id === (slot === 'A' ? partner : siteId));
           const L = old?.short.match(/^Point ([A-Z]+)$/)?.[1];
           if (L) letterPoint(d, L); else letterPoint(d, nextLetter());
-          setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info].slice(-8));
+          setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info]);
           if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id);
         }
         else { addCustom(d); setMode('explore'); }
