@@ -1,36 +1,50 @@
 import { Earth, Pause, Play, Sun, SunDim } from './Icons';
 import type { Level } from '../config/thresholds';
 import type { SiteData } from '../lib/data';
-import { inWords, type Event } from '../lib/metrics';
+import { MOON_SUN_RATE, declination, sunriseDurationH } from '../lib/earthCompare';
 import type { ScenarioResult } from '../lib/useScenario';
-import { fromInput, toInput } from './TimeControls';
+import FirstPerson from './FirstPerson';
 import TimeLeft from './TimeLeft';
+import Timeline from './Timeline';
 
-const sunHeight = (el: number) => el > 30 ? 'high in the sky' : el > 10 ? 'fairly low in the sky' : el > 3 ? 'low over the horizon' : 'skimming the horizon';
+const inDays = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 2 ? `${Math.round(h)} hours` : `${Math.round(h * 60)} minutes`);
 const longDate = (t: number) => new Date(t).toLocaleString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' UTC';
 
 const POWER: Record<Level, string> = {
   green: 'Plenty of sunlight for solar power',
-  amber: 'Some sunlight, but with long dark spells',
-  red: 'Not enough sunlight for solar power',
+  amber: 'Some sunlight, with long dark spells',
+  red: 'Too little sunlight for solar power',
 };
 const RADIO: Record<Level, string> = {
-  green: 'Earth stays in view, so it can radio home',
-  amber: 'Earth is often hidden, so radio contact has gaps',
-  red: 'Earth is hidden most of the time: it would need a relay satellite',
+  green: 'Earth stays in view for radio contact',
+  amber: 'Earth is often hidden, so contact has gaps',
+  red: 'Earth is mostly hidden, so it would need a relay satellite',
 };
 const MARK: Record<Level, string> = { green: 'Good', amber: 'OK', red: 'Poor' };
 
-function overall(r: ScenarioResult): { word: string; line: string } {
+function verdict(r: ScenarioResult): string {
   const p = r.power.level, c = r.comms.level;
-  if (p === 'green' && c === 'green') return { word: 'Yes, a great spot right now', line: 'Lots of sunlight for power, and Earth stays in view for radio.' };
-  if (p === 'red' && c === 'red') return { word: 'No, not at this time', line: 'Too little sunlight and Earth is mostly out of sight.' };
-  if (p === 'red') return { word: 'Not for a solar-powered lander', line: 'The Sun is blocked too much of the time here.' };
-  if (c === 'red') return { word: 'Only with a relay satellite', line: 'There is sunlight, but Earth is out of sight, so it cannot call home directly.' };
-  return { word: 'Possible, with careful planning', line: 'It would have to get through dark spells or gaps in radio contact.' };
+  if (p === 'green' && c === 'green') return 'Yes, a great spot this month.';
+  if (p === 'red' && c === 'red') return 'No, not this month.';
+  if (p === 'red') return 'Not for a solar-powered lander.';
+  if (c === 'red') return 'Only with a relay satellite.';
+  return 'Possible, with careful planning.';
 }
 
-const days = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : `${Math.round(h)} hours`);
+function nowLine(sun: boolean, earth: boolean): string {
+  if (sun && earth) return 'Sunny, and Earth is in view.';
+  if (sun) return 'Sunny, but Earth is hidden.';
+  if (earth) return 'Dark, but Earth is in view.';
+  return 'Dark, and Earth is hidden.';
+}
+
+/** Where a site is, in words: pole, near side or far side. */
+function whereWords(lat: number, lon: number): string {
+  const l = ((lon % 360) + 360) % 360;
+  if (lat < -80) return 'Near the south pole';
+  if (lat > 80) return 'Near the north pole';
+  return `${l > 90 && l < 270 ? 'Far side' : 'Near side'}, ${Math.abs(lat).toFixed(0)}° ${lat < 0 ? 'south' : 'north'}`;
+}
 
 interface Props {
   data: SiteData; r: ScenarioResult; t: number; tLive: number; t0: number; t1: number;
@@ -38,69 +52,80 @@ interface Props {
 }
 
 /**
- * Normal mode: the selected site in plain language for a general audience. Answers three questions
- * (is it sunny, can it talk to Earth, is it a good place to land), with a look-around view, the next month at
- * a glance and the Moon-vs-Earth comparison. Every figure comes from the same calculation as Expert mode.
+ * Normal mode: one reading column for a general audience. The place, what it is like right now and for how long,
+ * whether it is a good place to land, what you would see standing there, the month ahead, and three facts that make
+ * it unlike Earth. Every figure comes from the same calculation as Expert mode.
  */
 export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, onPlaying }: Props) {
   const m = r.metrics, info = data.info;
-  const sunE = m.sunUp ? m.nextSunset : m.nextSunrise;
-  const earthE = m.earthUp ? m.nextEarthset : m.nextEarthrise;
-  const o = overall(r);
   const step = (d: number) => onT(Math.max(t0, Math.min(t1, tLive + d * 86400_000)));
-  const jump = (e: Event) => { if (e.t !== null) { onPlaying(false); onT(Math.min(t1, e.t + 60_000)); } };
+  const sunE = m.sunUp ? m.nextSunset : m.nextSunrise;
+  const moonRise = sunriseDurationH(info.lat, 0, MOON_SUN_RATE);
+  const earthRise = sunriseDurationH(info.lat, declination(t), 15);
 
   return (
-    <div className="simple">
-      <header className="simple-hero">
+    <article className="sv">
+      <header className="sv-hero">
         <h2>{info.name}</h2>
+        {info.description && <p className="sv-lede">{info.description}</p>}
+        <ul className="sv-facts">
+          <li>{whereWords(info.lat, info.lon)}</li>
+          <li>{Math.abs(info.siteHeightM).toLocaleString('en-US', { maximumFractionDigits: 0 })} m {info.siteHeightM >= 0 ? 'above' : 'below'} the Moon's average level</li>
+          {info.mission && <li>{info.mission}</li>}
+        </ul>
       </header>
 
-      <section className="simple-time" aria-label="Time">
-        <button className="btn-primary play" onClick={() => onPlaying(!playing)} aria-pressed={playing}>
-          {playing ? <><Pause size={15} aria-hidden /> Pause</> : <><Play size={15} aria-hidden /> Play</>}
-        </button>
-        <button onClick={() => step(-1)}>Day before</button>
-        <button onClick={() => step(1)}>Next day</button>
-        <label className="simple-pick">
-          <span className="sr-only">Date and time (UTC)</span>
-          <input type="datetime-local" value={toInput(tLive)} min={toInput(t0)} max={toInput(t1)} step={60}
-            onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) onT(Math.max(t0, Math.min(t1, v))); }} />
-        </label>
-        <span className="simple-date">{longDate(tLive)}</span>
-      </section>
-
-      <section className="simple-now" aria-label="Right now">
-        <div className={`simple-tile${m.sunUp ? ' on' : ''}`}>
-          {m.sunUp ? <Sun size={30} aria-hidden /> : <SunDim size={30} aria-hidden />}
-          <h3>{m.sunUp ? 'The Sun is up' : 'It is dark'}</h3>
-          <p>{m.sunUp ? `The Sun is ${sunHeight(m.sky.sun.el)}. It sets ${inWords(sunE, t)}.` : m.sunPct === 0 ? 'The Sun never reaches this spot: the surrounding terrain always blocks it.' : `The Sun is behind the horizon or hills. It comes back ${inWords(sunE, t)}.`}</p>
-          {sunE.t !== null && m.sunPct > 0 && <button className="link" onClick={() => jump(sunE)}>Skip to {m.sunUp ? 'sunset' : 'sunrise'}</button>}
-        </div>
-        <div className={`simple-tile${m.earthUp ? ' on earth' : ''}`}>
-          <Earth size={30} aria-hidden />
-          <h3>{m.earthUp ? 'Earth is in view' : 'Earth is hidden'}</h3>
-          <p>{m.earthUp ? `A lander here could radio home directly. Earth stays up ${earthE.t === null ? 'for the whole period we have data for' : `and sets ${inWords(earthE, t)}`}.`
-            : m.earthPct === 0 ? 'Earth never rises here, so a lander would need a relay satellite to talk to us.' : `A lander here can't radio home right now. Earth rises ${inWords(earthE, t)}.`}</p>
-          {earthE.t !== null && m.earthPct > 0 && <button className="link" onClick={() => jump(earthE)}>Skip to {m.earthUp ? 'Earthset' : 'Earthrise'}</button>}
-        </div>
-      </section>
-
-      <section className="simple-block" aria-label="Time left">
-        <h3>How long until it changes</h3>
+      <section className="sv-sec" aria-label="Right now">
+        <div className="sv-row"><span className="sv-k">Right now</span><span className="sv-date">{longDate(tLive)}</span></div>
+        <p className="sv-big">
+          <span className="sv-icons" aria-hidden>
+            {m.sunUp ? <Sun size={20} className="sv-ico sun" /> : <SunDim size={20} className="sv-ico off" />}
+            <Earth size={20} className={`sv-ico ${m.earthUp ? 'earth' : 'off'}`} />
+          </span>
+          {nowLine(m.sunUp, m.earthUp)}
+        </p>
         <TimeLeft s={data.series} m={m} t={t} plain />
+        <div className="sv-time">
+          <button className="sv-play" onClick={() => onPlaying(!playing)} aria-pressed={playing}>
+            {playing ? <><Pause size={14} aria-hidden /> Pause</> : <><Play size={14} aria-hidden /> Play</>}
+          </button>
+          <button onClick={() => step(-1)} aria-label="Previous day">‹ Day</button>
+          <button onClick={() => step(1)} aria-label="Next day">Day ›</button>
+          {sunE.t !== null && m.sunPct > 0 && (
+            <button className="sv-link" onClick={() => { onPlaying(false); onT(Math.min(t1, (sunE.t as number) + 60_000)); }}>Skip to {m.sunUp ? 'sunset' : 'sunrise'}</button>
+          )}
+        </div>
       </section>
 
-      <section className="simple-verdict" aria-label="Is it a good place to land?">
-        <span className="overline">Good place to land, over the next month?</span>
-        <h3>{o.word}</h3>
-        <p>{o.line}</p>
-        <ul>
-          <li className={`lv-${r.power.level}`}><b>{MARK[r.power.level]}</b> {POWER[r.power.level]}: sunlit {m.sunPct.toFixed(0)}% of the time{m.longestDarkH > 0 ? `, longest darkness ${days(m.longestDarkH)}` : ''}.</li>
-          <li className={`lv-${r.comms.level}`}><b>{MARK[r.comms.level]}</b> {RADIO[r.comms.level]}: in view {m.earthPct.toFixed(0)}% of the time.</li>
+      <section className="sv-sec" aria-label="Is it a good place to land?">
+        <span className="sv-k">Good place to land?</span>
+        <p className="sv-big">{verdict(r)}</p>
+        <ul className="sv-why">
+          <li className={`lv-${r.power.level}`}><b>{MARK[r.power.level]}</b><span>{POWER[r.power.level]}: sunny {m.sunPct.toFixed(0)}% of the next month{m.longestDarkH > 0 ? `, longest darkness ${inDays(m.longestDarkH)}` : ''}.</span></li>
+          <li className={`lv-${r.comms.level}`}><b>{MARK[r.comms.level]}</b><span>{RADIO[r.comms.level]}: in view {m.earthPct.toFixed(0)}% of the time.</span></li>
         </ul>
       </section>
 
-    </div>
+      <section className="sv-sec" aria-label="What you would see">
+        <span className="sv-k">Standing here</span>
+        <p className="sv-note">Drag to look around. The hills are real terrain measured by NASA's Lunar Reconnaissance Orbiter.</p>
+        <FirstPerson data={data} t={t} height={280} />
+      </section>
+
+      <section className="sv-sec" aria-label="The month ahead">
+        <span className="sv-k">The month ahead</span>
+        <p className="sv-note"><i className="sv-sw sun" aria-hidden />Sunny <i className="sv-sw earth" aria-hidden />Earth in view. Click to jump to a day.</p>
+        <Timeline data={data} t={t} onSeek={onT} />
+      </section>
+
+      <section className="sv-sec" aria-label="Why it is not like Earth">
+        <span className="sv-k">Not like Earth</span>
+        <dl className="sv-diff">
+          <div><dt>One day lasts</dt><dd>29.5 Earth days</dd><p>About two weeks of light, then two of dark{info.lat < -80 ? '. Near the pole the Sun just circles the horizon' : ''}.</p></div>
+          <div><dt>Sunrise takes</dt><dd>{moonRise >= 24 * 29 ? 'days' : `about ${inDays(moonRise)}`}</dd><p>On Earth at this latitude: about {inDays(earthRise)}.</p></div>
+          <div><dt>The sky is</dt><dd>black all day</dd><p>No air means no blue sky, no twilight, and no bending of sunlight at the horizon.</p></div>
+        </dl>
+      </section>
+    </article>
   );
 }
