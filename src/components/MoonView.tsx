@@ -13,12 +13,15 @@
  * Lighting uses the true Sun and Earth directions at the selected time; shadows are ray-marched on the heights.
  */
 import gsap from 'gsap';
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { TAARenderPass } from 'three/examples/jsm/postprocessing/TAARenderPass.js';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import * as Astro from 'astronomy-engine';
 import type { SiteInfo } from '../lib/data';
 import { bodyFixedGeometry, eqjToMoonFixed } from '../lib/ephemeris';
@@ -120,7 +123,7 @@ interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM:
 const DBL_MS = 260;
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false, minimal = false, pathIds, popupAt = null, popup, onGroundClick, frame }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -136,6 +139,17 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   probeCollapsed?: boolean;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
+  /** Education's full-screen view: no readouts or probe panel, and a click on a site or the ground does not move the camera. */
+  minimal?: boolean;
+  /** Sites on a planned path, in order: numbered on their markers and joined by a line on the surface. */
+  pathIds?: string[];
+  /** A pop-up card kept next to this point on screen (hidden while the point is behind the Moon). */
+  popupAt?: { lat: number; lon: number; hM: number } | null;
+  popup?: ReactNode;
+  /** Minimal mode: a click on the ground (not a site marker). */
+  onGroundClick?: () => void;
+  /** Fly to look down on these points (bump n to fly again). */
+  frame?: { pts: { lat: number; lon: number }[]; n: number } | null;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -159,6 +173,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const homeRef = useRef<() => void>(() => {});
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
   const probePin = useRef<HTMLDivElement>(null);
+  const popPin = useRef<HTMLDivElement>(null);
+  const minimalRef = useRef(minimal);
+  minimalRef.current = minimal;
+  const groundRef = useRef(onGroundClick);
+  groundRef.current = onGroundClick;
   const rangePin = useRef<HTMLDivElement>(null);
   const sunPin = useRef<HTMLDivElement>(null);
   const sunPtr = useRef<HTMLDivElement>(null);
@@ -191,7 +210,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null; flyDest?: THREE.Vector3 | null;
     request: () => void; markers: Marker[]; meta: TexMeta | null;
-    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
+    exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; pathGroup: THREE.Group; pathMat: LineMaterial | null; popPos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
     /** A double-clicked point being viewed close up: only its neighbourhood gets full-detail terrain. */
@@ -315,6 +334,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     // the Sun is ~150 million km away, past the far plane, so its line runs 1 million km along the exact Sun direction
     const sunLine = sightLine(0xffd23f);
     scene.add(rangeGroup);
+    const pathGroup = new THREE.Group();
+    scene.add(pathGroup);
     // polar cap (positions are stereographic km; the vertex shader puts them on the sphere)
     const cGeo = new THREE.PlaneGeometry(608, 608, CAP_SEGMENTS, CAP_SEGMENTS);
     const cap = new THREE.Mesh(cGeo, mat(CAP_V, CAP_F));
@@ -377,7 +398,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
       flying: null as gsap.core.Tween | null, request, markers: [] as Marker[], meta: null as TexMeta | null,
-      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine, sunLine,
+      exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, pathGroup, pathMat: null as LineMaterial | null, popPos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine, sunLine,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
       focus: null as { P: THREE.Vector3; lat: number; lon: number; D: number } | null,
     };
@@ -713,16 +734,25 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         m.dashSize = dd * 0.012; m.gapSize = dd * 0.012;
       }
       // probe and rover-range pins
-      for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos], [sunPin.current, st.sunPos]] as const) {
+      if (st.pathMat) st.pathMat.resolution.set(w, h);
+      for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos], [sunPin.current, st.sunPos], [popPin.current, st.popPos]] as const) {
         if (!pin) continue;
         let show = false;
         if (pp) {
           tmp.copy(pp).project(camera);
           const toCam = camera.position.clone().sub(pp);
           show = tmp.z < 1 && toCam.dot(pp) / (toCam.length() * pp.length()) > 0.0 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05;
-          pin.style.transform = `translate(${((tmp.x + 1) / 2) * w}px, ${((1 - tmp.y) / 2) * h}px)`;
+          const px = ((tmp.x + 1) / 2) * w, py = ((1 - tmp.y) / 2) * h;
+          pin.style.transform = `translate(${px}px, ${py}px)`;
+          if (pin === popPin.current) {
+            // the pop-up opens toward the roomier side of its point; on a narrow screen it spans the width instead
+            pin.dataset.h = w < 640 ? 'full' : px > w * 0.55 ? 'left' : 'right';
+            pin.dataset.v = py > h * 0.55 ? 'up' : 'down';
+            pin.style.setProperty('--px', `${px}px`); pin.style.setProperty('--py', `${py}px`); pin.style.setProperty('--vw', `${w}px`); pin.style.setProperty('--vh', `${h}px`);
+          }
         }
         pin.style.opacity = show ? '1' : '0';
+        pin.style.visibility = show ? 'visible' : 'hidden';
       }
       // readouts: ground resolution at the screen centre and altitude
       const alt = camera.position.length() - surfaceRadius(camera.position);
@@ -759,6 +789,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     };
     // a click during a flight retargets it (fly() starts from wherever the camera is now)
     const singleGround = (nx: number, ny: number) => {
+      if (minimalRef.current) { groundRef.current?.(); return; }
       const hit = pickGround(nx, ny);
       if (hit) {
         // start the flight first; the 360° skyline trace for the probe runs when the browser is idle, so the
@@ -901,8 +932,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const b = document.createElement('button');
       b.style.opacity = '0'; // hidden until the first frame places it, so it never flashes at the corner
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
-      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') || s.id.startsWith('pending') ? ' mine' : ''}${s.id.startsWith('pending') ? ' pending' : ''}${s.id === secondId ? ' pair' : ''}`;
-      b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
+      b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') || s.id.startsWith('pending') ? ' mine' : ''}${s.id.startsWith('pending') ? ' pending' : ''}${s.id === secondId ? ' pair' : ''}${pathIds?.includes(s.id) ? ' in-path' : ''}`;
+      const order = pathIds ? pathIds.indexOf(s.id) : -1;
+      b.innerHTML = `<i></i>${order >= 0 ? `<b class="path-n">${order + 1}</b>` : ''}<span>${s.short || s.name}</span>`;
       b.setAttribute('aria-label', `Select ${s.name}; double-click to zoom in`);
       // click selects the site without moving the camera; double-click zooms in with the flattened view
       // a site marker behaves like any other point: select it and glide to a top-down view over it
@@ -912,6 +944,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         if (clickWait.current) clearTimeout(clickWait.current);
         clickWait.current = window.setTimeout(() => {
           clickWait.current = 0;
+          if (minimalRef.current) { if (s.id !== selectedId) quietPick.current = true; onSelect(s.id); return; }
           if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); }
           topRef.current(v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief)));
         }, DBL_MS);
@@ -928,7 +961,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief + 30)) };
     });
     st.request();
-  }, [siteList, selectedId, onSelect, relief, secondId]);
+  }, [siteList, selectedId, onSelect, relief, secondId, pathIds]);
 
   /* ---------- camera flights ---------- */
   const fly = useCallback((toPos: THREE.Vector3, toTarget: THREE.Vector3, up: THREE.Vector3, mode: 'globe' | 'site', dur = 2.6, fov = SCALE_FOV) => {
@@ -1296,6 +1329,52 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     zoomRef.current(P);
   }
 
+  /* ---------- planned path (Education) ---------- */
+  useEffect(() => {
+    if (!frame || !frame.pts.length) return;
+    // look down on the middle of the two points farthest apart, far enough back to keep both in view
+    const P = frame.pts.map((q) => v3(posOf(q.lat, q.lon, 0)));
+    let a = P[0], b = P[0], far = -1;
+    for (const x of P) for (const y of P) { const d = x.angleTo(y); if (d > far) { far = d; a = x; b = y; } }
+    topRef.current(a, a === b ? null : b);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frame?.n]);
+  const pathKey = pathIds?.join('|') ?? '';
+  useEffect(() => {
+    const st = S.current; if (!st) return;
+    const grp = st.pathGroup;
+    grp.children.forEach((o) => { (o as Line2).geometry.dispose(); ((o as Line2).material as THREE.Material).dispose(); });
+    grp.clear(); st.pathMat = null;
+    const stops = (pathIds ?? []).map((id) => siteList.find((x) => x.id === id)).filter((x): x is SiteInfo => !!x);
+    if (stops.length >= 2) {
+      const pos: number[] = [];
+      for (let k = 0; k < stops.length - 1; k++) {
+        const a = stops[k], b = stops[k + 1];
+        const km = v3(dirOf(a.lat, a.lon)).angleTo(v3(dirOf(b.lat, b.lon))) * R_KM;
+        // high enough over the drawn ground that the straight chords between samples clear the hills
+        const lift = Math.min(6000, Math.max(250, km * 2)) * Math.max(1, relief / 2);
+        const n = Math.max(2, Math.min(400, Math.ceil(km / 3)));
+        for (let i = k === 0 ? 0 : 1; i <= n; i++) {
+          const p = gcInterp(a, b, i / n);
+          pos.push(...posOf(p.lat, p.lon, st.terrainM(p.lat, p.lon).h * st.exag + lift));
+        }
+      }
+      const g = new LineGeometry(); g.setPositions(pos);
+      const m = new LineMaterial({ color: 0x63a1ff, linewidth: 3.5, transparent: true, opacity: 0.95, toneMapped: false });
+      const el = st.renderer.domElement; m.resolution.set(el.clientWidth, el.clientHeight);
+      const line = new Line2(g, m); line.computeLineDistances(); line.frustumCulled = false; line.renderOrder = 4;
+      grp.add(line); st.pathMat = m;
+    }
+    st.request();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathKey, siteList, relief, hiInfo]);
+  // the pop-up card's anchor point
+  useEffect(() => {
+    const st = S.current; if (!st) return;
+    st.popPos = popupAt ? v3(posOf(popupAt.lat, popupAt.lon, popupAt.hM * st.exag + 30)) : null;
+    st.request();
+  }, [popupAt, relief]);
+
   /* ---------- rover range on battery ---------- */
   const groundAt = (lat: number, lon: number) => {
     const st = S.current!; const gg = st.terrainM(lat, lon);
@@ -1446,8 +1525,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   useEffect(() => {
     const st = S.current; if (!st) return;
     const show = !!(sel && probe && now);
-    st.earthLine.visible = show && earthLineOn;
-    st.sunLine.visible = show && sunLineOn;
+    st.earthLine.visible = show && earthLineOn && !minimal;
+    st.sunLine.visible = show && sunLineOn && !minimal;
     if (show && probe && now) {
       const gg = st.terrainM(probe.lat, probe.lon);
       const a = v3(posOf(probe.lat, probe.lon, gg.h * (gg.src.includes('site patch') ? 1 : st.exag) + 2));
@@ -1469,17 +1548,18 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       <div ref={host} className="moon-canvas" role="img" aria-label="The Moon in 3D, lit by the Sun at the selected time. Drag to rotate, scroll to zoom, click the surface to fly over a point and probe it, double-click to zoom in." />
       <div ref={labels} className="moon-markers" />
       <div className="moon-markers"><div ref={probePin} className="moon-probe-pin" aria-hidden><i /></div><div ref={rangePin} className="moon-probe-pin range" aria-hidden><i /></div><div ref={sunPin} className="moon-probe-pin sun" aria-hidden><i /></div></div>
+      {popup && <div className="moon-markers moon-pop-layer"><div ref={popPin} className="moon-pop-pin">{popup}</div></div>}
       <div className="moon-markers sky-ptrs" hidden={!pointers} aria-hidden>
         <div ref={sunPtr} className="sky-ptr sun"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Sun<em> · behind the Moon</em></span></div>
         <div ref={earthPtr} className="sky-ptr earth"><b><svg viewBox="0 0 20 20"><path d="M3 10h13M11 5l5 5-5 5" /></svg></b><span>Earth<em> · behind the Moon</em></span></div>
       </div>
-      <div ref={hud} className="moon-hud">
-        <div className="hud-tl hud-anim">
+      <div ref={hud} className={`moon-hud${minimal ? ' minimal' : ''}`}>
+        {!minimal && <div className="hud-tl hud-anim">
           <h2 className="hud-title">{sel?.name ?? 'The Moon'}</h2>
           {sel && <p className="hud-coords num">{fmtLatLon(sel.lat, sel.lon)}</p>}
           {!probe && <p className="hud-hint">Drag to rotate · click the Moon, then scroll to zoom (or pinch) · click a point to fly over it (light and Earth contact) · double-click for a close-up · H home · Esc close</p>}
-        </div>
-        <div className="hud-panels">
+        </div>}
+        {!minimal && <div className="hud-panels">
         {probe && (
           <div className={`hud-probe${probeMin ? ' min' : ''}`} aria-live="polite">
             <div className="hud-probe-head">
@@ -1591,13 +1671,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             <p className="hud-probe-note">Each of {reach?.rays.length ?? 180} directions is driven outward over the loaded terrain: time at the slope-derated speed × net power, plus m·g·Δh ÷ efficiency for every climb, no regeneration downhill. Ground steeper than the limit ends that direction. Slopes are measured at the terrain grid spacing, so short steep features finer than it are missed.</p>
           </form>
         )}
-        </div>
-        <dl className="hud-tr hud-anim">
+        </div>}
+        {!minimal && <dl className="hud-tr hud-anim">
           <div><dt>Ground</dt><dd className="num" ref={(e) => { readout.current.res = e; }}>-</dd></div>
           <div><dt>Altitude</dt><dd className="num" ref={(e) => { readout.current.alt = e; }}>-</dd></div>
           {sunInfo && <div><dt>Sun</dt><dd className="num">{sunInfo.el >= 0 ? '+' : ''}{sunInfo.el.toFixed(2)}° el · {sunInfo.az.toFixed(0)}° az</dd></div>}
           <div className="wide"><dt>Data</dt><dd ref={(e) => { readout.current.src = e; }}>-</dd></div>
-        </dl>
+        </dl>}
         <div className="hud-bl hud-anim">
           <div className="hud-home-row">
           <div className="hud-seg" role="radiogroup" aria-label="Zoom to">
@@ -1636,9 +1716,9 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               </div>
             )}
           </div>
-          <button className={`hud-toggle${expanded ? ' on' : ''}`} aria-pressed={expanded} onClick={() => setExpanded((x) => !x)} title={expanded ? 'Back to the normal size' : 'Make the Moon fill the window'}><Icon name="expand" /> {expanded ? 'Shrink' : 'Expand'}</button>
+          {!minimal && <button className={`hud-toggle${expanded ? ' on' : ''}`} aria-pressed={expanded} onClick={() => setExpanded((x) => !x)} title={expanded ? 'Back to the normal size' : 'Make the Moon fill the window'}><Icon name="expand" /> {expanded ? 'Shrink' : 'Expand'}</button>}
         </div>
-        {hiInfo && scale !== 'moon' && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
+        {hiInfo && scale !== 'moon' && !minimal && <p className="hud-foot num">{hiInfo.dem} {hiInfo.resM} m/px {((hiInfo.n * hiInfo.resM) / 1000).toFixed(1)} km{detail ? ` | <${hiInfo.resM} m procedural` : ''} | {d.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>}
       </div>
       {viewer && sel && sel.id === viewer && (
         <Suspense fallback={null}>
