@@ -12,7 +12,7 @@
 .rg button:hover:not(:disabled) { background: #515862; color: #fff; }
 .rg button:active:not(:disabled), .rg button[aria-pressed='true'] { background: #59677b; }
 .rg button:disabled { opacity: 0.44; cursor: default; }
-.rg button { white-space: normal; }
+.rg button { white-space: normal; height: auto; line-height: 1.35; }
 .rg *, .rg *::before, .rg *::after { box-sizing: border-box; }
 .rg button:focus-visible, .rg select:focus-visible, .rg summary:focus-visible, .rg a:focus-visible { outline: 3px solid var(--rg-ice); outline-offset: 3px; }
 .rg button.rg-primary { background: #fff; color: #11151a; }

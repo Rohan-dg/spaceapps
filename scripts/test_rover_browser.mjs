@@ -16,11 +16,12 @@ const mime = { '.js': 'text/javascript', '.css': 'text/css', '.json': 'applicati
 const errors = [], notes = [];
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--ignore-gpu-blocklist', '--enable-webgl'] });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
-let harness = false;
+let harness = false, failModel = false;
 await context.route('**/*', async (route) => {
   const u = new URL(route.request().url());
   if (u.origin !== origin) { notes.push(`External request: ${u.href}`); return route.fulfill({ status: 204, body: '' }); }
   const path = decodeURIComponent(u.pathname);
+  if (failModel && path.endsWith('/rassor.glb')) return route.fulfill({ status: 503, body: 'Intentional QA outage.' });
   if (path.includes('..')) return route.fulfill({ status: 400, body: '' });
   if (path === '/' && harness) return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/qa.css"></head><body style="margin:0"><div id="root"></div><script type="module" src="/qa.js"></script></body></html>' });
   const file = path === '/' ? 'index.html' : path.slice(1);
@@ -40,6 +41,8 @@ const assert = (condition, why) => { if (!condition) throw new Error(why); };
 try {
   await page.goto(`${origin}/#ui=normal`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /Education Learn/ }).click();
+  await page.getByRole('button', { name: 'Drive a rover', exact: true }).waitFor();
+  const mapHash = new URL(page.url()).hash;
   await page.getByRole('button', { name: 'Drive a rover', exact: true }).click();
   await page.waitForFunction(() => ['brief', 'unavailable', 'error'].includes(document.querySelector('.rg')?.dataset.stage), { timeout: 120000 });
   console.log('Production UI:', await page.locator('.rg').getAttribute('data-stage'));
@@ -51,12 +54,17 @@ try {
   await page.getByRole('button', { name: 'Pause mission', exact: true }).click();
   assert(await page.locator('.rg').getAttribute('data-stage') === 'pause', 'Pause did not open.');
   await page.getByRole('button', { name: 'Resume mission', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Mast', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.rg-drive-data')?.textContent.includes('Mast camera'));
+  await page.getByRole('button', { name: 'Lens', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset camera', exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await shot('drive-mobile');
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile layout overflows.');
   const mapReturn = page.getByRole('button', { name: 'Exit rover mission' });
   await mapReturn.click(); await page.getByRole('button', { name: 'Leave mission', exact: true }).click();
   await page.getByRole('button', { name: 'Drive a rover', exact: true }).waitFor();
+  assert(new URL(page.url()).hash === mapHash, 'Returning from the mission changed the map date or site.');
   console.log('Production UI: launch, driving, pause/resume, mobile and return passed.');
 
   // A separate test-only entry exposes the engine for accelerated mission and cleanup checks.
@@ -108,7 +116,27 @@ try {
   await shot('mission-complete');
   assert(result.cameraClearance>=0.44,'Camera went underground.');
   assert(errors.length===0,`Browser errors: ${errors.join('\n')}`);
-  await writeFile(join(cache,'report.json'),JSON.stringify({opening,result,errors,notes},null,2));
+  const failures = await page.evaluate(() => {
+    const g=window.game;
+    g.retry(); cancelAnimationFrame(g.raf); g.sky={...g.sky,sunFrac:0}; g.skyAt=g.simT; g.vit.wh=0;
+    g.step(1/60); const power=g.state;
+    g.retry(); cancelAnimationFrame(g.raf); const restored=g.vit.wh>0 && g.state==='play';
+    g.vit.tempC=-45; g.step(1/60); const frozen=g.state;
+    g.dispose();
+    return {power,frozen,restored,live:g.live,pending:g.mapWait.size,canvases:document.querySelectorAll('.rg-world canvas').length};
+  });
+  assert(failures.power==='end'&&failures.frozen==='end'&&failures.restored,'Failure/retry did not behave correctly.');
+  assert(!failures.live && failures.pending===0 && failures.canvases===0,'The renderer did not clean up.');
+  failModel=true;
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>document.querySelector('.rg')?.dataset.stage==='error',{timeout:120000});
+  const outageErrors=errors.splice(0);
+  assert(outageErrors.every((x)=>x.includes('503')),'Unexpected error in the intentional model outage.');
+  failModel=false;
+  await page.getByRole('button',{name:'Try again',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.rg')?.dataset.stage==='brief',{timeout:120000});
+  assert(errors.length===0,`Retry produced errors: ${errors.join('\n')}`);
+  await writeFile(join(cache,'report.json'),JSON.stringify({opening,result,failures,modelOutageRecovered:true,errors,notes},null,2));
   console.log('PASS. Screenshots and report:',cache);
 } catch (e) {
   await shot('failure').catch(()=>{});
