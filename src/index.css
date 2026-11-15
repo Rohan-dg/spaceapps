@@ -713,3 +713,45 @@ kbd {
 .moon-probe-pin.sun i { border-color: #ffd166; border-radius: 3px; transform: rotate(45deg); }
 .hud-range .swatch.sun { border-top-color: #ffd166; }
 .hud-range b.part { color: #e0b44a; }
+
+/* Launch planner */
+.launch { display: flex; flex-direction: column; gap: 16px; }
+.launch-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+.launch-head h2 { font-size: 18px; margin: 0 0 4px; }
+.launch-head p { margin: 0; max-width: 62ch; font-size: 13px; }
+.launch-controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.launch-controls label { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.launch-controls select { min-width: 0; max-width: 260px; }
+.launch-controls input { width: 110px; font-family: var(--font-mono); }
+.launch-hero { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); display: grid; gap: 2px; }
+.launch-hero p { margin: 0; }
+.launch-when { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.launch-sub { font-size: 14px; }
+.launch-hero .muted { font-size: 13px; margin-top: 4px; }
+.launch-empty { padding: 14px 16px; border: 1px dashed var(--line); border-radius: var(--r-lg); margin: 0; }
+.launch-table-wrap { overflow-x: auto; display: grid; gap: 8px; justify-items: start; }
+.launch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.launch-table th { text-align: left; font-size: 11.5px; font-weight: 500; color: var(--ink-2); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.launch-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+.launch-table tbody tr:first-child { background: var(--accent-tint); }
+.launch-sites { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.launch-site { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.launch-site h3 { font-size: 14px; margin: 0 0 2px; }
+.launch-site p { margin: 4px 0 0; }
+.launch-note { max-width: 90ch; margin: 0; line-height: 1.5; }
+
+/* 3D Moon: Sun and Earth pointers, home row */
+.hud-home-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.sky-ptrs .sky-ptr { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; will-change: transform; color: var(--ptr); }
+.sky-ptr.sun { --ptr: #ffd166; }
+.sky-ptr.earth { --ptr: #6cb6ff; }
+.sky-ptr i { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ptr); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55); }
+.sky-ptr b { display: none; position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; transform: rotate(var(--ang, 0rad)); }
+.sky-ptr b::before { content: ''; position: absolute; left: 3px; top: 3px; border: 6px solid transparent; border-left: 11px solid var(--ptr); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); }
+.sky-ptr span { position: absolute; left: 15px; top: -8px; font: 600 11px/1 var(--font-body); white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 6px #000; }
+.sky-ptr em { display: none; font-style: normal; font-weight: 400; color: #c9c9c9; }
+.sky-ptr.edge i { display: none; }
+.sky-ptr.edge b { display: block; }
+.sky-ptr.edge span { left: -20px; top: 12px; }
+.sky-ptr.blocked i { border-style: dashed; opacity: 0.7; }
+.sky-ptr.blocked em { display: inline; }
