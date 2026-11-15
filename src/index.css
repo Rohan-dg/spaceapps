@@ -1889,6 +1889,28 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 /* your points: the orange diamond only, never a blue ring */
 .moon-marker.mine.pair i, .moon-marker.mine.on i { background: #ff8a00; box-shadow: 0 0 0 2px #000; }
 
+/* Summary strip (App.tsx, .kp): what is counted and when, "N of total" with a bar, and the good-power sites by name */
+.kp { margin: 16px 16px 0; display: grid; gap: 8px; }
+.kp-cap { margin: 0; font-size: 12.5px; color: var(--ink-2); }
+.kp-cap .num { font-family: var(--font-mono); font-size: 12px; color: var(--ink); margin-left: 4px; }
+.kp-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 8px; }
+.kp-tile { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: start; padding: 14px 16px; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--panel-shadow); min-width: 0; }
+.kp-ico { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 99999px; background: var(--graphite); color: var(--ink-2); }
+.kp-tile.sun .kp-ico { color: var(--sun); } .kp-tile.earth .kp-ico { color: var(--earth); } .kp-tile.both .kp-ico, .kp-tile.good .kp-ico { color: var(--success); }
+.kp-main { display: grid; gap: 4px; min-width: 0; }
+.kp-v { margin: 0; display: flex; align-items: baseline; gap: 2px; font-size: 13px; color: var(--ink-2); }
+.kp-v b { font-size: 24px; font-weight: 500; color: var(--ink); line-height: 1; }
+.kp-l { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--ink-2); }
+.kp-bar { display: block; height: 4px; margin-top: 4px; border-radius: 9999px; background: var(--graphite); overflow: hidden; }
+.kp-bar i { display: block; height: 100%; border-radius: inherit; background: var(--ink-2); transition: width 300ms var(--ease-out, ease); }
+.kp-tile.sun .kp-bar i { background: var(--sun); } .kp-tile.earth .kp-bar i { background: var(--earth); } .kp-tile.both .kp-bar i { background: var(--success); }
+.kp-list { margin: 4px 0 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kp-site { height: 24px; padding: 0 8px; gap: 6px; font-size: 12px; border-radius: 6px; background: var(--graphite); border-color: transparent !important; color: var(--ink); }
+.kp-site:hover { background: color-mix(in srgb, var(--mode, var(--ink)) 20%, var(--graphite)); }
+.kp-site .num { font-family: var(--font-mono); font-size: 11px; color: var(--success); }
+.kp-more { font-size: 12px; color: var(--ink-2); }
+@media (max-width: 1100px) { .kp-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kp-tile.wide { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .kp { margin: 12px 12px 0; } .kp-row { grid-template-columns: 1fr; } .kp-tile { padding: 12px; } }
 /* a point still being computed: the same orange diamond, gently pulsing */
 .moon-marker.pending i { animation: pt-pulse 1s ease-in-out infinite; }
 @keyframes pt-pulse { 50% { opacity: 0.45; } }
