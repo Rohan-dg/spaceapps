@@ -20,6 +20,7 @@ import SkyPlot from './components/SkyPlot';
 import TimeControls from './components/TimeControls';
 import Timeline from './components/Timeline';
 import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
+import { findRun, indexAt, type Runs, type Series } from './lib/series';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
@@ -58,11 +59,9 @@ function readHash() {
 // React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
 const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
 const TimelineM = memo(Timeline), SummaryM = memo(Summary), ReadoutM = memo(Readout), ExportM = memo(Export);
-/** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search). */
-const upAt = (a: ArrayLike<number | boolean>, s: { t0: number; stepMs: number; n: number }, t: number) => {
-  const i = Math.round((t - s.t0) / s.stepMs);
-  return i >= 0 && i < s.n && !!a[i];
-};
+/** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
+ *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
+const upAt = (runs: Runs, s: Series, t: number) => findRun(runs, Math.floor(indexAt(s, t))) >= 0;
 
 const fmtLon = (lon: number) => { const l = ((lon % 360) + 360) % 360; return l > 180 ? `${(360 - l).toFixed(3)}° W` : `${l.toFixed(3)}° E`; };
 const fmtLat = (lat: number) => `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}`;
