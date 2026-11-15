@@ -6,6 +6,7 @@ import { CAL_SYMBOLS } from './calSymbols';
 
 const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MONTH_INITIAL = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 /** True when an rgb() colour is light enough to need dark text. */
 const light = (rgb: string) => { const [r, g, b] = (rgb.match(/\d+/g) ?? ['0', '0', '0']).map(Number); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140; };
 const LABEL: Record<Metric, string> = { sun: 'Sunlight', earth: 'Earth in view', both: 'Both at once' };
@@ -19,6 +20,8 @@ export default function Heatmap({ data, t, onPick }: Props) {
   const [metric, setMetric] = useState<Metric>('both');
   const [winLen, setWinLen] = useState(14);
   const [hover, setHover] = useState<DayStat | null>(null);
+  // 'grid': every month side by side (columns) by day of month (rows), so the whole range fits without scrolling
+  const [view, setView] = useState<'grid' | 'months'>('grid');
   const days = useMemo(() => dailyStats(data.series), [data]);
   const best = useMemo(() => bestWindows(days, metric, winLen, 5), [days, metric, winLen]);
   const months = useMemo(() => {
@@ -37,6 +40,10 @@ export default function Heatmap({ data, t, onPick }: Props) {
     <section className="calendar" aria-labelledby="hm-h">
       <div className="cal-head">
         <h2 id="hm-h">Daily visibility</h2>
+        <div className="seg" role="radiogroup" aria-label="Calendar layout">
+          <button role="radio" aria-checked={view === 'grid'} onClick={() => setView('grid')}>Grid</button>
+          <button role="radio" aria-checked={view === 'months'} onClick={() => setView('months')}>Months</button>
+        </div>
         <div className="seg" role="radiogroup" aria-label="Colour the calendar by">
           {(['sun', 'earth', 'both'] as Metric[]).map((m) => (
             <button key={m} role="radio" aria-checked={metric === m} onClick={() => setMetric(m)}>
@@ -46,6 +53,37 @@ export default function Heatmap({ data, t, onPick }: Props) {
         </div>
       </div>
       <div className="cal-body">
+        {view === 'grid' ? (
+          <div className="hm-h-wrap">
+            <div className="hm-h" role="grid" aria-describedby="hm-legend" aria-label="Days of the month (rows) by month (columns)"
+              style={{ gridTemplateColumns: `22px repeat(${months.length}, minmax(11px, 1fr))` }}>
+              <span className="hm-h-corner" />
+              {months.map(([k], j) => {
+                const mo = Number(k.slice(5)) - 1;
+                return (j === 0 || mo === 0) ? <span key={`y${k}`} className="hm-h-year num" style={{ gridColumn: `${j + 2} / span ${Math.min(12 - mo, months.length - j)}` }}>{k.slice(0, 4)}</span> : null;
+              })}
+              <span className="hm-h-corner" />
+              {months.map(([k]) => <span key={`m${k}`} className="hm-h-mon" title={`${MONTH_FULL[Number(k.slice(5)) - 1]} ${k.slice(0, 4)}`}>{MONTH_INITIAL[Number(k.slice(5)) - 1]}</span>)}
+              {Array.from({ length: 31 }, (_, i) => (
+                <div key={i} className="hm-h-row" role="row">
+                  <span className="hm-h-day num">{i === 0 || (i + 1) % 5 === 0 ? i + 1 : ''}</span>
+                  {months.map(([k, ds]) => {
+                    const d = ds.find((x) => new Date(x.t).getUTCDate() === i + 1);
+                    if (!d) return <span key={k} className="hm-h-cell empty" role="gridcell" />;
+                    const iso = fmt(d.t), f = d[metric];
+                    return (
+                      <button key={k} role="gridcell" className={`hm-h-cell${iso === today ? ' current' : ''}${inBest(d) ? ' best' : ''}`}
+                        style={{ background: f <= 0 ? mix(c.bg, c.ink, 0.07) : color(f) }}
+                        aria-label={`${iso}: sunlight ${pct(d.sun)}, Earth ${pct(d.earth)}, both ${pct(d.both)}`}
+                        onMouseEnter={() => setHover(d)} onFocus={() => setHover(d)} onMouseLeave={() => setHover(null)}
+                        onClick={() => onPick(d.t)} />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
         <div className="cal-months" aria-describedby="hm-legend">
           {months.map(([k, ds]) => {
             const y = Number(k.slice(0, 4)), mo = Number(k.slice(5)) - 1;
@@ -73,6 +111,7 @@ export default function Heatmap({ data, t, onPick }: Props) {
             );
           })}
         </div>
+        )}
         <aside className="cal-side">
           <div className="readout-box" aria-live="polite">
             {shown ? (
