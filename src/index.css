@@ -1042,42 +1042,32 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 }
 
 /* ---------- opening sting (src/components/Intro.tsx) ----------
- * 0.00 blue laptop rises and flips up   0.85 lid swings open   1.35 screen lights   1.80 camera dives into the screen
- * 2.12 the logo mark pops in   2.40 "Sol Teris" slides in   3.50 fade out (set in Intro.tsx)
- * Lid hinge maths: inside .lt-tilt, rotateX(-89deg) lays the lid on the base (closed), rotateX(12deg) leans it back (open).
+ * The emblem draws itself: every stroked element has pathLength="1", so stroke-dasharray 1 / dashoffset 1 -> 0
+ * draws it whatever its real length. Each element sets --at (start) and --dur (duration) inline.
+ * 0.0 dial and ticks   0.6 grid and Sun path   1.15 Sun   1.4 skyline   1.7 Earth   2.15 fills   2.5 craters and
+ * site marker   2.9 "Sol Teris" slides in   3.7 fade out (LEAVE_MS in Intro.tsx)
  */
 .intro { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #000; cursor: pointer; }
 .intro.out { animation: intro-out 420ms var(--ease-out) forwards; }
-.intro > * { grid-area: 1 / 1; }
-
-.lt-stage { --w: min(360px, 66vw); --h: calc(var(--w) * 0.64); --d: calc(var(--w) * 0.62);
-  perspective: 1100px; animation: lt-dive 520ms cubic-bezier(0.55, 0, 0.9, 0.4) 1.8s forwards; }
-.lt-rig { transform-style: preserve-3d; animation: lt-rise 900ms cubic-bezier(0.2, 1.5, 0.4, 1) both; }
-.lt-tilt { position: relative; width: var(--w); height: 0; transform-style: preserve-3d; animation: lt-flip 900ms cubic-bezier(0.25, 1.25, 0.4, 1) both; }
-.lt-lid { position: absolute; left: 0; bottom: 0; width: var(--w); height: var(--h); transform-origin: 50% 100%; transform-style: preserve-3d;
-  transform: rotateX(-89deg); animation: lt-open 650ms cubic-bezier(0.3, 1.6, 0.5, 1) 0.85s forwards; }
-.lt-screen, .lt-shell { position: absolute; inset: 0; border-radius: 12px 12px 3px 3px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.lt-screen { border: 10px solid #0071BC; border-bottom-width: 16px; background: #000; animation: lt-light 420ms ease-out 1.35s forwards; }
-.lt-screen .logo-mark { position: absolute; left: 50%; top: 50%; width: 34%; height: auto; transform: translate(-50%, -50%) scale(0); opacity: 0; --logo-ridge: #fff;
-  animation: lt-logo 420ms cubic-bezier(0.3, 1.8, 0.5, 1) 1.45s forwards; }
-.lt-shell { background: #0071BC; transform: rotateY(180deg); }
-.lt-shell .logo-mark { position: absolute; left: 50%; top: 50%; width: 22%; height: auto; transform: translate(-50%, -50%); --logo-sun: #000; --logo-ridge: #000; }
-.lt-base { position: absolute; left: calc(var(--w) * -0.04); top: 0; width: calc(var(--w) * 1.08); height: var(--d); transform-origin: 50% 0; transform: rotateX(90deg);
-  transform-style: preserve-3d; border-radius: 3px 3px 14px 14px; background: #0071BC; }
-.lt-keys { position: absolute; left: 8%; right: 8%; top: 9%; height: 46%; border-radius: 6px; background: #000; }
-.lt-pad { position: absolute; left: 34%; right: 34%; top: 62%; height: 30%; border-radius: 6px; background: rgba(0, 0, 0, 0.22); }
-.lt-edge { position: absolute; left: 0; right: 0; top: 100%; height: 12px; border-radius: 0 0 10px 10px; background: #0071BC; filter: brightness(0.72); transform-origin: 50% 0; transform: rotateX(-90deg); }
-
-@keyframes lt-rise { from { transform: translateY(75vh) scale(0.35); } to { transform: none; } }
-@keyframes lt-flip { from { transform: rotateX(-215deg) rotateZ(-28deg); } to { transform: rotateX(-24deg); } }
-@keyframes lt-open { from { transform: rotateX(-89deg); } to { transform: rotateX(12deg); } }
-@keyframes lt-light { to { background: #141414; } }
-@keyframes lt-logo { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
-@keyframes lt-dive { to { transform: scale(7); opacity: 0; } }
-
-.intro-mark { display: inline-flex; align-items: center; gap: 0.32em; font: 700 clamp(34px, 7vw, 76px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; }
-.intro-mark .logo-mark { width: 1.15em; height: 1.15em; --logo-sun: #0071BC; --logo-ridge: #fff; opacity: 0; transform: scale(0.6); animation: intro-box 460ms var(--ease-spring) 2.12s forwards; }
-.intro-word { opacity: 0; animation: intro-word 520ms var(--ease-out) 2.4s forwards; }
+.emb { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.emb-svg { width: min(380px, 72vmin); height: auto; overflow: visible; }
+.emb-dial { transform-origin: 200px 200px; animation: emb-turn 2.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.emb .draw { fill: none; stroke: #fff; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: emb-draw var(--dur) cubic-bezier(0.45, 0, 0.2, 1) var(--at) forwards; }
+.emb .draw.faint { stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
+.emb .draw.dim { stroke: rgba(255, 255, 255, 0.5); }
+.emb .draw.bright { stroke-width: 2.2; }
+.emb .draw.blue { stroke: #0071BC; stroke-width: 2.2; }
+.emb .draw.thin { stroke-width: 1.2; }
+.emb .draw.etch { stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.6; }
+.emb .fill { opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
+.emb .fill.sun { fill: #0071BC; }
+.emb .fill.ground { fill: #fff; }
+.emb .fill.earth { fill: #fff; }
+.emb-label { fill: rgba(255, 255, 255, 0.55); font: 600 11px var(--font-body); text-anchor: middle; opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
+.intro-word { font: 700 clamp(30px, 5.5vw, 56px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; opacity: 0; animation: intro-word 560ms var(--ease-out) 2.9s forwards; }
+@keyframes emb-draw { to { stroke-dashoffset: 0; } }
+@keyframes emb-fade { to { opacity: 1; } }
+@keyframes emb-turn { from { transform: rotate(-35deg); } to { transform: none; } }
 @keyframes intro-word { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
-@keyframes intro-box { 0% { opacity: 0; transform: scale(0.6); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: none; } }
 @keyframes intro-out { to { opacity: 0; visibility: hidden; } }
