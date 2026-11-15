@@ -2790,3 +2790,25 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .edu .edu-path h2 { white-space: nowrap; margin-right: auto; }
 .edu.has-path .edu-hint { left: calc((100vw - min(380px, 100vw - 32px) - 16px) / 2); max-width: min(560px, calc(100vw - min(380px, 100vw - 32px) - 64px)); }
 .edu .edu-path { bottom: auto; max-height: calc(100% - 68px - 16px); }
+
+/* Next 30 days on the Scientific dashboard: the chart grows to fill the panel */
+.sh-body:has(> .timeline.fill) { overflow: hidden; }
+.timeline.fill { position: relative; flex: 1 1 auto; min-height: 260px; }
+.timeline.fill canvas { position: absolute; left: 0; top: 0; }
+.tl-tip { position: absolute; top: 34px; z-index: 2; display: grid; gap: 2px; width: 180px; padding: 8px 10px; border-radius: 12px; pointer-events: none;
+  background: rgba(10, 11, 14, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: 12px; }
+.tl-tip b { font-size: 12.5px; } .tl-tip span { color: rgba(255, 255, 255, 0.8); } .tl-tip small { color: rgba(255, 255, 255, 0.5); font-size: 10.5px; }
+
+/* Home: a bare Moon. Every dashboard card steps away until a site is picked (or "show the panels") */
+.dash-hero, .dash-sites, .dash-side, .dash-time, .dash-dock { transition: opacity 320ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1); }
+.dash.dash-bare .dash-hero, .dash.dash-bare .dash-sites, .dash.dash-bare .dash-time { opacity: 0; transform: translateY(12px); pointer-events: none; }
+.dash.dash-bare .dash-side { opacity: 0; transform: translateX(24px); pointer-events: none; }
+.dash.dash-bare .dash-dock { opacity: 0; transform: translateX(-16px); pointer-events: none; }
+.dash.dash-bare .dash-dock:not(.flat) { transform: translate(-16px, 0); }
+.dash-bare-hint { position: absolute; left: 50%; bottom: 28px; z-index: 6; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; border-radius: 999px; font-size: 13px; color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)), rgba(20, 22, 27, 0.42); border: 1px solid rgba(255, 255, 255, 0.11);
+  -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); opacity: 0; transform: translate(-50%, 10px); pointer-events: none; transition: opacity 320ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1); }
+.dash.dash-bare .dash-bare-hint { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.dash-bare-hint button { height: 30px; padding: 0 14px; border-radius: 999px; border: 0; background: #fff; color: #000; font-weight: 600; font-size: 12.5px; }
+.dash-bare-hint button:hover { background: var(--mode, #63a1ff); color: #fff; }
+.dash-dock button.home { color: #fff; }

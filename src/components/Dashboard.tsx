@@ -204,6 +204,8 @@ export interface DashProps {
   sheet: DashTab | null; onSheet: (t: DashTab | null) => void; sheetBody: ReactNode;
   /** app-wide tools (search, help, about, theme), kept in the dock so the dashboard needs only one rail */
   utils: { label: string; icon: ReactNode; onClick: () => void }[];
+  /** back to the opening view of the whole Moon with every panel closed, and bring the panels back */
+  onHome?: () => void; onShowPanels?: () => void;
   /** Compare, Calculator and Launch: replaces the site card column on the right; everything else stays */
   right?: ReactNode;
 }
@@ -231,6 +233,28 @@ export default function Dashboard(p: DashProps) {
     const k = window.setTimeout(() => setLast(null), 260);
     return () => window.clearTimeout(k);
   }, [closing]);
+  // a click anywhere outside the open panel (the Moon, empty space) closes it; the other cards and controls keep working
+  const onSheetRef = useRef(p.onSheet);
+  useEffect(() => { onSheetRef.current = p.onSheet; });
+  useEffect(() => {
+    if (!open) return;
+    const KEEP = '.dash-sheet, .dash-dock, .dash-side, .dash-sites, .dash-time, .dash-hero, .ct-bar, .hud-bl, .hud-br, .as, .as-launch, [role="dialog"], [role="menu"], .cmdk, .tour';
+    const down = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el || el.closest(KEEP)) return;
+      onSheetRef.current(null);
+      // the click that closes the panel does nothing else: it must not also probe or pick a point on the Moon
+      if (el.tagName === 'CANVAS') {
+        e.stopPropagation();
+        const swallow = (ev: globalThis.Event) => ev.stopPropagation();
+        document.addEventListener('pointerup', swallow, { capture: true, once: true });
+        document.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => { document.removeEventListener('pointerup', swallow, true); document.removeEventListener('click', swallow, true); }, 800);
+      }
+    };
+    document.addEventListener('pointerdown', down, true);
+    return () => document.removeEventListener('pointerdown', down, true);
+  }, [open]);
   // Earth contact card: how much of the current contact (or blackout) stretch is left
   const eStart = data && m ? stretchStart(data.series.earthUp, data.series, tl) : null;
   const eFrac = earthE?.t != null && eStart != null ? Math.max(0, Math.min(1, (earthE.t - t) / (earthE.t - eStart))) : null;
@@ -264,6 +288,7 @@ export default function Dashboard(p: DashProps) {
   return (
     <>
       <nav className="dash-dock glass" aria-label="Open a panel">
+        {p.onHome && <><button className="home" aria-label="Home: the whole Moon, every panel closed (H)" onClick={p.onHome}><Icon name="home" size={18} /><span className="dock-tip">Home (H)</span></button><span className="dock-sep" aria-hidden /></>}
         {tabs.map((x) => (
           <button key={x.id} className={p.sheet === x.id ? 'on' : ''} aria-pressed={p.sheet === x.id} aria-label={x.label} disabled={!data && x.id !== 'sites'}
             onClick={() => p.onSheet(p.sheet === x.id ? null : x.id)}>{x.icon}<span className="dock-tip">{x.label}</span></button>
@@ -362,6 +387,8 @@ export default function Dashboard(p: DashProps) {
       </section>
 
       <TimeBar s={data?.series ?? null} t={t} t0={p.t0} t1={p.t1} onT={p.onT} playing={p.playing} onPlaying={p.onPlaying} speed={p.speed} onSpeed={p.onSpeed} onOpen={() => p.onSheet('conditions')} />
+
+      {p.onShowPanels && <div className="dash-bare-hint" aria-live="polite"><span>Click any site on the Moon, or</span><button onClick={p.onShowPanels}>show the panels</button></div>}
 
       {cur && (
         <section ref={sheetEl} className={`dash-sheet glass sh-${cur.id}${closing ? ' closing' : ''}`} role="dialog" aria-label={cur.label}>
