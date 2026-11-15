@@ -1,7 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
@@ -226,6 +226,20 @@ export default function App() {
   // The Compare / Launch / Calculator panel takes the exact top and height of Explore's site card, so switching tool
   // only widens the box (leftward) and never changes its length. The card's box is tracked while Explore is shown.
   const dashRef = useRef<HTMLDivElement>(null);
+  const rightW = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const host = dashRef.current;
+    if (!dash || !host) return;
+    const el = host.querySelector<HTMLElement>(':scope > .dash-wide, :scope > .dash-side, .dash-wide, .dash-side');
+    if (!el) return;
+    const to = el.getBoundingClientRect().width, from = rightW.current;
+    rightW.current = to;
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (from === null || Math.abs(from - to) < 1 || reduce || innerWidth <= 900) return;
+    // the panel is pinned on the right, so animating its width moves only its left edge: it grows or shrinks
+    // leftward from exactly where the previous section's panel was
+    el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: 520, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' });
+  }, [mode, dash]);
   useEffect(() => {
     const host = dashRef.current;
     if (!dashExplore || !host) return;
@@ -683,28 +697,27 @@ export default function App() {
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} />
           </Suspense>
         </div>
-        {dashExplore && (
+        {dash && (
+          // the same dashboard in every Scientific section: the left side (dock, hero, sites, time bar) never changes;
+          // only the right-hand panel swaps between the site card (Explore) and the tool (Compare, Calculator, Launch)
           <Dashboard data={data} res={res} info={info} updating={updating} t={t} tl={tl} t0={range[0]} t1={range[1]} onT={onT}
             playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed}
             goodSites={goodSites} activeCount={active.length} onPickSite={chooseSite}
             partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null} onCompare={openCompare}
             onPlanLaunch={() => info && planLaunchTo(info.lat, info.lon)} onLogic={() => setMode('calc')} busy={pointBusy}
-            sheet={sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
-            utils={[]} />
+            sheet={dashExplore && sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
+            utils={[]}
+            right={dashExplore ? undefined : (
+              <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
+                <header className="dw-head"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b><span>{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</span></header>
+                <div className="dw-body" key={mode}>
+                  {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
+                    : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
+                    : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
+                </div>
+              </section>
+            )} />
         )}
-        {dash && !dashExplore && (<>
-          <header className="dash-hero dash-mode-hero">
-            <p className="dh-k"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b></p>
-            <p className="dmh-d">{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</p>
-          </header>
-          <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
-            <div className="dw-body" key={mode}>
-              {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
-                : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
-                : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
-            </div>
-          </section>
-        </>)}
         {mode === 'explore' && !dash && (
           <aside className="ct-side">
             <section className="ct-panel">
