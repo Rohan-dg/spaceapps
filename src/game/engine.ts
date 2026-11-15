@@ -36,7 +36,7 @@ export interface Hud {
   tempC: number; heaterW: number; speed: number; heading: number; slope: number; ice: number; canDig: boolean;
   busy: null | { kind: 'dig' | 'tx'; p: number }; obj: Objective; objDist: number | null; objBearing: number | null;
   found: number; total: number; sunAz: number; sunEl: number; earthAz: number; earthEl: number;
-  lamp: boolean; view: 'chase' | 'mast'; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number;
+  lamp: boolean; view: CamView; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number;
   score: number; combo: number; bonus: number; bonusTotal: number; gain: { id: number; pts: number; label: string } | null; nearBonus: number | null;
 }
 export interface Stats { odo: number; hours: number; found: number; minTempC: number; battPct: number; score: number; bonus: number; bonusTotal: number; parts: [string, number][]; stars: number; playS: number }
@@ -103,6 +103,16 @@ const wrap180 = (a: number) => ((((a + 180) % 360) + 360) % 360) - 180;
 const k = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
 const dirOf = (az: number, el: number, out = new THREE.Vector3()) => out.set(Math.sin(az * D2R) * Math.cos(el * D2R), Math.sin(el * D2R), -Math.cos(az * D2R) * Math.cos(el * D2R));
 
+/** Camera positions the player can switch between (C or the Camera button). All but the mast keep the rover centred. */
+export type CamView = 'chase' | 'close' | 'high' | 'top' | 'mast';
+export const CAM_VIEWS: { id: CamView; label: string }[] = [
+  { id: 'chase', label: 'Chase' }, { id: 'close', label: 'Close' }, { id: 'high', label: 'High' }, { id: 'top', label: 'Overhead' }, { id: 'mast', label: 'Mast' },
+];
+/** Pitch (degrees down) and distance (× the rover's chase distance) for each orbiting view. */
+const CAM_PRESET: Record<Exclude<CamView, 'mast'>, { pitch: number; dist: number }> = {
+  chase: { pitch: 16, dist: 1 }, close: { pitch: 9, dist: 0.6 }, high: { pitch: 38, dist: 1.7 }, top: { pitch: 84, dist: 3.2 },
+};
+
 export class Game {
   private o: Opts; private cb: Callbacks;
   private renderer!: THREE.WebGLRenderer;
@@ -145,7 +155,7 @@ export class Game {
   private shadow!: THREE.Mesh; private goal = new THREE.Group(); private zoneRing!: THREE.LineLoop; private flags = new THREE.Group();
   // camera
   private camOff = 0; private camAz = 0; private camPitch = 16; private camDist = 7; private lens = 0; private lensTo = 0; private mastFov = 55;
-  private view: 'chase' | 'mast' = 'chase'; private tgt = new THREE.Vector3(); private camRoll = 0; private exposure = 1.2;
+  private view: CamView = 'chase'; private tgt = new THREE.Vector3(); private camRoll = 0; private exposure = 1.2;
   // rules
   private simT = 0; private vit: Vitals = newVitals(); private plan!: MissionPlan; private quest!: Quest;
   private busy: null | { kind: 'dig' | 'tx'; p: number } = null; private ff = false; private lampAuto = true; private lampOn = false;
@@ -343,7 +353,13 @@ export class Game {
     const DN = 260, dg = new THREE.BufferGeometry();
     dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(DN * 3).fill(-9999), 3)); dg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(DN * 3), 3));
     this.dustV = new Float32Array(DN * 3); this.dustLife = new Float32Array(DN);
-    this.dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    // a soft round puff (a bare PointsMaterial draws hard-edged squares)
+    const pc = document.createElement('canvas'); pc.width = pc.height = 32;
+    const px = pc.getContext('2d')!, grad = px.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.4, 'rgba(255,255,255,0.45)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+    px.fillStyle = grad; px.fillRect(0, 0, 32, 32);
+    const puff = new THREE.CanvasTexture(pc);
+    this.dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: 0.13, map: puff, alphaTest: 0.01, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.dust.frustumCulled = false; this.near.add(this.dust);
     // the rover's own long shadow, laid along the ground away from the Sun
     const sg = new THREE.PlaneGeometry(1, 1, 1, 14);
@@ -410,7 +426,7 @@ export class Game {
     el.addEventListener('pointerdown', (ev) => { this.drag = { x: ev.clientX, y: ev.clientY }; el.setPointerCapture(ev.pointerId); });
     el.addEventListener('pointermove', (ev) => {
       if (!this.drag) return;
-      this.camOff -= (ev.clientX - this.drag.x) * 0.28; this.camPitch = clamp(this.camPitch + (ev.clientY - this.drag.y) * 0.2, this.view === 'mast' ? -50 : 3, 75);
+      this.camOff -= (ev.clientX - this.drag.x) * 0.28; this.camPitch = clamp(this.camPitch + (ev.clientY - this.drag.y) * 0.2, this.view === 'mast' ? -50 : 3, 85);
       this.drag = { x: ev.clientX, y: ev.clientY };
     });
     const up = () => { this.drag = null; };
@@ -446,7 +462,7 @@ export class Game {
     if (!down || this.state !== 'play') return;
     if (key === 'e') this.act('dig'); else if (key === 't') this.act('tx');
     else if (key === 'z') this.lensTo = this.lensTo ? 0 : 1;
-    else if (key === 'c') { this.view = this.view === 'chase' ? 'mast' : 'chase'; this.camPitch = this.view === 'mast' ? 0 : 16; this.camOff = 0; }
+    else if (key === 'c') this.setView(CAM_VIEWS[(CAM_VIEWS.findIndex((v) => v.id === this.view) + 1) % CAM_VIEWS.length].id);
     else if (key === 'l') { this.lampAuto = false; this.lampOn = !this.lampOn; }
   }
   private act(kind: 'dig' | 'tx') {
@@ -529,7 +545,14 @@ export class Game {
     if (this.view === 'mast') this.mastFov = clamp(this.mastFov * Math.exp(amount), 8, 75);
     else this.camDist = clamp(this.camDist * Math.exp(amount), 2.4, 80);
   }
-  resetCamera() { this.camOff = 0; this.camPitch = 16; this.camDist = this.def.geom.cam; this.lensTo = 0; this.view = 'chase'; }
+  /** Switch to a camera position, with its default angle and distance. */
+  setView(v: CamView) {
+    this.view = v; this.camOff = 0; this.lensTo = 0;
+    if (v === 'mast') { this.camPitch = 0; this.mastFov = 55; return; }
+    this.camPitch = CAM_PRESET[v].pitch; this.camDist = this.def.geom.cam * CAM_PRESET[v].dist;
+  }
+  /** Back to the current view's default angle and distance, behind the rover. */
+  resetCamera() { this.setView(this.view); }
   setTags(t: Tags) { this.tags = t; }
 
   private syncMarkers() {
@@ -721,7 +744,7 @@ export class Game {
     const lampP = this.rover.localToWorld(new THREE.Vector3(0, Math.max(0.35, G.mastH * 0.4), G.wb + 0.05)), lampD = new THREE.Vector3(0, -0.2, 1).normalize().transformDirection(this.rover.matrixWorld);
     this.U.uLampPos.value.copy(lampP); this.U.uLampDir.value.copy(lampD); this.U.uLampI.value = this.lampOn && this.vit.wh > 0 ? 5 : 0;
 
-    this.camera(dt, now, f);
+    this.camera(dt, now);
     const cp = this.cam.position, D = 400000;
     this.sunDisc.position.copy(cp).addScaledVector(sd, D); this.sunDisc.lookAt(cp); this.sunGlow.position.copy(this.sunDisc.position);
     (this.sunGlow.material as THREE.SpriteMaterial).opacity = 0.9;
@@ -801,11 +824,11 @@ export class Game {
     }
   }
 
-  private camera(dt: number, now: number, f: THREE.Vector3) {
+  private camera(dt: number, now: number) {
     const cam = this.cam, rp = this.rover.position, d = dt || 0.016;
     this.lens = lerp(this.lens, this.lensTo, k(3.2, d));
     const want = this.psi / D2R + this.camOff;
-    this.camAz += wrap180(want - this.camAz) * k(this.view === 'mast' ? 14 : 3.2, d);
+    this.camAz += wrap180(want - this.camAz) * k(this.view === 'mast' ? 14 : 5, d);
     const az = this.camAz * D2R;
     if (this.view === 'mast') {
       const p = this.camPitch * D2R, look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));
@@ -818,9 +841,10 @@ export class Game {
       const dist = this.camDist * (Math.tan((wide / 2) * D2R) / Math.tan((fov / 2) * D2R));
       const p = lerp(this.camPitch, Math.min(this.camPitch, 9), this.lens) * D2R;
       const look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));
-      const to = rp.clone().add(new THREE.Vector3(0, Math.max(0.45, this.def.geom.mastH * 0.35), 0)).addScaledVector(f, this.v * 0.28);
+      // aim at the middle of the rover itself, held tightly, so it stays in the centre of the screen at any speed
+      const to = rp.clone().add(new THREE.Vector3(0, Math.max(0.35, this.def.geom.mastH * 0.3), 0));
       if (this.tgt.lengthSq() === 0) this.tgt.copy(to);
-      this.tgt.lerp(to, k(7, d));
+      this.tgt.lerp(to, k(14, d));
       cam.position.copy(this.tgt).addScaledVector(look, -dist);
       if (!this.o.reduce) { // road feel: a little shake that grows with speed
         const a = 0.012 * sp; cam.position.x += a * Math.sin(now * 0.031); cam.position.y += a * Math.sin(now * 0.047 + 1.3);
@@ -830,7 +854,7 @@ export class Game {
       // lean into turns, nod with acceleration
     this.camRoll = lerp(this.camRoll, this.o.reduce ? 0 : clamp(-this.yawRate * this.v * 0.012, -0.05, 0.05), k(4, d));
       cam.up.set(Math.sin(this.camRoll) * Math.cos(az), Math.cos(this.camRoll), Math.sin(this.camRoll) * Math.sin(az));
-      cam.lookAt(this.tgt.clone().addScaledVector(look, 2).add(new THREE.Vector3(0, this.pitchD * 4, 0)));
+      cam.lookAt(this.tgt);
       cam.fov = fov;
     }
     cam.updateProjectionMatrix(); cam.updateMatrixWorld();
