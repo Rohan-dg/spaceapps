@@ -3,7 +3,7 @@
  *
  * Frame: IAU 2015 lunar rotation model (α0, δ0, W from astronomy-engine's
  * RotationAxis), which approximates the LOLA Mean-Earth/Polar-Axis (ME) frame to
- * within ~0.01° — far below our terrain resolution. See docs/MATH.md.
+ * within ~0.01°, far below our terrain resolution. See docs/MATH.md.
  */
 import * as Astro from 'astronomy-engine';
 import { DEG, type Vec3, add, norm, rotX, rotZ, scale, unit } from './vec';

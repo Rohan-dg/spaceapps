@@ -294,7 +294,7 @@ export default function App() {
                     <div><b className="num">{fmtLat(info.lat)}, {fmtLon(info.lon)}</b><small>Position</small></div>
                     <div><b className="num">{info.siteHeightM.toFixed(0)} m</b><small>Elevation</small></div>
                     <div><b>{info.dem}{info.demResolutionM ? `, ${info.demResolutionM} m/px` : ''}</b><small>Terrain model</small></div>
-                    <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '—'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '—'}</b><small>Now</small></div>
+                    <div><b>{res ? (res.metrics.sunUp ? 'Sunlit' : 'In shadow') : '-'} · {res ? (res.metrics.earthUp ? 'Earth in view' : 'Earth hidden') : '-'}</b><small>Now</small></div>
                   </div>
                   <p className="ct-src"><small>Source</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
                 </div>
@@ -379,7 +379,7 @@ export default function App() {
               <>
                 <div className="work-head">
                   <span className="overline">Landing site</span>
-                  <h2>—</h2>
+                  <h2>-</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span>Click a site point on the 3D Moon or pick one from the list</span></p>
                 </div>
                 <div className="instrument">
@@ -389,9 +389,9 @@ export default function App() {
                 <div className="instrument">
                   <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
                   <section className="answer" aria-label="Status (no site selected)">
-                    <div className="answer-now"><span className="answer-kind">At this time</span><p className="dash">Sunlight —</p><p className="dash">Earth —</p></div>
-                    <div className="answer-card"><span className="answer-kind">Power</span><span className="answer-word">—</span></div>
-                    <div className="answer-card"><span className="answer-kind">Radio to Earth</span><span className="answer-word">—</span></div>
+                    <div className="answer-now"><span className="answer-kind">At this time</span><p className="dash">Sunlight -</p><p className="dash">Earth -</p></div>
+                    <div className="answer-card"><span className="answer-kind">Power</span><span className="answer-word">-</span></div>
+                    <div className="answer-card"><span className="answer-kind">Radio to Earth</span><span className="answer-word">-</span></div>
                   </section>
                 </div>
                 {[['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth.'],
@@ -399,7 +399,7 @@ export default function App() {
                   ['Detailed analysis', 'Calendar, all figures and the mission plan for the selected site.']].map(([h, c]) => (
                   <div className="instrument" key={h}>
                     <header className="pnl-h"><h3>{h}</h3><p>{c}</p></header>
-                    <p className="dash-block">—</p>
+                    <p className="dash-block">-</p>
                   </div>
                 ))}
               </>

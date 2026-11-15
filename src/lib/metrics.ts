@@ -113,7 +113,7 @@ export const compass = (az: number) =>
   ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round(((az % 360) + 360) % 360 / 45) % 8];
 
 export function formatDuration(ms: number): string {
-  if (!isFinite(ms)) return '—';
+  if (!isFinite(ms)) return '-';
   const m = Math.round(ms / 60000);
   const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
   if (d > 0) return `${d} d ${h} h`;

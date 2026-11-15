@@ -66,7 +66,7 @@ export default function Calculator({ state, onState, sim, simLabel }: Props) {
                     <td>
                       {isT ? (
                         <output id={`cv-${eq.id}-${v.key}`} className="calc-out num" aria-live="polite">
-                          {result.roots.length ? fmt(result.roots[0]) : '—'} <span className="unit">{v.unit}</span>
+                          {result.roots.length ? fmt(result.roots[0]) : '-'} <span className="unit">{v.unit}</span>
                         </output>
                       ) : (
                         <span className="calc-in">

@@ -28,7 +28,7 @@ where the body is in the sky, and how high the terrain is in that direction.
 | 1 | Site latitude | φ | ° (south negative) | Cited site coordinates, moved onto the local high point | `public/sites.json` → `lat` |
 | 2 | Site longitude | λ | ° east | Same | `public/sites.json` → `lon` |
 | 3 | Observer height above the 1737.4 km sphere | z | m | LOLA DEM height + 2 m mast | `public/horizons/<id>.json` → `siteHeightM`, `observerHeightM` |
-| 4 | Time | t | UTC | You choose it | — |
+| 4 | Time | t | UTC | You choose it | - |
 | 5 | Sun direction from the site | az_sun, el_sun | ° | Ephemeris (astronomy-engine, checked against JPL Horizons to 0.004°) from φ, λ, z, t | `src/lib/ephemeris.ts` `skyAt()` |
 | 6 | Earth direction from the site | az_earth, el_earth | ° | Same | same |
 | 7 | Terrain horizon profile | h(az) | °, 360 values (1 per degree of azimuth) | Rays traced 150 km over NASA LRO LOLA DEM (40 m/px polar, 1.9 km/px global) | `public/horizons/<id>.json` → `horizonDeg` |

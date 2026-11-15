@@ -122,7 +122,7 @@ export default function MissionCompare({ doc, sites, pair, onPair, onClose, onOp
           <table className="mc-table">
             <thead><tr><th>Criterion</th><th className="a">A</th><th className="b">B</th></tr></thead>
             <tbody>
-              <tr><th>Mission</th><td>{infoA.mission ?? '—'}</td><td>{infoB.mission ?? '—'}</td></tr>
+              <tr><th>Mission</th><td>{infoA.mission ?? '-'}</td><td>{infoB.mission ?? '-'}</td></tr>
               <tr><th>Program · status</th><td>{PROGRAM[infoA.program ?? ''] ?? 'Your point'} · {STATUS[infoA.status ?? 'reference'] ?? infoA.status}</td><td>{PROGRAM[infoB.program ?? ''] ?? 'Your point'} · {STATUS[infoB.status ?? 'reference'] ?? infoB.status}</td></tr>
               <tr><th>Location</th><td className="num">{fmtLat(infoA.lat, infoA.lon)}</td><td className="num">{fmtLat(infoB.lat, infoB.lon)}</td></tr>
               {ca && cb && ROWS.map((r) => {
