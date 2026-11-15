@@ -218,6 +218,26 @@ export default function App() {
   // Compare, Calculator and Launch put their tool in a widened right-hand glass panel
   const dash = expert;
   const dashExplore = dash && mode === 'explore';
+  // The Compare / Launch / Calculator panel takes the exact top and height of Explore's site card, so switching tool
+  // only widens the box (leftward) and never changes its length. The card's box is tracked while Explore is shown.
+  const dashRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = dashRef.current;
+    if (!dashExplore || !host) return;
+    let ro: ResizeObserver | null = null, raf = 0;
+    const measure = () => {
+      const card = host.querySelector<HTMLElement>('.dash-site');
+      if (!card) { raf = requestAnimationFrame(measure); return; }
+      const h = host.getBoundingClientRect(), c = card.getBoundingClientRect();
+      host.style.setProperty('--card-top', `${Math.round(c.top - h.top)}px`);
+      host.style.setProperty('--card-h', `${Math.round(c.height)}px`);
+      if (!ro) { ro = new ResizeObserver(measure); ro.observe(card); ro.observe(host); }
+    };
+    measure();
+    // the card can be re-created (site loads, intro closes): re-measure cheaply while Explore is on screen
+    const iv = setInterval(() => { ro?.disconnect(); ro = null; measure(); }, 500);
+    return () => { cancelAnimationFrame(raf); clearInterval(iv); ro?.disconnect(); };
+  }, [dashExplore]);
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -644,7 +664,7 @@ export default function App() {
           )}
         </div>
       </section>}
-      <div className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
+      <div ref={dashRef} className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
