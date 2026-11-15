@@ -2532,3 +2532,5 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 @media (max-width: 900px) { .dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: auto; } .dash:not(.dash-explore) .dash-wide { height: auto; } }
 /* the panel header already names the tool: no second title inside it */
 .dash-wide .launch-head { display: none; }
+/* Scientific: the ? in the top bar opens help, so the floating launcher is not repeated */
+.app.is-dash .as-launch { display: none; }

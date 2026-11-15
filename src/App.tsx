@@ -715,7 +715,6 @@ export default function App() {
           <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={16} /></button>
           <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={16} /></button>
           <button aria-label="AI help" title="AI help" onClick={() => setAskSig((n) => n + 1)}><CircleHelp size={16} /></button>
-          <button aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark" onClick={theme.toggle}><Contrast size={16} /></button>
         </div>}
       </header>
       {!dash && <section className="kp" aria-label="Best sites over the next lunar day">
