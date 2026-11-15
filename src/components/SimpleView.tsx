@@ -3,7 +3,7 @@ import type { Level } from '../config/thresholds';
 import type { SiteData } from '../lib/data';
 import { inWords, type Event } from '../lib/metrics';
 import type { ScenarioResult } from '../lib/useScenario';
-import { fromInput, SPEEDS, toInput } from './TimeControls';
+import { fromInput, toInput } from './TimeControls';
 import TimeLeft from './TimeLeft';
 
 const sunHeight = (el: number) => el > 30 ? 'high in the sky' : el > 10 ? 'fairly low in the sky' : el > 3 ? 'low over the horizon' : 'skimming the horizon';
@@ -34,7 +34,7 @@ const days = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : `${Math.ro
 
 interface Props {
   data: SiteData; r: ScenarioResult; t: number; tLive: number; t0: number; t1: number;
-  onT: (t: number) => void; playing: boolean; onPlaying: (p: boolean) => void; speed: number; onSpeed: (s: number) => void;
+  onT: (t: number) => void; playing: boolean; onPlaying: (p: boolean) => void;
 }
 
 /**
@@ -42,7 +42,7 @@ interface Props {
  * (is it sunny, can it talk to Earth, is it a good place to land), with a look-around view, the next month at
  * a glance and the Moon-vs-Earth comparison. Every figure comes from the same calculation as Expert mode.
  */
-export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, onPlaying, speed, onSpeed }: Props) {
+export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, onPlaying }: Props) {
   const m = r.metrics, info = data.info;
   const sunE = m.sunUp ? m.nextSunset : m.nextSunrise;
   const earthE = m.earthUp ? m.nextEarthset : m.nextEarthrise;
@@ -66,12 +66,6 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
           <span className="sr-only">Date and time (UTC)</span>
           <input type="datetime-local" value={toInput(tLive)} min={toInput(t0)} max={toInput(t1)} step={60}
             onChange={(e) => { const v = fromInput(e.target.value); if (isFinite(v)) onT(Math.max(t0, Math.min(t1, v))); }} />
-        </label>
-        <label className="simple-speed">
-          <span>Play speed</span>
-          <select value={speed} onChange={(e) => onSpeed(Number(e.target.value))}>
-            {SPEEDS.map((sp, i) => <option key={sp.label} value={i}>{sp.label.replace(' / s', ' per second')}</option>)}
-          </select>
         </label>
         <span className="simple-date">{longDate(tLive)}</span>
       </section>

@@ -1933,3 +1933,5 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .mc-slot { justify-content: flex-start; align-items: center; gap: 12px; padding: 12px 16px; }
 .mc-slot .mc-tag { width: 24px; height: 24px; }
 .mc-slot.on { border-color: var(--mode, var(--accent)); box-shadow: 0 0 0 1px var(--mode, var(--accent)) inset; }
+/* Normal mode: no launch planning from the 3D view's probed point */
+.ui-normal .hud-probe-launch { display: none; }
