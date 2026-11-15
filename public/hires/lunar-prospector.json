@@ -1,0 +1,16 @@
+{
+ "id": "lunar-prospector",
+ "dem": "LDEM_875S_5M",
+ "resM": 5.0,
+ "n": 2048,
+ "lat": -87.7,
+ "lon": 42.35,
+ "siteRow": 1024.3889618739304,
+ "siteCol": 1024.4390507800708,
+ "row0": 3833,
+ "col0": 23541,
+ "projOffset": 15167.5,
+ "hMinM": -4154.0,
+ "quantumM": 0.5,
+ "encoding": "PNG RGB, height = hMinM + (R*256 + G) * quantumM, metres above 1737.4 km sphere"
+}

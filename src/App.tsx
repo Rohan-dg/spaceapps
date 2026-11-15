@@ -17,7 +17,7 @@ import Heatmap from './components/Heatmap';
 import MissionPanel from './components/MissionPanel';
 import { Readout, Summary } from './components/Metrics';
 import Panorama from './components/Panorama';
-import SiteList from './components/SiteList';
+import SiteList, { isAttempt } from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import FirstPerson from './components/FirstPerson';
 import TimeControls from './components/TimeControls';
@@ -105,7 +105,9 @@ export default function App() {
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
   const allSites = useMemo(() => [...(doc?.sites ?? []), ...customs], [doc, customs]);
   const ids = useMemo(() => allSites.map((s) => s.id), [allSites]);
-  const all = useAllSites(ids);
+  // crash and impact sites load only when their (collapsed) group in the site list is opened
+  const lazyIds = useMemo(() => new Set(allSites.filter(isAttempt).map((s) => s.id)), [allSites]);
+  const all = useAllSites(ids, lazyIds);
   const live = useSiteData(siteId);
   // while a newly picked site loads, keep showing the last one (marked as updating) instead of blanking the panels
   const lastData = useRef<SiteData | null>(null);

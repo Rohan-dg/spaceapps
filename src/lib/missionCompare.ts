@@ -13,9 +13,9 @@ import { longestGap, upFraction } from './series';
 
 export type Era = 'past' | 'future' | 'reference';
 
-/** landed / target (planned site of a failed landing) are past; planned / candidate are future. */
+/** landed / crashed / impact / target (planned site of a failed landing) are past; planned / candidate are future. */
 export function eraOf(info: Pick<SiteInfo, 'status' | 'program' | 'approximate'>): Era {
-  if (info.status === 'landed' || info.status === 'target') return 'past';
+  if (info.status === 'landed' || info.status === 'crashed' || info.status === 'impact' || info.status === 'target') return 'past';
   if (info.status === 'planned' || info.status === 'candidate') return 'future';
   return 'reference';
 }
