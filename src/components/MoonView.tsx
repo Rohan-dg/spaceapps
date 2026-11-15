@@ -2,7 +2,7 @@
  * The whole Moon in 3D, always on screen, flying down to the selected landing site.
  *
  * Data, coarse to fine (all NASA LRO):
- *   globe   LROC WAC colour (2k, then 10° chunks of the 16k mosaic by view) + LOLA relief normals + 4k heights
+ *   globe   LROC WAC colour (8k) + LOLA 64 px/deg relief normals + LOLA 16 px/deg heights
  *   tiles   NASA SVS CGI Moon Kit LOLA ldem_64 (64 px/deg, ~474 m) meshes + LROC 16k colour, 5° tiles streamed
  *           around the view when zoomed in (90°N to 80°S)
  *   cap     LOLA LDEM_80S_80M, 80°S to the pole, resampled to 148 m
@@ -768,7 +768,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       if (ro.src) {
         const hiRes = st.hi?.resM ?? Infinity;
         const near = st.mode === 'site' && st.patch && dist < 40;
-        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 || !st.cap ? 'LROC WAC · LOLA global' : 'LOLA polar 148 m · LROC WAC')
+        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
           : mpp < hiRes / 3 && u.uDetail.value > 0 ? `LOLA ${hiRes} m + procedural below ${hiRes} m` : `LOLA ${hiRes} m/px`;
       }
       if (moving) request();
