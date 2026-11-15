@@ -199,6 +199,10 @@ kbd {
 .moon-marker span { opacity: 0.8; text-shadow: 0 1px 2px #000, 0 0 6px #000; }
 .moon-marker:hover span, .moon-marker.on span { opacity: 1; }
 .moon-marker.on i { background: #fff; box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff; }
+/* labels never vanish: an overlapping label steps up or down (--dy) and a hairline leads back to its point */
+.moon-marker span { position: relative; transform: translateY(var(--dy, 0)); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1); font-size: 10.5px; }
+.moon-marker.lead span::before { content: ''; position: absolute; left: -5px; top: var(--lt); width: 1px; height: var(--lh); background: rgba(255, 255, 255, 0.45); }
+.moon-marker.lead span::after { content: ''; position: absolute; left: -5px; top: 5.5px; width: 4px; height: 1px; background: rgba(255, 255, 255, 0.45); }
 
 .moon-hud { position: absolute; inset: 0; pointer-events: none; }
 .moon-hud > * { pointer-events: auto; position: absolute; }
@@ -958,3 +962,8 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .modal { animation: pop-in 320ms var(--ease-spring) both; }
 details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
 .custom-site summary svg, .plan summary svg { transition: transform 260ms var(--ease-spring); }
+
+/* Explore with no site selected */
+.explore .work-empty { display: flex; flex-direction: column; gap: 6px; padding: 28px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; animation: view-in 360ms var(--ease-out) both; }
+.explore .work-empty h2 { font-size: 20px; font-weight: 600; }
+.explore .work-empty p { margin: 0; max-width: 62ch; font-size: 13px; line-height: 1.5; color: var(--ink-2); }

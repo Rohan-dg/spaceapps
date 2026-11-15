@@ -44,7 +44,8 @@ function readHash() {
   const t = Number(p.get('t'));
   const cmp = p.get('cmp');
   return {
-    site: p.get('site')?.startsWith('custom') ? 'connecting-ridge' : p.get('site') ?? 'connecting-ridge',
+    // no site is selected until the user picks one
+    site: p.get('site')?.startsWith('custom') ? '' : p.get('site') ?? '',
     t: isFinite(t) && t > 0 ? t : DEFAULT_T,
     mode: (p.get('mode') as Mode) ?? 'explore',
     scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
@@ -93,7 +94,8 @@ export default function App() {
 
   useEffect(() => {
     if (playing) return;
-    const p = new URLSearchParams({ site: siteId, t: String(Math.round(t)), mode });
+    const p = new URLSearchParams({ t: String(Math.round(t)), mode });
+    if (siteId) p.set('site', siteId);
     if (mode === 'compare') p.set('cmp', scenarios.map((s) => `${s.siteId}@${Math.round(s.t)}`).join('|'));
     try { history.replaceState(null, '', `#${p}`); } catch { /* sandboxed host */ }
   }, [siteId, t, mode, scenarios, playing]);
@@ -295,7 +297,13 @@ export default function App() {
                   )}
                 </section>
               </>
-            ) : <Loading label="Loading site" />}
+            ) : siteId ? <Loading label="Loading site" /> : (
+              <div className="work-empty">
+                <span className="overline">No site selected</span>
+                <h2>Choose a landing site</h2>
+                <p>Pick a site from the list, click a labelled point on the 3D Moon, or enter custom coordinates. Its sunlight, Earth visibility and mission analysis appear here.</p>
+              </div>
+            )}
           </section>
         </main>
       ) : mode === 'launch' ? (

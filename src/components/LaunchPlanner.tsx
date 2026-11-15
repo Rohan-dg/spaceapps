@@ -87,6 +87,7 @@ export default function LaunchPlanner({ doc, sites, siteId, onSite, onCustom, da
           {pick === 'list' ? (
             <label className="launch-field">Site
               <select id="launch-site" value={siteId} onChange={(e) => onSite(e.target.value)}>
+                {!siteId && <option value="" disabled>Choose a site…</option>}
                 {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
