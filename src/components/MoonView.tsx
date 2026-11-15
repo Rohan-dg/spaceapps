@@ -651,6 +651,22 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) zoomRef.current(hit);
     };
+    // The scroll wheel and trackpad pinch (a wheel event with ctrlKey) over any part of the 3D panel belong to the
+    // 3D view. OrbitControls only claims them on the bare canvas while it is enabled, so over the HUD, the markers
+    // or during a camera flight they fell through and scrolled or zoomed the whole page.
+    const box = el.parentElement ?? el;
+    const onWheel = (e: WheelEvent) => {
+      const tgt = e.target as HTMLElement;
+      if (!e.ctrlKey && tgt.closest('.hud-probe, .hud-menu')) return; // these panels scroll their own content
+      e.preventDefault();
+      if (tgt !== renderer.domElement && st.controls.enabled) {
+        renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, cancelable: true }));
+      }
+    };
+    const noGesture = (e: Event) => e.preventDefault(); // Safari pinch
+    box.addEventListener('wheel', onWheel, { passive: false });
+    box.addEventListener('gesturestart', noGesture);
+    box.addEventListener('gesturechange', noGesture);
     renderer.domElement.addEventListener('pointerdown', onDown);
     renderer.domElement.addEventListener('pointerup', onUp);
     renderer.domElement.addEventListener('dblclick', onDbl);
@@ -702,6 +718,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch 
     return () => {
       alive = false; ro.disconnect(); io.disconnect(); cancelAnimationFrame(raf);
       renderer.domElement.removeEventListener('pointerdown', onDown);
+      box.removeEventListener('wheel', onWheel); box.removeEventListener('gesturestart', noGesture); box.removeEventListener('gesturechange', noGesture);
       renderer.domElement.removeEventListener('pointerup', onUp);
       renderer.domElement.removeEventListener('dblclick', onDbl);
       st.flying?.kill(); st.controls.dispose();

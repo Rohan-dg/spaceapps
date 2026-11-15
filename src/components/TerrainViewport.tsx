@@ -223,10 +223,20 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
       });
     };
     renderer.domElement.addEventListener('pointermove', onMove);
+    // wheel and trackpad pinch anywhere in the viewport zoom the view, never the page behind it
+    const tvBox = el.parentElement ?? el;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.target !== renderer.domElement) renderer.domElement.dispatchEvent(new WheelEvent('wheel', { deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, cancelable: true }));
+    };
+    const noGesture = (e: Event) => e.preventDefault();
+    tvBox.addEventListener('wheel', onWheel, { passive: false });
+    tvBox.addEventListener('gesturestart', noGesture); tvBox.addEventListener('gesturechange', noGesture);
     loop();
     return () => {
       live = false; cancelAnimationFrame(raf); ro.disconnect(); controls.dispose();
       renderer.domElement.removeEventListener('pointermove', onMove);
+      tvBox.removeEventListener('wheel', onWheel); tvBox.removeEventListener('gesturestart', noGesture); tvBox.removeEventListener('gesturechange', noGesture);
       mesh?.geometry.dispose(); mat.dispose(); wireMat.dispose(); renderer.dispose(); renderer.domElement.remove();
       api.current = null;
     };
