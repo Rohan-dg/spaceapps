@@ -914,3 +914,18 @@ kbd {
 .explore .mv-tags { text-align: left !important; padding-right: 12px !important; }
 .explore .mchart, .explore .readout-box { border-radius: 4px; }
 .explore .seg { border-radius: 4px; } .explore .seg button { border-radius: 3px; }
+
+/* Daily visibility, Grid view: months across, days of the month down; the whole range fits without scrolling */
+.hm-h-wrap { min-width: 0; overflow-x: auto; padding: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.hm-h { display: grid; gap: 2px; min-width: 0; font: 10px var(--font-mono); color: var(--ink-2); }
+.hm-h-row { display: contents; }
+.hm-h-corner { grid-column: 1; }
+.hm-h-year { grid-row: 1; padding: 0 0 2px 1px; border-left: 1px solid var(--line); color: var(--ink); font-weight: 600; white-space: nowrap; overflow: hidden; }
+.hm-h-mon { text-align: center; padding-bottom: 3px; }
+.hm-h-day { text-align: right; padding-right: 4px; line-height: 1; align-self: center; }
+.hm-h-cell { display: block; width: 100%; aspect-ratio: 1.45; min-height: 0; height: auto; padding: 0; border: 0; border-radius: 3px; cursor: pointer; }
+.hm-h-cell.empty { cursor: default; background: transparent; }
+.hm-h-cell:hover, .hm-h-cell:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 1px; position: relative; z-index: 1; }
+.hm-h-cell.best { box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.hm-h-cell.current { box-shadow: 0 0 0 2px var(--accent); position: relative; z-index: 1; }
+@media (max-width: 760px) { .hm-h { min-width: 560px; } }
