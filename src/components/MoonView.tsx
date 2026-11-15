@@ -33,6 +33,7 @@ import { horizonFrom, probeNow, probePeriod, type ProbePeriod } from '../lib/moo
 import { CAP_SEGMENTS, CORE_DEPTH_KM, GLOBE_SEGMENTS, constrainCamera, createSurfaceSampler } from '../lib/moon/surface';
 import { planSunlight, roverReach, validateSpec, type Reach, type RoverSpec, type SunPlan } from '../lib/moon/rover';
 import { DEFAULT_PLAN, gcInterp } from '../lib/mission';
+import { educationReach, type BatteryPoint, type BatteryRange } from '../lib/educationRange';
 import { Icon } from './Icons';
 import { introActive, whenIntroDone } from '../lib/intro';
 const TerrainViewport = lazy(() => import('./TerrainViewport'));
@@ -124,7 +125,7 @@ interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM:
 const DBL_MS = 260;
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false, minimal = false, pathIds, popupAt = null, popup, onGroundClick, frame }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false, minimal = false, pathIds, batteryPoints, onBatteryRanges, popupAt = null, popup, onGroundClick, frame }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -144,6 +145,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   minimal?: boolean;
   /** Sites on a planned path, in order: numbered on their markers and joined by a line on the surface. */
   pathIds?: string[];
+  batteryPoints?: BatteryPoint[];
+  onBatteryRanges?: (ranges: BatteryRange[]) => void;
   /** A pop-up card kept next to this point on screen (hidden while the point is behind the Moon). */
   popupAt?: { lat: number; lon: number; hM: number } | null;
   popup?: ReactNode;
@@ -735,7 +738,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         m.dashSize = dd * 0.012; m.gapSize = dd * 0.012;
       }
       // probe and rover-range pins
-      if (st.pathMat) st.pathMat.resolution.set(w, h);
+      st.pathGroup.children.forEach((line) => ((line as Line2).material as LineMaterial).resolution.set(w, h));
       for (const [pin, pp] of [[probePin.current, st.probePos], [rangePin.current, st.rangePos], [sunPin.current, st.sunPos], [popPin.current, st.popPos]] as const) {
         if (!pin) continue;
         let show = false;
@@ -1354,6 +1357,24 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const grp = st.pathGroup;
     grp.children.forEach((o) => { (o as Line2).geometry.dispose(); ((o as Line2).material as THREE.Material).dispose(); });
     grp.clear(); st.pathMat = null;
+    const ranges: BatteryRange[] = [];
+    for (const point of batteryPoints ?? []) {
+      const reach = educationReach((lat, lon) => st.terrainM(lat, lon).h, point, st.terrainM(point.lat, point.lon).resM);
+      if (!reach) continue;
+      ranges.push({ id: point.id, chargePct: point.chargePct!, minKm: reach.oneWay.min, maxKm: reach.oneWay.max });
+      if (reach.oneWay.max <= 0) continue;
+      const positions: number[] = [];
+      for (const p of [...reach.ring, reach.ring[0]]) {
+        positions.push(...posOf(p.lat, p.lon, st.terrainM(p.lat, p.lon).h * st.exag + Math.max(30, reach.flatKm * 3)));
+      }
+      const geometry = new LineGeometry(); geometry.setPositions(positions);
+      const material = new LineMaterial({ color: point.id === selectedId ? 0xffa963 : 0x63a1ff, linewidth: point.id === selectedId ? 3 : 2,
+        transparent: true, opacity: point.id === selectedId ? 1 : 0.65, toneMapped: false });
+      const el = st.renderer.domElement; material.resolution.set(el.clientWidth, el.clientHeight);
+      const line = new Line2(geometry, material); line.frustumCulled = false; line.renderOrder = 3;
+      grp.add(line);
+    }
+    onBatteryRanges?.(ranges);
     const stops = (pathIds ?? []).map((id) => siteList.find((x) => x.id === id)).filter((x): x is SiteInfo => !!x);
     if (stops.length >= 2) {
       const pos: number[] = [];
@@ -1376,7 +1397,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     }
     st.request();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathKey, siteList, relief, hiInfo]);
+  }, [pathKey, siteList, relief, hiInfo, batteryPoints, onBatteryRanges, selectedId]);
   // the pop-up card's anchor point
   useEffect(() => {
     const st = S.current; if (!st) return;

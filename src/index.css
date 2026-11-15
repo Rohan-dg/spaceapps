@@ -2543,8 +2543,8 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .edu-hint { position: absolute; z-index: 4; top: 78px; left: 50%; transform: translateX(-50%); margin: 0; max-width: min(560px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 999px; font-size: 13.5px; text-align: center; pointer-events: none; }
 
 /* bottom: plan a path */
-.edu-dock { position: absolute; z-index: 5; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
-.edu.has-path .edu-dock { left: calc((100vw - min(380px, 100vw - 32px) - 16px) / 2); }
+.edu-dock { position: absolute; z-index: 5; bottom: 60px; left: 16px; display: flex; flex-wrap: wrap; justify-content: center; width: min(300px, calc(100vw - 32px)); gap: 8px; }
+.edu.has-path .edu-dock { left: 16px; }
 .edu-dock button { height: 44px; padding: 0 20px; border-radius: 999px; color: #fff; font-size: 15px; font-weight: 700; }
 .edu-dock button:hover { background: rgba(40, 42, 48, 0.9); }
 .edu-build { background: #2f6fe0 !important; border-color: #4b86ee !important; }
@@ -2583,6 +2583,11 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .edu-card-stats dt { display: flex; align-items: center; gap: 5px; color: var(--edim); font-size: 12px; }
 .edu-card-stats dd { margin: 3px 0 0; font-size: 12.5px; }
 .edu-card-stats dd b { font-size: 18px; }
+.edu-card-stats .edu-card-range { grid-column: 1 / -1; }
+.edu-card-range small { display: block; margin-top: 5px; color: var(--edim); line-height: 1.45; }
+.edu-charge { display: grid; grid-template-columns: 1fr auto; flex: 0 0 100%; box-sizing: border-box; gap: 6px 12px; padding: 12px; border: 1px solid var(--eline); border-radius: 14px; background: var(--eg); color: #fff; font-size: 13px; pointer-events: auto; }
+.edu-charge input { grid-column: 1 / -1; width: 100%; height: 24px; accent-color: #63a1ff; cursor: pointer; }
+.edu-charge small { grid-column: 1 / -1; color: var(--edim); font-size: 11px; line-height: 1.45; }
 .edu-card-now { margin: 10px 0 0; }
 .edu .dim { color: var(--edim); }
 .edu-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; }
@@ -2639,8 +2644,8 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
   .edu-top { top: 10px; left: 10px; right: 10px; flex-wrap: wrap; gap: 8px; }
   .edu-actions button span { display: none; }
   .edu-hint { top: auto; bottom: 112px; font-size: 12.5px; }
-  .edu-dock { bottom: 58px; }
-  .edu.has-path .edu-dock { left: 50%; bottom: calc(46vh + 12px); }
+  .edu-dock { bottom: 58px; left: 10px; width: min(280px, calc(100vw - 20px)); }
+  .edu.has-path .edu-dock { left: 10px; bottom: calc(46vh + 12px); }
   .edu.has-path .edu-hint { display: none; }
   .edu-path { top: auto; left: 10px; right: 10px; bottom: 10px; width: auto; max-height: 46vh; }
   .edu.has-path .moon-hud.minimal .hud-bl, .edu.has-path .moon-hud.minimal .hud-br { display: none; }
@@ -2658,6 +2663,11 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .moon-pop-pin[data-v='down'] .edu-card { top: max(-24px, calc(140px - var(--py, 0px))); }
 .moon-pop-pin[data-v='up'] .edu-card { bottom: max(-24px, calc(var(--py, 0px) - var(--vh, 100vh) + 120px)); }
 @media (max-width: 760px) { .edu.has-path .edu-card { max-height: calc(54vh - 150px); } }
+@media (max-width: 760px) {
+  .edu.has-card .moon-pop-pin .edu-card { position: fixed; top: 90px; bottom: auto; left: 10px; right: 10px; width: auto; max-height: calc(100dvh - 330px); overflow-y: auto; }
+  .edu.has-card .edu-path, .edu.has-card .edu-hint { display: none; }
+  .edu.has-card .edu-dock { bottom: 58px; }
+}
 /* ---- the tool panel never covers another window ---- */
 /* it stops short of the left column (sites card, probed point) and above the time bar */
 .dash { --leftCol: 300px; }

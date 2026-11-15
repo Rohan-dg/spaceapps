@@ -3,30 +3,19 @@
  * pop-up card about it; points can be strung into a rover path, and the path is checked for battery, sunlight
  * and contact with Earth (lib/pathPlan.ts, the Scientific mission model under the hood).
  */
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { SiteData, SiteInfo, SitesDoc } from '../lib/data';
 import { loadSite } from '../lib/data';
-import { indexAt, isUp } from '../lib/series';
-import { EDU_ROVER, bestStart, evaluatePath, fmtDuration, type Check, type Level, type PathReport, type Stop } from '../lib/pathPlan';
-import { gcDistanceKm } from '../lib/mission';
+import { EDU_ROVER, bestStart, evaluatePath, fmtDuration, type Level, type PathReport, type Stop } from '../lib/pathPlan';
+import { arrivalCharge, type BatteryPoint, type BatteryRange } from '../lib/educationRange';
 import { CircleCheck, CircleHelp, Contrast, Earth, Info, OctagonX, Play, Plus, Sun, TriangleAlert, X } from './Icons';
 import { LogoMark } from './Logo';
 import { Loading } from './Help';
 
 const MoonView = lazy(() => import('./MoonView'));
 
-const STATUS: Record<string, string> = {
-  landed: 'Landed', crashed: 'Crashed', impact: 'Impact', planned: 'Planned landing', target: 'Planned site of a failed landing',
-  candidate: 'Candidate landing region', reference: 'Reference point',
-};
-const PROGRAM: Record<string, string> = {
-  artemis: 'NASA Artemis', clps: 'NASA Commercial Lunar Payload Services', apollo: 'NASA Apollo', nasa: 'NASA',
-  commercial: 'Commercial', international: 'International', reference: 'Reference',
-};
-const day = (t: number) => new Date(t).toISOString().slice(0, 10);
-const when = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
-const fmtLat = (x: number) => `${Math.abs(x).toFixed(2)}° ${x < 0 ? 'S' : 'N'}`;
-const fmtLon = (x: number) => { const l = ((((x + 180) % 360) + 360) % 360) - 180; return `${Math.abs(l).toFixed(2)}° ${l < 0 ? 'W' : 'E'}`; };
+const distance = (km: number) => km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+const rangeText = (r?: BatteryRange) => !r ? 'Calculating…' : r.maxKm === 0 ? 'No driving range' : Math.abs(r.maxKm - r.minKm) < 0.05 ? `Up to ${distance(r.maxKm)}` : `${distance(r.minKm)}–${distance(r.maxKm)}`;
 const LevelIcon = ({ level }: { level: Level }) => level === 'ok' ? <CircleCheck size={18} /> : level === 'risky' ? <TriangleAlert size={18} /> : <OctagonX size={18} />;
 
 interface Props {
@@ -35,12 +24,15 @@ interface Props {
   onScientific: () => void; onTour: () => void; onAbout: () => void; onRover: () => void; onTheme: () => void; themeName: string;
 }
 
-export default function EduView({ doc, sites, t, range, selectedId, onSelect, onScientific, onTour, onAbout, onRover, onTheme, themeName }: Props) {
+export default function EduView({ sites, t, range, selectedId, onSelect, onScientific, onTour, onAbout, onRover, onTheme, themeName }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [path, setPath] = useState<string[]>([]);
   const [building, setBuilding] = useState(false);
   const [start, setStart] = useState(() => Math.max(range[0], Math.min(range[1], t)));
   const [loaded, setLoaded] = useState<Record<string, SiteData>>({});
+  const [chargePct, setChargePct] = useState(EDU_ROVER.startPct);
+  const [batteryRanges, setBatteryRanges] = useState<BatteryRange[]>([]);
+  const receiveRanges = useCallback((ranges: BatteryRange[]) => setBatteryRanges(ranges), []);
   const [frame, setFrame] = useState<{ pts: { lat: number; lon: number }[]; n: number } | null>(null);
   const byId = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
 
@@ -79,21 +71,27 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
     }
     return out;
   }, [path, loaded]);
-  const report = useMemo<PathReport | null>(() => (stops ? evaluatePath(stops, start) : null), [stops, start]);
+  const rover = useMemo(() => ({ ...EDU_ROVER, startPct: chargePct }), [chargePct]);
+  const report = useMemo<PathReport | null>(() => (stops ? evaluatePath(stops, start, rover) : null), [stops, start, rover]);
+  const batteryPoints = useMemo<BatteryPoint[]>(() => sites.map((s) => {
+    const stop = path.indexOf(s.id);
+    return { id: s.id, lat: s.lat, lon: s.lon, chargePct: stop < 0 ? chargePct : arrivalCharge(report, stop, chargePct) };
+  }), [sites, path, report, chargePct]);
 
   const openSite = open ? byId.get(open) ?? null : null;
   const popup = openSite ? (
-    <PointCard s={openSite} d={loaded[openSite.id] ?? null} t={t} doc={doc} inPath={path.includes(openSite.id)}
-      order={path.indexOf(openSite.id)} prev={path.length && path[path.length - 1] !== openSite.id ? byId.get(path[path.length - 1]) ?? null : null}
+    <PointCard s={openSite} battery={batteryRanges.find((r) => r.id === openSite.id)} charge={batteryPoints.find((p) => p.id === openSite.id)?.chargePct ?? null} inPath={path.includes(openSite.id)}
+      order={path.indexOf(openSite.id)}
       onToggle={() => toggleStop(openSite.id)} onClose={() => setOpen(null)} />
   ) : null;
 
   return (
-    <div className={`edu${path.length ? ' has-path' : ''}`}>
+    <div className={`edu${path.length ? ' has-path' : ''}${openSite ? ' has-card' : ''}`}>
       <div className="edu-moon">
         <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
           <MoonView sites={sites} selectedId={selectedId} t={t} onSelect={pick} expert={false} minimal
-            pathIds={path} popupAt={openSite ? { lat: openSite.lat, lon: openSite.lon, hM: openSite.siteHeightM ?? 0 } : null} popup={popup}
+            pathIds={path} batteryPoints={batteryPoints} onBatteryRanges={receiveRanges}
+            popupAt={openSite ? { lat: openSite.lat, lon: openSite.lon, hM: openSite.siteHeightM ?? 0 } : null} popup={popup}
             onGroundClick={() => setOpen(null)} frame={frame} />
         </Suspense>
       </div>
@@ -119,6 +117,11 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
       </p>
 
       <div className="edu-dock">
+        <label className="edu-charge">Battery available <b>{chargePct}%</b>
+          <input type="range" min="0" max="100" step="5" value={chargePct} aria-label="Battery available"
+            onChange={(e) => setChargePct(Number(e.target.value))} />
+          <small>Blue rings show one-way reach. Zoom in to see them; hills can shorten the range. A 20% reserve is kept.</small>
+        </label>
         <button className={`edu-build${building ? ' on' : ''}`} aria-pressed={building} onClick={() => setBuilding((b) => !b)}>
           {building ? 'Done adding stops' : path.length ? 'Add more stops' : 'Plan a rover path'}
         </button>
@@ -126,60 +129,38 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
       </div>
 
       {path.length > 0 && (
-        <PathPanel path={path} byId={byId} report={report} waiting={path.length >= 2 && !report} start={start} range={range} stops={stops}
+        <PathPanel path={path} byId={byId} report={report} waiting={path.length >= 2 && !report} start={start} range={range} stops={stops} chargePct={chargePct}
           onShow={() => setFrame((f) => ({ pts: path.map((id) => byId.get(id)).filter((x): x is SiteInfo => !!x), n: (f?.n ?? 0) + 1 }))}
           onStart={setStart} onRemove={removeAt} onOpen={(id) => { onSelect(id); setOpen(id); }} />
       )}
     </div>
   );
 }
-
 /* ---------- the pop-up card for one mission point ---------- */
-function PointCard({ s, d, t, doc, inPath, order, prev, onToggle, onClose }: {
-  s: SiteInfo; d: SiteData | null; t: number; doc: SitesDoc; inPath: boolean; order: number; prev: SiteInfo | null; onToggle: () => void; onClose: () => void;
+function PointCard({ s, battery, charge, inPath, order, onToggle, onClose }: {
+  s: SiteInfo; battery?: BatteryRange; charge: number | null; inPath: boolean; order: number; onToggle: () => void; onClose: () => void;
 }) {
-  const now = useMemo(() => {
-    if (!d) return null;
-    const i = indexAt(d.series, t);
-    if (i < 0 || i >= d.series.n) return null;
-    return { sun: isUp(d.series.sunUp, i), earth: isUp(d.series.earthUp, i) };
-  }, [d, t]);
-  const yrs = `${doc.range.start.slice(0, 4)}–${doc.range.end.slice(0, 4)}`;
-  const facts: ReactNode[] = [];
-  if (s.status) facts.push(<span key="st">{STATUS[s.status] ?? s.status}{s.date ? `, ${s.date}` : ''}</span>);
-  if (s.program && PROGRAM[s.program]) facts.push(<span key="pr">{PROGRAM[s.program]}</span>);
   return (
-    <div className="edu-card" role="dialog" aria-label={s.name} onPointerDown={(e) => e.stopPropagation()}>
-      <header>
-        <div>
-          <h2>{s.name}</h2>
-          {s.mission && s.mission !== s.name && <p className="edu-card-mission">{s.mission}</p>}
-        </div>
-        <button className="edu-x" onClick={onClose} aria-label="Close"><X size={16} /></button>
-      </header>
-      {facts.length > 0 && <p className="edu-card-facts">{facts}</p>}
-      {s.description && <p className="edu-card-desc">{s.description}</p>}
+    <div className="edu-card" role="dialog" aria-label={s.short || s.name} onPointerDown={(e) => e.stopPropagation()}>
+      <header><h2>{s.short || s.name}</h2><button className="edu-x" onClick={onClose} aria-label="Close"><X size={16} /></button></header>
       <dl className="edu-card-stats">
-        <div><dt><Sun size={15} /> Sunlight</dt><dd><b className="num">{s.stats.sunPct.toFixed(0)}%</b> of the time</dd></div>
-        <div><dt><Earth size={15} /> Earth in view</dt><dd><b className="num">{s.stats.earthPct.toFixed(0)}%</b> of the time</dd></div>
+        <div><dt><Sun size={15} /> Sunlight visibility</dt><dd><b>{Math.round(s.stats.sunPct)}%</b> of the time</dd></div>
+        <div><dt><Earth size={15} /> Earth visibility</dt><dd><b>{Math.round(s.stats.earthPct)}%</b> of the time</dd></div>
+        <div className="edu-card-range"><dt><span className="edu-batt" aria-hidden /> Battery range</dt>
+          <dd><b>{charge === null ? 'Not reached yet' : rangeText(battery)}</b></dd>
+          <small>{charge === null ? 'Check the earlier stops first.' : `${Math.round(charge)}% charge${inPath && order > 0 ? ' on arrival' : ' available'}. ${charge <= EDU_ROVER.reservePct ? 'The safety reserve is kept.' : 'One way, without recharging; varies by direction.'}`}</small>
+        </div>
       </dl>
-      <p className="edu-card-now">
-        {now ? <>On {day(t)}: {now.sun ? 'the Sun is up' : 'it is dark'}, and Earth is {now.earth ? 'in view' : 'hidden'}.</> : d ? null : 'Loading conditions…'}
-        <span className="dim"> Shares are over {yrs}, from NASA terrain at {fmtLat(s.lat)}, {fmtLon(s.lon)}.</span>
-      </p>
-      <div className="edu-card-actions">
-        <button className={inPath ? '' : 'primary'} onClick={onToggle}>
-          {inPath ? <><X size={14} /> Remove stop {order + 1} from the path</> : <><Plus size={14} /> Add to rover path</>}
-        </button>
-        {!inPath && prev && <span className="dim num">{gcDistanceKm(prev, s).toFixed(0)} km from {prev.short || prev.name}</span>}
-      </div>
+      <div className="edu-card-actions"><button className={inPath ? '' : 'primary'} onClick={onToggle}>
+        {inPath ? <><X size={14} /> Remove stop {order + 1}</> : <><Plus size={14} /> Add to rover path</>}
+      </button></div>
     </div>
   );
 }
 
 /* ---------- the path panel: stops, and whether the drive is possible ---------- */
-function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, onStart, onRemove, onOpen }: {
-  path: string[]; byId: Map<string, SiteInfo>; report: PathReport | null; waiting: boolean; start: number; range: [number, number]; stops: Stop[] | null;
+function PathPanel({ path, byId, report, waiting, start, range, stops, chargePct, onShow, onStart, onRemove, onOpen }: {
+  path: string[]; byId: Map<string, SiteInfo>; report: PathReport | null; waiting: boolean; start: number; range: [number, number]; stops: Stop[] | null; chargePct: number;
   onShow: () => void; onStart: (t: number) => void; onRemove: (i: number) => void; onOpen: (id: string) => void;
 }) {
   const [min, setMin] = useState(false);
@@ -191,7 +172,7 @@ function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, o
     setSearch({ key, state: 'busy' });
     window.setTimeout(() => {
       const to = Math.min(range[1], start + 365 * 86400_000);
-      const best = bestStart(stops, start, to, 2);
+      const best = bestStart(stops, start, to, 2, 200, { ...EDU_ROVER, startPct: chargePct });
       if (!best || best.report.overall.level === 'no') { setSearch({ key, state: 'none' }); return; }
       if (best.t === start) { setSearch({ key, state: 'same' }); return; }
       setSearch(null); onStart(best.t);
@@ -225,10 +206,6 @@ function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, o
         {path.length < 2 && <p className="dim">Add at least one more stop to check the drive.</p>}
         {waiting && <p className="dim">Checking the drive…</p>}
         {report && <>
-          <label className="edu-start">Leave on
-            <input type="date" value={day(start)} min={day(range[0])} max={day(range[1])}
-              onChange={(e) => { const v = Date.parse(`${e.target.value}T00:00:00Z`); if (isFinite(v)) onStart(Math.max(range[0], Math.min(range[1], v))); }} />
-          </label>
           <p className="edu-overall">{report.overall.detail}</p>
           {!report.tooFar && (report.overall.level !== 'ok' || found) && (
             <div className="edu-best">
@@ -239,57 +216,13 @@ function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, o
             </div>
           )}
           <dl className="edu-totals">
-            <div><dt>Distance</dt><dd className="num">{report.km.toFixed(report.km < 10 ? 1 : 0)} km</dd></div>
-            <div><dt>Driving time</dt><dd className="num">{fmtDuration(report.hours)}</dd></div>
-            <div><dt>Arrives</dt><dd className="num">{report.tooFar ? 'Too far' : `${when(report.legs[report.legs.length - 1].arrive)} UTC`}</dd></div>
+            <div><dt>Sunlight visibility</dt><dd>{Math.round(report.tl.sunDrivePct ?? 0)}% of the drive</dd></div>
+            <div><dt>Earth visibility</dt><dd>{Math.round(report.tl.earthDrivePct ?? 0)}% of the drive</dd></div>
+            <div><dt>Battery</dt><dd>{report.tl.emptyT !== null ? 'Runs out on the way' : `${Math.round(report.tl.endPct)}% left at the end`}</dd></div>
           </dl>
-          <ul className="edu-checks">
-            <CheckRow icon={<span className="edu-batt" aria-hidden />} label="Battery" c={report.battery} />
-            <CheckRow icon={<Sun size={16} />} label="Sunlight" c={report.sunlight} />
-            <CheckRow icon={<Earth size={16} />} label="Earth contact" c={report.earth} />
-          </ul>
-          <BatteryChart r={report} start={start} />
-          <p className="edu-note dim">
-            The rover drives non-stop at {EDU_ROVER.speedKmH} km/h with a {(EDU_ROVER.batteryWh / 1000).toFixed(0)} kWh battery and {EDU_ROVER.panelM2} m² of solar panels.
-            It uses {EDU_ROVER.hotelW} W for heaters, computers and radio, plus {EDU_ROVER.driveW} W to drive. Sun and Earth positions are real for the date you pick;
-            the hills that block them are measured at each stop. The path is a straight line between stops, so craters and steep slopes on the way are not checked.
-          </p>
+          <p className="edu-note dim">Each stop’s ring uses the charge left when the rover gets there. Rings estimate one-way battery range and keep a 20% reserve. The path joins stops directly; it does not avoid obstacles.</p>
         </>}
       </div>}
     </aside>
-  );
-}
-
-function CheckRow({ icon, label, c }: { icon: ReactNode; label: string; c: Check }) {
-  return (
-    <li className={`edu-check ${c.level}`}>
-      <span className="edu-check-i">{icon}</span>
-      <div><b>{label}: {c.title}</b><p>{c.detail}</p></div>
-      <LevelIcon level={c.level} />
-    </li>
-  );
-}
-
-/** Battery charge over the drive, with the dark stretches shaded and the stops ticked. */
-function BatteryChart({ r, start }: { r: PathReport; start: number }) {
-  const W = 300, H = 76, { tl } = r, n = tl.n;
-  const x = (i: number) => (i / Math.max(1, n - 1)) * W, y = (p: number) => H - 4 - (p / 100) * (H - 8);
-  let d = '';
-  for (let i = 0; i < n; i++) d += `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(tl.battPct[i]).toFixed(1)}`;
-  const dark: [number, number][] = [];
-  for (let i = 0; i < n; i++) if (!tl.sunUp[i]) { if (dark.length && dark[dark.length - 1][1] === i - 1) dark[dark.length - 1][1] = i; else dark.push([i, i]); }
-  const spanMs = (n - 1) * tl.stepMs;
-  const reserveY = y(EDU_ROVER.reservePct);
-  return (
-    <figure className="edu-chart">
-      <figcaption>Battery charge on the way <span className="dim">· shaded: no sunlight</span></figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Battery from ${tl.battPct[0].toFixed(0)}% to ${tl.endPct.toFixed(0)}%, lowest ${tl.minPct.toFixed(0)}%`}>
-        {dark.map(([a, b]) => <rect key={a} x={x(a)} y={0} width={Math.max(1, x(b) - x(a))} height={H} className="dark" />)}
-        <line x1={0} x2={W} y1={reserveY} y2={reserveY} className="reserve" />
-        {r.legs.slice(0, -1).map((l) => { const f = (l.arrive - start) / spanMs; return f > 0 && f < 1 ? <line key={l.arrive} x1={f * W} x2={f * W} y1={0} y2={H} className="stop" /> : null; })}
-        <path d={d} className="batt" />
-      </svg>
-      <div className="edu-chart-axis num"><span>{day(start)}</span><span>dashed: {EDU_ROVER.reservePct}% reserve</span><span>{day(start + spanMs)}</span></div>
-    </figure>
   );
 }
