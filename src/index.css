@@ -1215,3 +1215,16 @@ button[aria-busy='true']::after { content: ''; position: absolute; inset: 0;
 .fp-bar .seg button { height: 22px; }
 .fp-heading { font-size: 12px; color: var(--ink); margin-right: 4px; }
 .fp-note { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+
+/* NASA's Artemis III candidate regions: their own colour so the challenge sites stand out from the blue mission sites */
+.moon-marker.nasa i { background: #fc3d21; }
+.moon-marker.nasa span { color: #ffd9d2; }
+.moon-marker.nasa.on i { background: #fc3d21; }
+/* labels sit right of the point, or left when the right is taken; a shown label counts the hidden ones near it */
+.moon-marker.left { flex-direction: row-reverse; }
+.moon-marker.left i { margin-left: 0; margin-right: -3.5px; }
+.moon-marker span[data-more]:not([data-more=''])::after {
+  content: attr(data-more); margin-left: 5px; padding: 0 4px; border-radius: 3px; font-size: 9.5px; line-height: 14px;
+  background: rgba(255, 255, 255, 0.16); color: #fff; vertical-align: 1px; }
+.moon-marker { transition: opacity 200ms, transform 0s; }
+.moon-marker span { transition: opacity 220ms; }
