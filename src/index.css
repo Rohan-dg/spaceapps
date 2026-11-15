@@ -2812,3 +2812,11 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash-bare-hint button { height: 30px; padding: 0 14px; border-radius: 999px; border: 0; background: #fff; color: #000; font-weight: 600; font-size: 12.5px; }
 .dash-bare-hint button:hover { background: var(--mode, #63a1ff); color: #fff; }
 .dash-dock button.home { color: #fff; }
+/* the dock sits above the cards and the section box, so its hover labels are never hidden behind them */
+.dash > .dash-dock { z-index: 9; }
+.dock-tip { z-index: 1; }
+/* shorter screens: the dock buttons shrink so the whole dock always fits on screen */
+@media (min-width: 901px) and (max-height: 820px) { .dash-dock { gap: 2px; } .dash-dock button, .dash-dock button.util { width: 36px; height: 36px; } .dash-dock { width: 48px; } }
+@media (min-width: 901px) and (max-height: 720px) { .dash-dock { gap: 1px; padding: 5px; width: 42px; } .dash-dock button, .dash-dock button.util { width: 32px; height: 32px; } .dock-sep { margin: 3px 6px; } }
+@media (min-width: 901px) and (max-height: 640px) { .dash-dock { top: 228px; width: 38px; padding: 4px; } .dash-dock button, .dash-dock button.util { width: 28px; height: 28px; } .dash-dock button svg { width: 15px; height: 15px; } }
+@media (min-width: 901px) and (max-height: 560px) { .dash-dock { max-height: calc(100% - 228px - var(--gap)); overflow-y: auto; scrollbar-width: none; } }
