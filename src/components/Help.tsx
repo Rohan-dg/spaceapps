@@ -18,8 +18,10 @@ export function HelpTip({ children, label = 'What is this?', align = 'left' }: {
 export function Loading({ label }: { label: string }) {
   return (
     <div className="loading" role="status" aria-live="polite">
-      <span className="loader" aria-hidden />
-      <span>{label}</span>
+      <span className="loading-label"><span className="loader" aria-hidden />{label}</span>
+      <span className="skel" style={{ width: '94%' }} aria-hidden />
+      <span className="skel" style={{ width: '78%' }} aria-hidden />
+      <span className="skel" style={{ width: '86%' }} aria-hidden />
     </div>
   );
 }
