@@ -36,7 +36,6 @@ import FirstPerson from './components/FirstPerson';
 import TimeControls, { SPEEDS } from './components/TimeControls';
 import Timeline from './components/Timeline';
 import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
-import { findRun, indexAt, type Runs, type Series } from './lib/series';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
@@ -70,8 +69,6 @@ const COPY = {
   expert: {
     tabs: { explore: 'Explore', compare: 'Compare', calc: 'Calculator', launch: 'Launch', missions: 'Missions' },
     kpi: {
-      title: 'Now, all sites', cap: (n: number) => `of ${n} active sites (crash and impact points excluded)`,
-      state: { both: 'sunlit + Earth', sun: 'sunlit only', earth: 'Earth only', dark: 'dark' },
       good: 'Good power, next lunar day', none: 'None in this window',
     },
     sites: 'Landing sites', review: 'Review site', pick2: 'Click a second site to compare', plan: 'Plan launch', logic: 'Show logic', explain: 'Explain',
@@ -93,8 +90,6 @@ const COPY = {
   normal: {
     tabs: { explore: 'Explore', compare: 'Compare places', calc: 'How it works', launch: 'Plan a launch', missions: 'All missions' },
     kpi: {
-      title: 'Right now, every place', cap: (n: number) => `out of ${n} places (crash sites not counted)`,
-      state: { both: 'sunny and can call Earth', sun: 'sunny only', earth: 'can call Earth only', dark: 'dark' },
       good: 'Sunniest over the next month', none: 'None at the moment',
     },
     sites: 'Places to land', review: 'About this place', pick2: 'Pick a second place to compare', plan: 'Plan a trip here', logic: 'How it works', explain: 'About the app',
@@ -142,7 +137,6 @@ const SlipPanelM = memo(SlipPanel), MoonEarthM = memo(MoonEarth);
 const TimelineM = memo(Timeline), SummaryM = memo(Summary), ExportM = memo(Export);
 /** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
  *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
-const upAt = (runs: Runs, s: Series, t: number) => findRun(runs, Math.floor(indexAt(s, t))) >= 0;
 
 const fmtLon = (lon: number) => { const l = ((lon % 360) + 360) % 360; return l > 180 ? `${(360 - l).toFixed(3)}° W` : `${l.toFixed(3)}° E`; };
 const fmtLat = (lat: number) => `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}`;
@@ -248,22 +242,8 @@ export default function App() {
   const tl = useDeferredValue(t);
   const res = useScenario(data, tl);
   const info = allSites.find((s) => s.id === siteId);
-  // summary strip: how many tracked sites are sunlit / see Earth now, read from each site's precomputed series
-  const tq = Math.floor(tl / 3600000) * 3600000;
-  // counted over the active sites only (crash and impact points are excluded), so the total stays fixed
+  // the sunniest-sites line counts active sites only (crash and impact points are excluded)
   const active = useMemo(() => all.filter((d, i): d is SiteData => !!d && !lazyIds.has(ids[i])), [all, ids, lazyIds]);
-  // one mark per active site, grouped by state now (sunlit + Earth, sunlit only, Earth only, dark), south to north
-  const kpi = useMemo(() => {
-    const ORDER = { both: 0, sun: 1, earth: 2, dark: 3 } as const;
-    const marks = active.map((d) => {
-      const su = upAt(d.series.sunUp, d.series, tq), eu = upAt(d.series.earthUp, d.series, tq);
-      const state: keyof typeof ORDER = su && eu ? 'both' : su ? 'sun' : eu ? 'earth' : 'dark';
-      return { id: d.info.id, name: d.info.short || d.info.name, lat: d.info.lat, state };
-    }).sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.lat - b.lat);
-    const count = { both: 0, sun: 0, earth: 0, dark: 0 };
-    marks.forEach((m) => count[m.state]++);
-    return { n: marks.length, marks, count };
-  }, [active, tq]);
   // "good for power" needs the full verdict, which covers the next lunar day, so a 6-hour step is plenty and cheap
   const t6 = Math.floor(tl / 21600000) * 21600000;
   const goodSites = useMemo(() => active
@@ -516,22 +496,7 @@ export default function App() {
         </nav>
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> {L.tabs.missions}</button>
       </header>
-      <section className="kp" aria-label="All landing sites at the selected time">
-        <div className="kp-now">
-          <p className="kp-h"><span>{L.kpi.title}</span><span className="num">{when(tl)} UTC</span></p>
-          <div className="kp-marks" role="list" aria-label={L.kpi.cap(kpi.n)}>
-            {kpi.marks.map((m) => (
-              <button key={m.id} role="listitem" className={`kp-m ${m.state}${m.id === siteId ? ' on' : ''}`} onClick={() => pickSite(m.id)}
-                title={`${m.name}: ${L.kpi.state[m.state]}`} aria-label={`${m.name}: ${L.kpi.state[m.state]}`} />
-            ))}
-          </div>
-          <p className="kp-legend">
-            {(['both', 'sun', 'earth', 'dark'] as const).map((k) => (
-              <span key={k} className={`kp-k ${k}`}><i aria-hidden /><b className="num">{kpi.count[k]}</b> {L.kpi.state[k]}</span>
-            ))}
-            <span className="kp-of">{L.kpi.cap(kpi.n)}</span>
-          </p>
-        </div>
+      <section className="kp" aria-label="Best sites over the next lunar day">
         <div className="kp-good">
           <p className="kp-h"><span>{L.kpi.good}</span></p>
           {goodSites.length === 0 ? <p className="kp-none">{L.kpi.none}</p> : (
