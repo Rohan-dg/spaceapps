@@ -14,6 +14,7 @@
  */
 import gsap from 'gsap';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -1614,9 +1615,15 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         <div className="hud-br hud-anim">
           {expert && <button className={`hud-toggle${rangeOpen ? ' on' : ''}`} aria-pressed={rangeOpen} onClick={openRange} title="How far a rover can drive on battery alone, drawn as a ring on the Moon"><Icon name="rover" /> Rover range</button>}
           {hiInfo && sel && <button className="hud-toggle" onClick={() => setViewer(sel.id)} title="Open the site mesh in a 3D viewport"><Icon name="mountain" /> Terrain 3D</button>}
-          {/* a direct switch in both modes, not tucked in the Display menu */}
-          <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
-            title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
+          {/* a direct switch, not tucked in the Display menu. In Scientific it is pinned bottom right on top of the
+              interface (rendered on the page body), so no panel or screen size can hide it */}
+          {(() => {
+            const btn = (
+              <button className={`hud-toggle${fill ? ' on' : ''}${expert ? ' shadow-fab' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
+                title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
+            );
+            return expert && typeof document !== 'undefined' ? createPortal(btn, document.body) : btn;
+          })()}
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
             {menuOpen && (
