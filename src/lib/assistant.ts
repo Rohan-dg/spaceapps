@@ -40,7 +40,7 @@ export const TOPICS: Topic[] = [
     actions: [{ type: 'mode', mode: 'explore', label: 'Go to Explore' }] },
   { id: 'earth', examples: ['what does earth in view mean', 'can the site talk to earth', 'earth visibility', 'radio link to earth', 'when does earth set', 'direct to earth comms', 'why is earth never visible'],
     answer: 'Earth in view means Earth\'s centre is above the skyline, so a lander has a direct radio link. Near the pole Earth hangs low and drifts with libration, so ridges come and go. From the far side (Chang\'e-4, Chang\'e-6, Blue Ghost 2) Earth is never in view, so those missions need a relay satellite.' },
-  { id: 'ratings', examples: ['what do the ratings mean', 'power rating', 'comms rating', 'green amber red', 'good marginal poor meaning', 'how is the verdict calculated'],
+  { id: 'ratings', examples: ['what do the ratings mean', 'how good is this site', 'power rating', 'comms rating', 'green amber red', 'good marginal poor meaning', 'how is the verdict calculated'],
     answer: 'Ratings cover the next lunar day (29.5 days). Power is good when the site is sunlit at least 70% of the time and the longest dark spell is at most 100 h; marginal at 40% or 200 h. Radio is good at 90% Earth visibility with gaps of at most 24 h; marginal at 40% or 120 h. Otherwise poor.' },
   { id: 'time', examples: ['how do i change the date', 'change the time', 'play the animation', 'go forward in time', 'set a date', 'time slider', 'speed up time'],
     answer: 'Use the time controls under the site summary: Play, the step buttons (hours and days), the date box, and the slider across 2027 to 2029. Space plays and pauses; the left and right arrow keys step an hour (with Shift, a day).',
