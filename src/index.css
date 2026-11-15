@@ -2531,7 +2531,7 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash:not(.dash-explore) .hud-tr *, .dash:not(.dash-explore) .hud-bl * { pointer-events: none !important; }
 /* the Moon controls (Rover range, Terrain 3D, Remove shadows, Display) stay available in the bottom-right corner,
    below the tool panel; the Display menu opens upward over it */
-.dash:not(.dash-explore) .hud-br { top: auto; bottom: var(--gap); right: var(--gap); left: auto; max-width: calc(var(--R) - var(--gap) * 2); flex-wrap: wrap; justify-content: flex-end; }
+.dash:not(.dash-explore) .hud-br { top: auto; bottom: 72px; right: var(--gap); left: auto; max-width: calc(var(--R) - var(--gap) * 2); flex-wrap: wrap; justify-content: flex-end; }
 
 @media (max-width: 900px) { .dash.dash-compare .dash-wide, .dash.dash-launch .dash-wide, .dash.dash-calc .dash-wide { width: auto; } .dash:not(.dash-explore) .dash-wide { height: auto; } }
 /* the panel header already names the tool: no second title inside it */
@@ -2539,3 +2539,13 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 /* Scientific: the ? in the top bar opens help, so the floating launcher is not repeated */
 .app.is-dash .as-launch { display: none; }
 .dash:not(.dash-explore) .ct-map:has(.hud-menu) { z-index: 6; }
+/* Remove shadows (Scientific): always visible, bottom right, on top of the interface */
+.shadow-fab.hud-toggle { position: fixed; right: 20px; bottom: 20px; z-index: 45; height: 38px; padding: 0 16px; display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(16, 18, 22, 0.72); color: #fff; font: 600 13px/1 var(--font-body, inherit);
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%); box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7); cursor: pointer;
+  transition: background 160ms, color 160ms, transform 160ms; }
+.shadow-fab.hud-toggle:hover { background: rgba(40, 44, 52, 0.85); }
+.shadow-fab.hud-toggle.on { background: #fff; color: #000; }
+/* the right column ends just above the Remove shadows button so it never covers a card */
+.dash .dash-side { bottom: 72px; }
+@media (max-width: 900px) { .dash .dash-side { bottom: auto; } }
