@@ -367,6 +367,7 @@ kbd {
 .cal-month h4 { display: flex; align-items: baseline; gap: 6px; margin: 0 0 2px; font: 600 17px/1.2 'SF Pro Display', var(--font-num); letter-spacing: -0.01em; color: var(--accent); }
 .cal-month h4 .num { font: 400 13px var(--font-num); color: var(--ink-2); }
 .cal-wk, .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+.cal-days { row-gap: 5px; column-gap: 2px; }
 .cal-wk span { text-align: center; font: 500 10.5px var(--font-num); color: var(--ink-2); padding-bottom: 2px; }
 .cal-wk span:nth-child(n + 6) { opacity: 0.6; }
 .cell { display: flex; align-items: center; justify-content: center; justify-self: center; width: 21px; height: 21px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
