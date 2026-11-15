@@ -1220,7 +1220,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   }, []);
 
   // the app logo asks for the home view by bumping homeSignal (0 on mount, so the opening drift-in is untouched)
-  useEffect(() => { if (homeSignal > 0) goToRef.current('moon'); }, [homeSignal]);
+  useEffect(() => {
+    if (homeSignal <= 0) return;
+    // home also clears whatever was probed or measured, so the view really is back to how it opened
+    const st = S.current; if (st) { st.probePos = null; st.focus = null; st.request(); }
+    setProbe(null); setPeriod(null); setRangeOpen(false);
+    goToRef.current('moon');
+  }, [homeSignal]);
 
   // first visit: drift in from deep space (runs once per mount; the ref keeps the latest goTo)
   const goToRef = useRef(goTo);

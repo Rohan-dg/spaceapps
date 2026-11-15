@@ -220,6 +220,7 @@ export default function App() {
   const [deep, setDeep] = useState<Deep>('horizon');
   // Scientific Explore is a dashboard over the Moon; its panels open one sheet at a time
   const [sheet, setSheet] = useState<DashTab | null>(null);
+  const [bare, setBare] = useState(false);
   const [askSig, setAskSig] = useState(0);
   // every Scientific workspace uses the dashboard layout; Explore has the full set of floating panels,
   // Compare, Calculator and Launch put their tool in a widened right-hand glass panel
@@ -403,7 +404,7 @@ export default function App() {
   // bumped by every site the user picks, so a clicked point that finishes computing later never steals the selection
   const pickGen = useRef(0);
   const chooseSite = useCallback((id: string) => {
-    pickGen.current++;
+    pickGen.current++; setBare(false);
     setSiteId((cur) => { if (cur && cur !== id) setPartner(cur); return id; });
   }, []);
   const pickSite = useCallback((id: string) => { chooseSite(id); if (mode !== 'explore') setMode('explore'); }, [chooseSite, mode]);
@@ -430,8 +431,10 @@ export default function App() {
       pickSite(siteId || (allSites.find((x) => /mouton/i.test(x.name)) ?? allSites[0])?.id);
     },
   }), [siteId, mode, pickSite, allSites]);
+  // Home: close every panel, clear the selection and fly back to the opening view of the whole Moon; on the
+  // Scientific dashboard the cards step away too (bare Moon) until a site is picked again
   const goHome = useCallback(() => {
-    setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
+    setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1); setSheet(null); setBare(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   const closeGuide = useCallback(() => setGuide(false), []);
@@ -615,7 +618,7 @@ export default function App() {
                       <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
                       <li><span className="swatch swatch-line" aria-hidden /> Now</li>
                     </ul>
-                    <TimelineM data={data} t={tl} onSeek={onT} />
+                    <TimelineM data={data} t={tl} onSeek={onT} fill={dash} />
                   </>) : dv === 'slip' ? (
                     <SlipPanelM data={data} t={tl} t0={range[0]} t1={range[1]} onSeek={pickDay} playing={playing} plain={!expert} />
                   ) : dv === 'earth' ? (
@@ -745,7 +748,7 @@ export default function App() {
           )}
         </div>
       </section>}
-      <div ref={dashRef} className={dash ? `dash dash-${mode}${dashExplore && sheet ? ' sheet-open' : ''}` : mode === 'explore' ? 'ct-split' : 'hero'}>
+      <div ref={dashRef} className={dash ? `dash dash-${mode}${dashExplore && sheet ? ' sheet-open' : ''}${dashExplore && bare && !siteId && !sheet ? ' dash-bare' : ''}` : mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
@@ -762,7 +765,7 @@ export default function App() {
             onCompare={partnerData ? openCompare : () => { setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}
             onPlanLaunch={planLaunchHere} onLogic={() => setMode('calc')} busy={pointBusy}
             sheet={dashExplore && sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
-            utils={[]}
+            utils={[]} onHome={goHome} onShowPanels={() => setBare(false)}
             right={dashExplore ? undefined : (
               <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
                 <header className="dw-head"><b>{mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch'}</b><span>{TOOL_DESC[mode as 'compare' | 'calc' | 'launch']}</span></header>
