@@ -1707,10 +1707,16 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               interface (rendered on the page body), so no panel or screen size can hide it */}
           {(() => {
             const btn = (
-              <button className={`hud-toggle${fill ? ' on' : ''}${expert ? ' shadow-fab' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
+              <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
                 title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
             );
-            return expert && typeof document !== 'undefined' ? createPortal(btn, document.body) : btn;
+            if (!expert || typeof document === 'undefined') return btn;
+            // Scientific: Moon (home view) and Remove shadows side by side in the bottom-right corner
+            return createPortal(
+              <div className="moon-fab" role="group" aria-label="Moon view">
+                <button className="hud-toggle" onClick={() => homeRef.current()} title="Back to the whole Moon in its starting position (H)"><Icon name="home" /> Moon</button>
+                {btn}
+              </div>, document.body);
           })()}
           <div className="hud-menu-wrap" ref={menuRef}>
             <button className={`hud-toggle${menuOpen ? ' on' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((x) => !x)} title="Lighting, shadows, relief and pointers"><Icon name="sparkle" /> Display <span className="chev" aria-hidden>▾</span></button>
