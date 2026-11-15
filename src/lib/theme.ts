@@ -1,7 +1,7 @@
 /**
  * Theme store. Light and dark themes are defined as CSS tokens in index.css; this module resolves the
  * active theme and exposes the token values to canvas/WebGL code, which can't use CSS.
- * Light is the default; dark applies only when the user saved it with the toggle.
+ * Dark is the default; light applies only when the user saved it with the toggle.
  */
 import { useSyncExternalStore } from 'react';
 
@@ -41,10 +41,10 @@ let wired = false;
 function wire() {
   if (wired || typeof window === 'undefined') return;
   wired = true;
-  // light is the default; only a saved 'dark' switches it
+  // dark is the default; only a saved 'light' switches it
   let saved: string | null = null;
   try { saved = localStorage.getItem(KEY); } catch { /* storage unavailable */ }
-  document.documentElement.dataset.theme = saved === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
   new MutationObserver(emit).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', emit);
   document.fonts?.ready.then(emit);

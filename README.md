@@ -13,7 +13,8 @@ and a green/amber/red verdict with a plain-language reason.
   the terrain silhouette, the Sun and Earth at true angular size and their next-24 h paths. An answer panel up top shows
   what is true right now and Good / Marginal / Poor ratings for solar power and the radio link to Earth. A 30-day strip sits underneath;
   the 3-year "best landing dates" calendar and the exact numbers + CSV/JSON export sit under **Go deeper**.
-  Light (paper) and dark themes; the toggle sits top right.
+  Dark (default) and light themes; the toggle sits top right. Press ⌘K / Ctrl+K for a command menu over every site,
+  preset, view and action; 1 / 2 / 3 switch Explore, Compare and Calculator.
 * **Compare sites:** set 2–4 plans (site + date) side by side, with verdicts, panoramas and a highlighted metric table.
 * **Custom coordinates** (approximate): enter any point south of 80.5°S. A Web Worker ray-marches a 400 m/px terrain
   downsample and computes the full series in about 3 s. Measured horizon error against the 40 m pipeline: mean 0.1–0.6°, max about 2.4°.
