@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
+import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -16,14 +17,14 @@ import SiteList from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import TimeControls from './components/TimeControls';
 import Timeline from './components/Timeline';
-import { type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
+import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
 import { simSnapshot, useMission } from './lib/useMission';
 import { useScenario } from './lib/useScenario';
 
-type Mode = 'explore' | 'compare' | 'calc';
+type Mode = 'explore' | 'compare' | 'calc' | 'launch';
 const PLAN_KEY = 'lsc-mission-plan';
 function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
@@ -70,6 +71,9 @@ export default function App() {
   const [deep, setDeep] = useState<Deep>('calendar');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
+  const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
+  const addCustom = useCallback((d: SiteData) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }, []);
+  const planLaunchTo = useCallback((lat: number, lon: number) => { setLaunchTarget({ lat, lon, nonce: Date.now() }); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
     { siteId: 'de-gerlache-rim', t: init.t },
@@ -117,7 +121,7 @@ export default function App() {
       }
       if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
         document.querySelectorAll<HTMLButtonElement>('.masthead .tabs button')[Number(e.key) - 1]?.click();
       }
     };
@@ -153,6 +157,7 @@ export default function App() {
       { id: 'mode-explore', group: 'Views', title: 'Explore a site', icon: <Search size={16} />, accessory: <kbd>1</kbd>, run: () => goMode('explore') },
       { id: 'mode-compare', group: 'Views', title: 'Compare sites side by side', icon: <Columns2 size={16} />, accessory: <kbd>2</kbd>, run: () => goMode('compare') },
       { id: 'mode-calc', group: 'Views', title: 'Calculator', keywords: 'solve equation variable', icon: <CalcIcon size={16} />, accessory: <kbd>3</kbd>, run: () => goMode('calc') },
+      { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
       { id: 'deep-numbers', group: 'Views', title: 'Readout and export', keywords: 'csv json numbers', icon: <SlidersHorizontal size={16} />, run: showDeep('numbers') },
@@ -177,6 +182,7 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'compare'}
             onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare <kbd>2</kbd></button>
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator <kbd>3</kbd></button>
+          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch <kbd>4</kbd></button>
         </nav>
         <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
           <Search size={15} /><span>Search sites and actions…</span><span className="keys"><ModKey /><kbd>K</kbd></span>
@@ -196,7 +202,7 @@ export default function App() {
       </header>
       <div className="hero wrap">
         <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} />
+          <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} />
         </Suspense>
       </div>
 
@@ -219,7 +225,7 @@ export default function App() {
                 </table>
               </section>
             )}
-            <CustomSite doc={doc} onReady={(d) => { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]); setSiteId(d.info.id); }} />
+            <CustomSite doc={doc} onReady={addCustom} />
           </aside>
 
           <section className="work" aria-label="Selected site">
@@ -282,6 +288,10 @@ export default function App() {
             ) : <Loading label="Loading site" />}
           </section>
         </main>
+      ) : mode === 'launch' ? (
+        <main className="compare-main wrap">
+          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} range={range} target={launchTarget} />
+        </main>
       ) : mode === 'calc' ? (
         <main className="compare-main wrap">
           <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
@@ -301,7 +311,7 @@ export default function App() {
       <div className="action-bar" role="toolbar" aria-label="Quick actions">
         <span className="ab-ctx">
           <span className="brand-mark" aria-hidden />
-          <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : 'Calculator'}</b>
+          <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
           <span className="num muted">{when(t)} UTC</span>
         </span>
         <span className="ab-actions">
