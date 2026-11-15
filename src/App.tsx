@@ -178,22 +178,15 @@ export default function App() {
       <header className="masthead wrap">
         <h1 className="brand"><span className="brand-mark" aria-hidden />Lunar Site Compare</h1>
         <nav className="tabs" role="tablist" aria-label="Mode">
-          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore <kbd>1</kbd></button>
+          <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}>Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
-            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare <kbd>2</kbd></button>
-          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator <kbd>3</kbd></button>
-          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch <kbd>4</kbd></button>
+            onClick={() => { if (mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]); setMode('compare'); }}>Compare</button>
+          <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}>Calculator</button>
+          <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}>Launch</button>
         </nav>
         <button className="cmdk-trigger" onClick={() => setPalette(true)} aria-label="Open command menu">
-          <Search size={15} /><span>Search sites and actions…</span><span className="keys"><ModKey /><kbd>K</kbd></span>
+          <Search size={15} /><span>Search sites, presets, actions</span><span className="keys"><ModKey /><kbd>K</kbd></span>
         </button>
-        <label className="preset-pick">
-          <span>Preset</span>
-          <select id="preset" value="" onChange={(e) => { const p = PRESETS.find((x) => x.id === e.target.value); if (p) applyPreset(p); }}>
-            <option value="">Select</option>
-            {PRESETS.map((p) => <option key={p.id} value={p.id} title={p.blurb}>{p.title}</option>)}
-          </select>
-        </label>
         <div className="mast-tools">
           <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={15} /><span className="sr-only">Theme</span></button>
           <button onClick={() => setAbout(true)} aria-label="Data and method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
@@ -232,23 +225,22 @@ export default function App() {
             {data && res ? (
               <>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>{data.info.name}</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
                 </div>
 
                 <div className="instrument">
-                  <header className="pnl-h"><h3>Time</h3><p>The date and time being evaluated. Everything below updates to match.</p></header>
+                  <header className="pnl-h"><h3>Time</h3></header>
                   <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
                 </div>
                 <div className="instrument">
-                  <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
+                  <header className="pnl-h"><h3>Conditions</h3></header>
                   <Summary r={res} />
                 </div>
 
                 <div className="instrument">
                   <div className="view-head pnl-h">
-                    <div><h3>Horizon</h3><p>The terrain skyline seen from the site, with the paths of the Sun and Earth.</p></div>
+                    <div><h3>Horizon</h3></div>
                     <div className="seg" role="radiogroup" aria-label="View">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
@@ -261,7 +253,7 @@ export default function App() {
 
                 <div className="instrument">
                   <div className="view-head pnl-h">
-                    <div><h3>Next 30 days</h3><p>When the site is sunlit and when Earth is above the horizon. Click to jump to a time.</p></div>
+                    <div><h3>Next 30 days</h3></div>
                     <ul className="chart-legend" aria-label="Legend">
                       <li><span className="swatch" style={{ background: 'var(--sun)' }} aria-hidden /> Sunlit</li>
                       <li><span className="swatch" style={{ background: 'var(--earth)' }} aria-hidden /> Earth in view</li>
@@ -273,7 +265,7 @@ export default function App() {
 
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>Detailed analysis</h3><p>{deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'numbers' ? 'Every computed figure for this site and time, with CSV and JSON export.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
+                    <div><h3>Detailed analysis</h3></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
                       <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
                       <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
@@ -325,9 +317,9 @@ export default function App() {
           <span className="num muted">{when(t)} UTC</span>
         </span>
         <span className="ab-actions">
-          <button className="ab-btn" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'} <kbd>Space</kbd></button>
+          <button className="ab-btn" onClick={() => setPlaying((p) => !p)}>{playing ? 'Pause' : 'Play'}</button>
           <span className="ab-sep" aria-hidden />
-          <button className="ab-btn" onClick={() => setPalette(true)}>Actions <ModKey /><kbd>K</kbd></button>
+          <button className="ab-btn" onClick={() => setPalette(true)}>Actions</button>
         </span>
       </div>
     </div>

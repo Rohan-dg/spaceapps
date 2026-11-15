@@ -57,7 +57,7 @@ export default function Timeline({ data, t, days = 30, onSeek }: Props) {
   return (
     <div className="timeline" ref={wrap}>
       <canvas ref={cv} style={{ width: w, height: H, cursor: onSeek ? 'pointer' : 'default' }} role="img"
-        aria-label={`Sunlight and Earth visibility for the next ${days} days`}
+        aria-label={`Sunlight and Earth visibility for the next ${days} days`} title={onSeek ? 'Click to jump to that time' : undefined}
         onClick={(e) => {
           if (!onSeek) return;
           const r = e.currentTarget.getBoundingClientRect();

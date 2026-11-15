@@ -45,6 +45,8 @@ export default function Guide({ onClose }: Props) {
         <h3>Shortcuts</h3>
         <table className="kbd-table">
           <tbody>
+            <tr><th scope="row"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>K</kbd></th><td>Search sites, presets and actions</td></tr>
+            <tr><th scope="row"><kbd>1</kbd> – <kbd>4</kbd></th><td>Explore, Compare, Calculator, Launch</td></tr>
             <tr><th scope="row"><kbd>Space</kbd></th><td>Play / pause</td></tr>
             <tr><th scope="row"><kbd>←</kbd> <kbd>→</kbd></th><td>Step 1 h</td></tr>
             <tr><th scope="row"><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></th><td>Step 1 d</td></tr>
