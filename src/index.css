@@ -2018,3 +2018,22 @@ html[data-ui-switch]::view-transition-group(ct-bar), html[data-ui-switch]::view-
 
 /* HUD panels sit above the Sun / Earth edge arrows and site labels, so nothing draws over their text */
 .moon-hud { z-index: 4; }
+
+/* Normal mode on wide screens: a two-column grid across the full width instead of one narrow column.
+   Row 1 the place; row 2 "right now" beside "good place to land"; row 3 the look-around view beside the three
+   "not like Earth" facts (stacked); row 4 the month ahead, full width. One column below 1000 px. */
+.sv { max-width: none; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: 40px;
+  grid-template-areas: 'hero hero' 'now land' 'see earth' 'month month'; }
+.sv-hero { grid-area: hero; }
+.sv-now { grid-area: now; } .sv-land { grid-area: land; } .sv-see { grid-area: see; } .sv-earth { grid-area: earth; } .sv-month { grid-area: month; }
+.sv-earth .sv-diff { grid-template-columns: 1fr; gap: 18px; }
+.sv-earth .sv-diff > div { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.sv-earth .sv-diff > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.sv-land .sv-why li { grid-template-columns: 52px 1fr; }
+.sv-sec { align-content: start; }
+@media (max-width: 1000px) {
+  .sv { grid-template-columns: 1fr; grid-template-areas: 'hero' 'now' 'land' 'see' 'earth' 'month'; }
+  .sv-earth .sv-diff { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sv-earth .sv-diff > div { border-bottom: 0; padding-bottom: 0; }
+}
+@media (max-width: 720px) { .sv-earth .sv-diff { grid-template-columns: 1fr; } }
