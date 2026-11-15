@@ -66,7 +66,8 @@ export function mix(a: string, b: string, t: number): string {
   const p = (h: string) => {
     const m = h.match(/rgba?\(([^)]+)\)/);
     if (m) return m[1].split(',').slice(0, 3).map((v) => parseFloat(v));
-    const x = h.trim().replace('#', '');
+    let x = h.trim().replace('#', '');
+    if (x.length === 3 || x.length === 4) x = [...x.slice(0, 3)].map((ch) => ch + ch).join(''); // minifiers shorten #ffffff to #fff
     return [0, 2, 4].map((i) => parseInt(x.slice(i, i + 2), 16));
   };
   const A = p(a), B = p(b);
