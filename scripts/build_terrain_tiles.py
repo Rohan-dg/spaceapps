@@ -11,13 +11,16 @@ Outputs in public/tiles/ (gitignored, about 400 MB; run this before deploying):
                       share their edge samples exactly. 16-bit packed: metres = hMin + (R*256 + G) * 0.5
   c/<row>_<col>.jpg   colour for the same tile, 256 x 256
   index.json          tile layout and the hMin of every tile
+  m/<row>_<col>.jpg   (--chunks) colour for one 10 x 10 degree chunk of the whole Moon, 256 x 256, 18 x 36 chunks
+  n/<row>_<col>.jpg   (--chunks) the matching chunk of public/moon/normal_8k.jpg
+                      The globe streams these around the view instead of loading the 8k maps whole.
 
 Row 0 starts at 90N, column 0 at 180W, matching the equirect maps the globe uses. Tiles stop at 80S: the
 south polar cap (LOLA 80 m polar product) and the 5 to 20 m site windows cover the rest at higher resolution.
 Heights are the LOLA values themselves (corner registration averages the four surrounding 64 px/deg samples);
 nothing is smoothed, exaggerated or invented.
 
-Usage: python3 scripts/build_terrain_tiles.py [--only ROW_COL] [--workers N]
+Usage: python3 scripts/build_terrain_tiles.py [--only ROW_COL] [--workers N] [--chunks]
 """
 import argparse
 import json
@@ -76,11 +79,35 @@ def build(rc):
     return r, c, hmin
 
 
+CHUNK_DEG = 10
+CHUNK_PX = 256
+
+
+def build_chunks():
+    """Mid-zoom colour and normal chunks: 10 degree cells over the whole Moon, row 0 at 90N, column 0 at 180W."""
+    col = Image.open(SRC / "lroc_color_poles_16k.tif").convert("RGB")
+    nrm = Image.open(ROOT / "public/moon/normal_8k.jpg").convert("RGB")
+    rows, cols = 180 // CHUNK_DEG, 360 // CHUNK_DEG
+    for d in ("m", "n"):
+        (OUT / d).mkdir(parents=True, exist_ok=True)
+    for r in range(rows):
+        for c in range(cols):
+            for im, d, q in ((col, "m", 86), (nrm, "n", 90)):
+                W, H = im.size
+                box = (c * CHUNK_DEG / 360 * W, r * CHUNK_DEG / 180 * H, (c + 1) * CHUNK_DEG / 360 * W, (r + 1) * CHUNK_DEG / 180 * H)
+                im.resize((CHUNK_PX, CHUNK_PX), Image.LANCZOS, box=box).save(OUT / d / f"{r}_{c}.jpg", quality=q, optimize=True)
+        print(f"chunk row {r + 1}/{rows}", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
+    ap.add_argument("--chunks", action="store_true")
     ap.add_argument("--workers", type=int, default=max(1, min(4, (os.cpu_count() or 2) - 2)))
     a = ap.parse_args()
+    if a.chunks:
+        build_chunks()
+        return
     (OUT / "h").mkdir(parents=True, exist_ok=True)
     (OUT / "c").mkdir(parents=True, exist_ok=True)
     jobs = [tuple(int(v) for v in a.only.split("_"))] if a.only else [(r, c) for r in range(ROWS) for c in range(COLS)]

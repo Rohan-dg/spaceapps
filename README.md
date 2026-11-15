@@ -69,7 +69,10 @@ The 3D view's real-terrain tiles (about 180 MB, gitignored) are cut from the CGI
 ```bash
 pip install numpy pillow
 python scripts/build_terrain_tiles.py
+python scripts/build_terrain_tiles.py --chunks
 ```
+
+The second command cuts the 10° colour and normal chunks the globe streams at mid zoom (about 17 MB). Without them the globe stays at the 2k maps between the full-disc view and the terrain tiles.
 
 ## Data
 
