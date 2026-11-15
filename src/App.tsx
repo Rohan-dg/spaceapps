@@ -175,7 +175,20 @@ export default function App() {
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
   // a computed point joins the list and becomes the current site; the previous site stays as the comparison partner
+  // your points are lettered A, B, C ... in the order you make them (Z then wraps to AA, AB ...)
+  const letterSeq = useRef(0);
+  const nextLetter = () => { const k = letterSeq.current++; return k < 26 ? String.fromCharCode(65 + k) : `A${String.fromCharCode(65 + ((k - 26) % 26))}`; };
+  const letterPoint = (d: SiteData, letter: string) => {
+    const where = d.info.name.replace(/^Point\s+/, '');
+    d.info.short = `Point ${letter}`; d.info.name = `Point ${letter} (${where})`;
+  };
+  const clearPoints = useCallback(() => {
+    setCustoms([]); letterSeq.current = 0;
+    setSiteId((cur) => (cur.startsWith('custom') ? '' : cur));
+    setPartner((p) => (p && p.startsWith('custom') ? null : p));
+  }, []);
   const addCustom = useCallback((d: SiteData) => {
+    if (d.info.id.startsWith('custom') && !/^Point [A-Z]+$/.test(d.info.short)) letterPoint(d, nextLetter());
     // keep the last eight points so clicking around does not flood the list
     setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8));
     setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
@@ -354,12 +367,19 @@ export default function App() {
       .then((d) => {
         if (n !== pointSeq.current) return;
         // recalculating a point in the comparison replaces it in place; a fresh click pairs with the current site
-        if (slot) { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8)); if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id); }
+        if (slot) {
+          // a recalculated point keeps its letter
+          const old = customs.find((c) => c.id === (slot === 'A' ? partner : siteId));
+          const L = old?.short.match(/^Point ([A-Z]+)$/)?.[1];
+          if (L) letterPoint(d, L); else letterPoint(d, nextLetter());
+          setCustoms((c) => [...c.filter((x) => x.id !== d.info.id && x.id !== old?.id), d.info].slice(-8));
+          if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id);
+        }
         else { addCustom(d); setMode('explore'); }
       })
       .catch((e) => { if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
       .finally(() => { if (n === pointSeq.current) setTimeout(() => setPointBusy(null), 1200); });
-  }, [doc, addCustom]);
+  }, [doc, addCustom, customs, partner, siteId]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -427,7 +447,8 @@ export default function App() {
         {mode === 'explore' && (
           <aside className="ct-side">
             <section className="ct-panel">
-              <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span></header>
+              <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span>
+                {customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
               <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} />
               <CustomSite doc={doc} onReady={addCustom} />
             </section>

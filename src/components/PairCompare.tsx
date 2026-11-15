@@ -4,7 +4,7 @@
  * next lunar day) plus the long-run criteria and the weighted long-run score, with the better value marked.
  */
 import { useMemo, useState } from 'react';
-import { DEFAULT_LANDER, simulateLander, validateLander, type Lander } from '../lib/lander';
+import { DEFAULT_LANDER, LANDER_FIELDS, simulateLander, validateLander, type Lander, type LanderResult, type Pointing } from '../lib/lander';
 import type { SiteData } from '../lib/data';
 import { criteriaOf, longRunScore, ROWS, verdict, separationKm, type Better } from '../lib/missionCompare';
 import { useScenario } from '../lib/useScenario';
@@ -110,15 +110,26 @@ export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, 
       })),
     },
     ...(expert && la && lb ? [{
-      title: `Your lander (${lander.arrayW} W array, ${lander.batteryKWh} kWh battery, ${lander.dayLoadW} W day / ${lander.nightLoadW} W night)`,
-      lines: [
-        { label: 'Survives the next lunar day', a: { text: la.survives ? 'Yes' : 'No', v: +la.survives }, b: { text: lb.survives ? 'Yes' : 'No', v: +lb.survives }, higher: true },
-        { label: 'Lowest battery charge', a: { text: `${la.minChargePct.toFixed(0)} %`, v: la.minChargePct }, b: { text: `${lb.minChargePct.toFixed(0)} %`, v: lb.minChargePct }, higher: true },
-        { label: 'Hours without power', a: { text: `${la.hoursWithoutPower.toFixed(0)} h`, v: la.hoursWithoutPower }, b: { text: `${lb.hoursWithoutPower.toFixed(0)} h`, v: lb.hoursWithoutPower }, higher: false },
-        { label: 'Operating hours on the array', a: { text: `${la.operatingHours.toFixed(0)} h`, v: la.operatingHours }, b: { text: `${lb.operatingHours.toFixed(0)} h`, v: lb.operatingHours }, higher: true },
-        { label: 'Powered hours in contact with Earth', a: { text: `${la.linkHours.toFixed(0)} h`, v: la.linkHours }, b: { text: `${lb.linkHours.toFixed(0)} h`, v: lb.linkHours }, higher: true },
-        { label: 'Net energy over the period', a: { text: `${la.netKWh >= 0 ? '+' : ''}${la.netKWh.toFixed(0)} kWh`, v: la.netKWh }, b: { text: `${lb.netKWh >= 0 ? '+' : ''}${lb.netKWh.toFixed(0)} kWh`, v: lb.netKWh }, higher: true },
-      ] as Line[],
+      title: `Your lander, ${lander.durationDays} days from the selected time`,
+      lines: (() => {
+        const n = (x: number, d = 0) => x.toFixed(d);
+        const row = (label: string, fa: (r: LanderResult) => string, fv: (r: LanderResult) => number, higher?: boolean, note?: string): Line =>
+          ({ label, note, higher, a: { text: fa(la), v: fv(la) }, b: { text: fa(lb), v: fv(lb) } });
+        return [
+          row('Survives the whole mission', (r) => (r.survives ? 'Yes' : 'No'), (r) => +r.survives, true),
+          row('First loss of power', (r) => (r.firstOutageH === null ? 'never' : `after ${n(r.firstOutageH)} h`), (r) => r.firstOutageH ?? 1e9, true),
+          row('Hours without power', (r) => `${n(r.hoursWithoutPower)} h`, (r) => r.hoursWithoutPower, false),
+          row('Lowest battery charge', (r) => `${n(r.minChargePct)} %`, (r) => r.minChargePct, true, 'protection limit at the max depth of discharge'),
+          row('Peak array output', (r) => `${n(r.peakArrayW)} W`, (r) => r.peakArrayW, true),
+          row('Mean array output while sunlit', (r) => `${n(r.meanArrayWSunlit)} W`, (r) => r.meanArrayWSunlit, true, 'Sun elevation, visible disk and dust included'),
+          row('Energy generated', (r) => `${n(r.generatedKWh)} kWh`, (r) => r.generatedKWh, true),
+          row('Energy used', (r) => `${n(r.usedKWh)} kWh`, (r) => r.usedKWh, false),
+          row('Of which survival heaters', (r) => `${n(r.heaterKWh)} kWh`, (r) => r.heaterKWh, false),
+          row('Net energy', (r) => `${r.netKWh >= 0 ? '+' : ''}${n(r.netKWh)} kWh`, (r) => r.netKWh, true),
+          row('Operating hours (sunlit, powered)', (r) => `${n(r.operatingHours)} h`, (r) => r.operatingHours, true),
+          row('Link hours (Earth above the mask, powered)', (r) => `${n(r.linkHours)} h`, (r) => r.linkHours, true),
+        ];
+      })(),
     }] : []),
   ];
 
@@ -164,17 +175,32 @@ export default function PairCompare({ a, b, t, onSwap, onClear, expert = false, 
       )}
 
       {expert && (
-        <form className="pair-lander" onSubmit={(e) => e.preventDefault()} aria-label="Your lander">
-          <div className="pair-lander-h"><b>Your lander</b><small>Enter your own numbers: the table below recalculates both sites for the next lunar day.</small></div>
-          {([['arrayW', 'Solar array output', 'W'], ['batteryKWh', 'Battery capacity', 'kWh'], ['dayLoadW', 'Daytime load', 'W'], ['nightLoadW', 'Night survival load', 'W']] as const).map(([k, label, unit]) => (
-            <label key={k}><span>{label}</span>
-              <span className="pair-in"><input type="number" min={0} step="any" value={Number.isFinite(lander[k]) ? lander[k] : ''}
-                onChange={(e) => setLander({ ...lander, [k]: e.target.value === '' ? NaN : Number(e.target.value) })} /><em>{unit}</em></span>
-            </label>
+        <form className="pair-lander" onSubmit={(e) => e.preventDefault()} aria-label="Engineering inputs">
+          <div className="pair-lander-h">
+            <b>Engineering inputs</b>
+            <small>Your lander's numbers. Both sites recalculate step by step (every {Math.round(a.series.stepMs / 60000)} min) on their real Sun elevation, visible solar disk and Earth elevation over the terrain skyline. No atmosphere: full solar constant, no refraction, no convective cooling.</small>
+          </div>
+          <label className="pair-wide"><span>Array pointing</span>
+            <select value={lander.pointing} onChange={(e) => setLander({ ...lander, pointing: e.target.value as Pointing })}>
+              <option value="vertical-tracking">Vertical, tracks the Sun in azimuth (polar landers)</option>
+              <option value="horizontal">Horizontal, deck-mounted</option>
+              <option value="two-axis">Two-axis tracker (always face-on)</option>
+            </select>
+          </label>
+          {[...new Set(LANDER_FIELDS.map((f) => f.group))].map((g) => (
+            <fieldset key={g} className="pair-group"><legend>{g}</legend>
+              {LANDER_FIELDS.filter((f) => f.group === g).map((f) => (
+                <label key={f.key} title={f.hint}><span>{f.label}</span>
+                  <span className="pair-in"><input type="number" step="any" min={f.min} max={f.max} value={Number.isFinite(lander[f.key]) ? lander[f.key] : ''}
+                    onChange={(e) => setLander({ ...lander, [f.key]: e.target.value === '' ? NaN : Number(e.target.value) })} /><em>{f.unit}</em></span>
+                  {f.hint && <small className="pair-hint">{f.hint}</small>}
+                </label>
+              ))}
+            </fieldset>
           ))}
-          <button type="button" className="pair-reset" onClick={() => setLander(DEFAULT_LANDER)}>Reset</button>
+          <button type="button" className="pair-reset" onClick={() => setLander(DEFAULT_LANDER)}>Reset to defaults</button>
           {landerErr && <p className="pair-err" role="alert">{landerErr}</p>}
-          <p className="pair-note">Every sunlit hour counts as full array output; real arrays also depend on Sun elevation, panel tilt and temperature.</p>
+          <p className="pair-note">Thermal is modelled as heater power drawn through the night, not a full heat balance. Array temperature effects belong in System losses.</p>
         </form>
       )}
 

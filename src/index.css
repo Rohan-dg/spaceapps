@@ -1849,3 +1849,18 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .pair-known dt { color: var(--ink-2); } .pair-known dd { margin: 0; } .pair-known small { color: var(--ink-2); }
 .pair-recalc { height: 34px; border-radius: 6px; border: 0; background: var(--accent-fill); color: var(--accent-ink); font-weight: 600; font-size: 13px; }
 .pair-recalc:disabled { opacity: 0.6; }
+
+/* engineering inputs (expert) */
+.pair-lander .pair-wide { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pair-lander select { height: 32px; }
+.pair-group { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 12px; margin: 0; padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: 6px; }
+.pair-group legend { padding: 0 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.pair-group label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pair-hint { color: var(--ink-2); font-size: 10.5px; line-height: 1.3; }
+
+/* your own points: teal, never the red of NASA's candidates or the blue of missions */
+.moon-marker.mine i { background: #2dd4bf; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 2px; transform: rotate(45deg); }
+.moon-marker.mine span { color: #b8f5ea; font-weight: 600; }
+.moon-marker.mine.on i { background: #2dd4bf; }
+.ct-clear { margin-left: 8px; height: 26px; padding: 0 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid color-mix(in srgb, #2dd4bf 50%, var(--line)); background: transparent; color: var(--ink); }
+.ct-clear:hover { background: color-mix(in srgb, #2dd4bf 14%, transparent); }
