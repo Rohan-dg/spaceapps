@@ -846,3 +846,8 @@ kbd {
 @media (prefers-reduced-motion: reduce) { .hud-collapse .chev, .hud-toggle .chev, .hud-switch, .hud-switch::after { transition: none; } }
 @media (max-width: 760px) { .hud-hint { display: none; } }
 .hud-probe-head .hud-collapse { width: auto; height: 22px; padding: 0 4px 0 0; border: 0; border-radius: 0; background: none; font-size: inherit; line-height: 1; }
+@media (max-width: 760px) {
+  .hud-menu { left: auto; right: 0; }
+  .hud-tr { top: 84px; }
+  .moon-hud > .hud-panels { top: 124px; }
+}
