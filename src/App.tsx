@@ -33,7 +33,7 @@ import Panorama from './components/Panorama';
 import SiteList, { isAttempt } from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
 import FirstPerson from './components/FirstPerson';
-import TimeControls from './components/TimeControls';
+import TimeControls, { SPEEDS } from './components/TimeControls';
 import Timeline from './components/Timeline';
 import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { findRun, indexAt, type Runs, type Series } from './lib/series';
@@ -272,6 +272,22 @@ export default function App() {
   }, [siteId, t, mode, scenarios, playing, expert]);
 
   const onT = useCallback((x: number) => setT(x), []);
+  // Play: advance time here, in both modes, so the 3D Moon and every panel follow it
+  const playT = useRef(t);
+  playT.current = t;
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.25, (now - last) / 1000); last = now;
+      const next = playT.current + dt * SPEEDS[speed].hps * 3600000;
+      if (next >= range[1]) { setT(range[1]); setPlaying(false); return; }
+      playT.current = next; setT(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, speed, range]);
   const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
   // "Compare with another site": the next site picked (3D Moon or list) becomes the second column in Compare
   // Two points at a time: picking a different site keeps the previous one as the second site (B), so any two
@@ -554,7 +570,6 @@ export default function App() {
                   <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
                 ) : (<>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>{data.info.name}</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span className="num">{fmtLat(data.info.lat)}, {fmtLon(data.info.lon)}</span>{data.info.mission && <span>{data.info.mission}</span>}</p>
                 </div>
@@ -656,7 +671,6 @@ export default function App() {
             ) : (
               <>
                 <div className="work-head">
-                  <span className="overline">Landing site</span>
                   <h2>-</h2>
                   <p className="when"><span className="num">{when(t)} UTC</span><span>Click a site point on the 3D Moon or pick one from the list</span></p>
                 </div>
