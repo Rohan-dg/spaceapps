@@ -95,7 +95,6 @@ const fmtLatLon = (lat: number, lon: number) => {
   return `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}  ·  ${l > 180 ? `${(360 - l).toFixed(4)}° W` : `${l.toFixed(4)}° E`}`;
 };
 const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFixed(1)}%`;
-const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
 /** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
 const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
 /** A site marker and what was last written to its DOM node, so unchanged frames write nothing. */
@@ -1411,23 +1410,25 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
             </div>
             {/* collapses into its header bar instead of closing, so the result is always one click away */}
             <div className="hud-probe-body"><div>
+            {/* one clear value per row, no explanatory sub-lines */}
             <dl>
-              <dt>Coordinates</dt><dd className="num">{fmtLatLon(probe.lat, probe.lon)}</dd>
-              <dt>Elevation</dt><dd className="num">{probe.groundM >= 0 ? '+' : ''}{probe.groundM.toFixed(0)} m{probe.distKm !== null && <span className="dim"> · {probe.distKm < 10 ? probe.distKm.toFixed(2) : probe.distKm.toFixed(0)} km from {sel?.short || sel?.name}</span>}</dd>
+              <dt>Location</dt><dd className="num">{fmtLatLon(probe.lat, probe.lon)}</dd>
+              <dt>Height</dt><dd className="num">{probe.groundM >= 0 ? '+' : ''}{probe.groundM.toFixed(0)} m</dd>
+              {probe.distKm !== null && sel && <><dt>Distance to {sel.short || sel.name}</dt><dd className="num">{probe.distKm < 10 ? probe.distKm.toFixed(1) : probe.distKm.toFixed(0)} km</dd></>}
               {now && <>
-                <dt>Light now</dt>
-                <dd><b className={now.sunPct >= 99.5 ? 'ok' : now.sunPct > 0.5 ? 'part' : 'no'}>{fmtPct(now.sunPct)}</b> of the Sun visible<br /><span className="dim">{now.sunEl < -0.3 ? 'Sun below the horizon (night)' : fmtClear(now.sunClear)}</span></dd>
-                <dt>Earth link now</dt>
-                <dd><b className={now.earthUp ? 'ok' : 'no'}>{now.earthUp ? 'Yes, Earth in view' : 'No, Earth blocked'}</b><br /><span className="dim">{now.earthEl < -1 ? 'Earth below the horizon (far side or limb)' : fmtClear(now.earthClear)}</span></dd>
+                <dt>Sunlight now</dt>
+                <dd><b className={now.sunPct >= 99.5 ? 'ok' : now.sunPct > 0.5 ? 'part' : 'no'}>{now.sunPct >= 99.5 ? 'Yes' : now.sunPct > 0.5 ? `Partly (${fmtPct(now.sunPct)})` : 'No'}</b></dd>
+                <dt>Earth contact now</dt>
+                <dd><b className={now.earthUp ? 'ok' : 'no'}>{now.earthUp ? 'Yes' : 'No'}</b></dd>
               </>}
-              <dt>Next 29.5 days</dt>
-              <dd>{period ? <>Sunlit <b>{fmtPct(period.sunPct)}</b> · Earth in view <b>{fmtPct(period.earthPct)}</b><br /><span className="dim">longest dark {period.longestDarkH >= 708 ? 'whole cycle' : `${period.longestDarkH.toFixed(1)} h`} · longest without Earth {period.longestNoEarthH >= 708 ? 'whole cycle' : `${period.longestNoEarthH.toFixed(1)} h`}</span></> : <span className="dim">Computing…</span>}</dd>
+              {period ? <>
+                <dt>Sunlight, next month</dt><dd className="num">{fmtPct(period.sunPct)} of the time</dd>
+                <dt>Earth contact, next month</dt><dd className="num">{fmtPct(period.earthPct)} of the time</dd>
+                <dt>Longest darkness</dt><dd className="num">{period.longestDarkH >= 708 ? 'All month' : period.longestDarkH >= 48 ? `${(period.longestDarkH / 24).toFixed(1)} days` : `${Math.round(period.longestDarkH)} hours`}</dd>
+              </> : <><dt>Next month</dt><dd>Calculating</dd></>}
             </dl>
-            {sunLineOn && now && <p className="hud-probe-note"><span className={`los-swatch sun${now.sunPct >= 99.5 ? '' : now.sunPct > 0.5 ? ' partial' : ' blocked'}`} aria-hidden />Dotted line to the Sun: {now.sunPct >= 99.5 ? 'whole disc in view' : now.sunPct > 0.5 ? 'partly behind the skyline' : 'blocked by terrain or the Moon itself'}</p>}
-            {earthLineOn && now && <p className="hud-probe-note"><span className={`los-swatch${now.earthUp ? '' : ' blocked'}`} aria-hidden />Dotted line to Earth: {now.earthUp ? 'clear line of sight' : 'blocked by terrain or the Moon itself'}</p>}
             {onComparePoint && <button className="hud-probe-launch alt" onClick={() => onComparePoint(probe.lat, probe.lon)}>Compare this point</button>}
             {onPlanLaunch && <button className="hud-probe-launch" onClick={() => onPlanLaunch(probe.lat, probe.lon)}>Plan a launch to here</button>}
-            <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
             </div></div>
           </div>
         )}
