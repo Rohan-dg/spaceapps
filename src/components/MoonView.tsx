@@ -91,8 +91,8 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect }: {
-  sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void;
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch }: {
+  sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<HTMLDivElement>(null);
@@ -907,6 +907,7 @@ export default function MoonView({ sites, selectedId, t, onSelect }: {
               <dt>Next 29.5 days</dt>
               <dd>{period ? <>Sunlit <b>{fmtPct(period.sunPct)}</b> · Earth in view <b>{fmtPct(period.earthPct)}</b><br /><span className="dim">longest dark {period.longestDarkH >= 708 ? 'whole cycle' : `${period.longestDarkH.toFixed(1)} h`} · longest without Earth {period.longestNoEarthH >= 708 ? 'whole cycle' : `${period.longestNoEarthH.toFixed(1)} h`}</span></> : <span className="dim">Computing…</span>}</dd>
             </dl>
+            {onPlanLaunch && <button className="hud-probe-launch" onClick={() => onPlanLaunch(probe.lat, probe.lon)}>Plan a launch to here</button>}
             <p className="hud-probe-note">Skyline from {probe.src} terrain, 2 m mast. Approximate.</p>
           </div>
         )}

@@ -42,3 +42,23 @@ describe('launch windows', () => {
     expect(Math.abs(p.best!.window!.t - p.nominal)).toBeLessThanOrEqual(12 * 3600000);
   });
 });
+
+describe('good landing days anywhere', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { parseSeries } = await import('../series');
+  const { goodDays } = await import('../launch');
+  const load = (id: string) => parseSeries(JSON.parse(readFileSync(`public/series/${id}.json`, 'utf8')));
+  const from = Date.parse('2027-07-01T00:00:00Z');
+
+  it('far side (Chang\'e-4): none with Earth required, plenty with sunlight only', () => {
+    const s = load('change-4');
+    expect(goodDays(s, from, 5, 'sun-earth')).toHaveLength(0);
+    const sun = goodDays(s, from, 5, 'sun');
+    expect(sun).toHaveLength(5);
+    for (const d of sun) { expect(d.sun).toBeGreaterThanOrEqual(0.7); expect(d.landing).toBeGreaterThanOrEqual(d.t); expect(d.landing).toBeLessThan(d.t + 86400000); }
+  });
+
+  it('near side (Apollo 11): good days meet both thresholds', () => {
+    for (const d of goodDays(load('apollo-11'), from, 5)) { expect(d.sun).toBeGreaterThanOrEqual(0.7); expect(d.earth).toBeGreaterThanOrEqual(0.9); }
+  });
+});
