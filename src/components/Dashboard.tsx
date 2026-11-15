@@ -200,6 +200,8 @@ export interface DashProps {
   sheet: DashTab | null; onSheet: (t: DashTab | null) => void; sheetBody: ReactNode;
   /** app-wide tools (search, help, about, theme), kept in the dock so the dashboard needs only one rail */
   utils: { label: string; icon: ReactNode; onClick: () => void }[];
+  /** Compare, Calculator and Launch: replaces the site card column on the right; everything else stays */
+  right?: ReactNode;
 }
 
 /**
@@ -244,6 +246,7 @@ export default function Dashboard(p: DashProps) {
         </div>
       </header>
 
+      {p.right ?? (
       <aside className="dash-side" aria-label="Selected site">
         <div className="ds-top">
           <span className="pill num">UTC <b>{utc(t).slice(11)}</b></span>
@@ -303,6 +306,7 @@ export default function Dashboard(p: DashProps) {
           </section>
         )}
       </aside>
+      )}
 
       <section className="dg glass dash-sites" aria-label="Good power, next lunar day">
         <header className="dg-h"><p><b>Sites</b> good power, next lunar day</p><Open onClick={() => p.onSheet('sites')} label="Open Sites" /></header>
