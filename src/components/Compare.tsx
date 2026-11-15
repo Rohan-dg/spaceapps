@@ -114,7 +114,7 @@ export default function Compare({ sites, scenarios, onChange, range }: {
               {results.map((r, i) => <td key={i} className={r && results[0] && r.power.level !== results[0].power.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Power" v={r.power} compact /> : '…'}</td>)}
             </tr>
             <tr>
-              <th scope="row">DTE comms</th>
+              <th scope="row">Radio to Earth</th>
               {results.map((r, i) => <td key={i} className={r && results[0] && r.comms.level !== results[0].comms.level ? 'diff' : ''}>{r ? <VerdictBadge kind="Comms" v={r.comms} compact /> : '…'}</td>)}
             </tr>
             {ROWS.map((row) => {

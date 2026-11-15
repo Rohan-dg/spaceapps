@@ -163,8 +163,8 @@ export default function App() {
       { id: 'deep-numbers', group: 'Views', title: 'Readout and export', keywords: 'csv json numbers', icon: <SlidersHorizontal size={16} />, run: showDeep('numbers') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
-      { id: 'act-about', group: 'Actions', title: 'Data and method', keywords: 'about sources lola', icon: <Info size={16} />, run: () => setAbout(true) },
-      { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
+      { id: 'act-about', group: 'Actions', title: 'Data & method', keywords: 'about sources lola data and method', icon: <Info size={16} />, run: () => setAbout(true) },
+      { id: 'act-help', group: 'Actions', title: 'Help', keywords: 'help how to use guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
   }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle]);
 
@@ -189,7 +189,7 @@ export default function App() {
         </button>
         <div className="mast-tools">
           <button onClick={theme.toggle} aria-label={`Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`} title="Light / dark"><Contrast size={15} /><span className="sr-only">Theme</span></button>
-          <button onClick={() => setAbout(true)} aria-label="Data and method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
+          <button onClick={() => setAbout(true)} aria-label="Data & method"><Info size={15} /> <span className="mast-label">Data &amp; method</span></button>
           <button onClick={() => setGuide(true)} aria-label="Help"><CircleHelp size={15} /> <span className="mast-label">Help</span></button>
         </div>
       </header>

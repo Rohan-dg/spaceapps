@@ -21,7 +21,7 @@ export function VerdictBadge({ kind, v, compact = false }: { kind: 'Power' | 'Co
     <div className={`verdict ${CLS[v.level]}${compact ? ' compact' : ''}`}>
       <span className="verdict-icon"><LevelIcon level={v.level} size={compact ? 16 : 22} /></span>
       <div className="verdict-head">
-        {!compact && <span className="verdict-kind">{kind === 'Power' ? 'Power' : 'DTE comms'}</span>}
+        {!compact && <span className="verdict-kind">{kind === 'Power' ? 'Power' : 'Radio to Earth'}</span>}
         <span className="verdict-word">{WORD[v.level]}</span>
       </div>
       {!compact && <p className="verdict-reason">{v.reason}</p>}
@@ -128,7 +128,7 @@ export function Readout({ r }: { r: ScenarioResult }) {
         <tr>
           <th scope="row">Longest gap</th>
           <td>{span(m.longestDarkH, m.longestDarkClipped)}<small>without sun</small></td>
-          <td>{span(m.longestNoCommH, m.longestNoCommClipped)}<small>without <Term t="dte">DTE</Term></small></td>
+          <td>{span(m.longestNoCommH, m.longestNoCommClipped)}<small>without <Term t="dte">radio to Earth</Term></small></td>
         </tr>
       </tbody>
     </table>
