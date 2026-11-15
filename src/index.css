@@ -853,3 +853,6 @@ kbd {
 }
 .los-swatch { display: inline-block; width: 18px; height: 0; margin-right: 6px; vertical-align: middle; border-top: 2px dotted #6cb6ff; }
 .los-swatch.blocked { border-top-color: #ef6a5f; }
+.los-swatch.sun { border-top-color: #ffd166; }
+.los-swatch.sun.partial { border-top-color: #ff9f43; }
+.los-swatch.sun.blocked { border-top-color: #ef6a5f; }
