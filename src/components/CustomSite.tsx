@@ -26,7 +26,7 @@ export default function CustomSite({ doc, onReady }: Props) {
       <div className="custom-row">
         <label>Lat ° (−90 to 90)<input id="custom-lat" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} /></label>
         <label>Lon ° E<input id="custom-lon" inputMode="decimal" value={lon} onChange={(e) => setLon(e.target.value)} /></label>
-        <button className="btn-primary" onClick={run} disabled={!!busy}>{busy ? 'Computing' : 'Compute'}</button>
+        <button className="btn-primary" onClick={run} disabled={!!busy} aria-busy={!!busy}>{busy ? 'Computing' : 'Compute'}</button>
       </div>
       <p className="small muted">Any point on the Moon. South of 80.5°S the skyline uses 400 m terrain; elsewhere the global 2.7 km map, so results there are rougher.</p>
       {busy && <p className="small" aria-live="polite">{busy}</p>}
