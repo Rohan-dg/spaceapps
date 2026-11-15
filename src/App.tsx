@@ -298,11 +298,33 @@ export default function App() {
                 </section>
               </>
             ) : siteId ? <Loading label="Loading site" /> : (
-              <div className="work-empty">
-                <span className="overline">No site selected</span>
-                <h2>Choose a landing site</h2>
-                <p>Pick a site from the list, click a labelled point on the 3D Moon, or enter custom coordinates. Its sunlight, Earth visibility and mission analysis appear here.</p>
-              </div>
+              <>
+                <div className="work-head">
+                  <span className="overline">Landing site</span>
+                  <h2>-</h2>
+                  <p className="when"><span className="num">{when(t)} UTC</span><span>Click a site point on the 3D Moon or pick one from the list</span></p>
+                </div>
+                <div className="instrument">
+                  <header className="pnl-h"><h3>Time</h3><p>The date and time being evaluated. Everything below updates to match.</p></header>
+                  <TimeControls t={t} t0={range[0]} t1={range[1]} onChange={onT} playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed} />
+                </div>
+                <div className="instrument">
+                  <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
+                  <section className="answer" aria-label="Status (no site selected)">
+                    <div className="answer-now"><span className="answer-kind">At this time</span><p className="dash">Sunlight -</p><p className="dash">Earth -</p></div>
+                    <div className="answer-card"><span className="answer-kind">Power</span><span className="answer-word">-</span></div>
+                    <div className="answer-card"><span className="answer-kind">Radio to Earth</span><span className="answer-word">-</span></div>
+                  </section>
+                </div>
+                {[['Horizon', 'The terrain skyline seen from the site, with the paths of the Sun and Earth.'],
+                  ['Next 30 days', 'When the site is sunlit and when Earth is above the horizon.'],
+                  ['Detailed analysis', 'Calendar, all figures and the mission plan for the selected site.']].map(([h, c]) => (
+                  <div className="instrument" key={h}>
+                    <header className="pnl-h"><h3>{h}</h3><p>{c}</p></header>
+                    <p className="dash-block">-</p>
+                  </div>
+                ))}
+              </>
             )}
           </section>
         </main>
