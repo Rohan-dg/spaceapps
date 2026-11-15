@@ -52,7 +52,7 @@ interface Props {
 }
 
 /**
- * Normal mode: one reading column for a general audience. The place, what it is like right now and for how long,
+ * Education mode: one reading column for a general audience. The place, what it is like right now and for how long,
  * whether it is a good place to land, what you would see standing there, the month ahead, and three facts that make
  * it unlike Earth. Every figure comes from the same calculation as Scientific mode.
  */

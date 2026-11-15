@@ -45,7 +45,7 @@ import { simSnapshot, useMission } from './lib/useMission';
 import { scenarioFor, useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
-/** Normal: plain-language screen for a general audience. Scientific: the full mission-planning workspace. */
+/** 'normal' is shown as Education: the learning screen for students and classrooms. 'expert' is Scientific: the full mission-planning workspace. */
 const UI_KEY = 'lsc-ui';
 /** The mode from a shared link, else the last one chosen on this device, else none (the chooser decides). */
 function savedUi(fromHash: string | null): Ui | null {
@@ -66,7 +66,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: 'first', label: 'First person' },
   { id: 'shadow', label: 'Shadow map' },
 ];
-/** Words for each interface mode. Same tools and data in both; Normal says it in everyday language. */
+/** Words for each interface mode. Same tools and data in both; Education says it in everyday language. */
 const COPY = {
   expert: {
     tabs: { explore: 'Explore', compare: 'Compare', calc: 'Calculator', launch: 'Launch', missions: 'Missions' },
@@ -178,7 +178,7 @@ export default function App() {
     const apply = () => {
       setUiState(u);
       try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
-      if (u === 'normal') setMode('explore'); // the other modes are Scientific tools
+      if (u === 'normal') setMode('explore'); // the other modes are Scientific tools (Education is 'normal')
       alsoInside?.();
     };
     const changed = u !== uiRef.current;
@@ -398,7 +398,7 @@ export default function App() {
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
-      { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Normal mode (simpler view)' : 'Switch to Scientific mode (all tools)', keywords: 'simple normal scientific expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
+      { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Education mode (learn the science)' : 'Switch to Scientific mode (all tools)', keywords: 'education learn student teacher classroom simple normal scientific expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
       { id: 'deep-libration', group: 'Views', title: 'Libration and orbital variation', keywords: 'wobble libration orbit perigee apogee earth distance season export csv json', icon: <Earth size={16} />, run: showDeep('libration') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
@@ -510,7 +510,7 @@ export default function App() {
           <button className="ct-home" onClick={goHome} title="Home: Explore, no site selected, whole Moon"><LogoMark size={22} /><span>Sol Teris</span></button>
         </h1>
         <div className="ui-toggle seg" role="radiogroup" aria-label="Interface">
-          <button role="radio" aria-checked={!expert} onClick={() => setUi('normal')} title="Plain-language view for everyone">Normal</button>
+          <button role="radio" aria-checked={!expert} onClick={() => setUi('normal')} title="Learn the science: for students and classrooms">Education</button>
           <button role="radio" aria-checked={expert} onClick={() => setUi('expert')} title="Full mission-planning tools">Scientific</button>
         </div>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
@@ -541,7 +541,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            {/* keyed on the mode: switching Normal <-> Scientific reloads the 3D rendering from scratch */}
+            {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
             <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
           </Suspense>
         </div>
@@ -551,7 +551,7 @@ export default function App() {
               <header className="ct-panel-h"><h2>{L.sites}</h2><span className="ct-chip num">{allSites.length} sites</span>
                 {expert && customs.length > 0 && <button className="ct-clear" onClick={clearPoints} title="Remove every point you made by clicking or by coordinates">Clear my points ({customs.length})</button>}</header>
               <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} onRemove={removePoint} />
-              {/* your own points (clicked or typed) are an expert tool; Normal mode works with the listed sites only */}
+              {/* your own points (clicked or typed) are an expert tool; Education mode works with the listed sites only */}
               {expert && <CustomSite doc={doc} onReady={addCustom} />}
             </section>
             <section className="ct-panel">
