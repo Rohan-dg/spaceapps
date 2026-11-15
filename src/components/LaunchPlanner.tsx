@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { SiteData, SiteInfo } from '../lib/data';
 import { NASA_SITES, goodDays, planLaunch } from '../lib/launch';
 import { THRESHOLDS } from '../config/thresholds';
+import FlightPath from './FlightPath';
 
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 const eastern = (t: number) => {
@@ -16,6 +17,7 @@ interface Props { sites: SiteInfo[]; siteId: string; onSite: (id: string) => voi
 export default function LaunchPlanner({ sites, siteId, onSite, data, t, range }: Props) {
   const [transit, setTransit] = useState('4.5');
   const [count, setCount] = useState(8);
+  const [picked, setPicked] = useState(0);
   const transitDays = Number(transit);
   const transitOk = isFinite(transitDays) && transitDays >= 2 && transitDays <= 10;
   const from = Math.max(t, range[0]);
@@ -24,7 +26,8 @@ export default function LaunchPlanner({ sites, siteId, onSite, data, t, range }:
     // only days the craft can still launch for: landing at least the transit time after the data range starts
     return goodDays(data.series, from, count).map((d) => planLaunch(d, transitDays));
   }, [data, from, count, transitDays, transitOk]);
-  const best = plans?.[0]?.best ?? null;
+  const sel = plans && plans.length ? plans[Math.min(picked, plans.length - 1)] : null;
+  const best = sel?.best ?? null;
 
   return (
     <div className="launch">
@@ -48,10 +51,10 @@ export default function LaunchPlanner({ sites, siteId, onSite, data, t, range }:
 
       {best && plans && (
         <section className="launch-hero" aria-label="Next recommended launch">
-          <span className="eyebrow">Next recommended launch</span>
+          <span className="eyebrow">{picked === 0 ? 'Next recommended launch' : 'Selected launch'}</span>
           <p className="launch-when num">{utc(best.window!.t)} UTC</p>
           <p className="launch-sub">{eastern(best.window!.t)} · {best.site.name}, {best.site.state} · {best.site.pad}</p>
-          <p className="muted">Lands {utc(best.arrival!)} UTC on a good day at {data?.info.name}: Sun up {pct(plans[0].day.sun)} and Earth in view {pct(plans[0].day.earth)} of that day.</p>
+          <p className="muted">Lands {utc(best.arrival!)} UTC on a good day at {data?.info.name}: Sun up {pct(sel!.day.sun)} and Earth in view {pct(sel!.day.earth)} of that day.</p>
         </section>
       )}
 
@@ -68,10 +71,11 @@ export default function LaunchPlanner({ sites, siteId, onSite, data, t, range }:
               <tr><th>Good landing day</th><th>Sun · Earth</th><th>Recommended launch (UTC)</th><th>Eastern time</th><th>From</th><th>Other NASA centre</th></tr>
             </thead>
             <tbody>
-              {plans.map((p) => {
+              {plans.map((p, idx) => {
                 const other = p.options.find((o) => o !== p.best);
                 return (
-                  <tr key={p.day.t}>
+                  <tr key={p.day.t} className={idx === Math.min(picked, plans.length - 1) ? 'picked' : ''} onClick={() => setPicked(idx)}
+                    tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPicked(idx); } }} aria-selected={idx === picked}>
                     <td className="num">{utc(p.day.landing)}</td>
                     <td className="num">{pct(p.day.sun)} · {pct(p.day.earth)}</td>
                     <td className="num"><b>{p.best ? utc(p.best.window!.t) : 'No window'}</b></td>
@@ -83,9 +87,14 @@ export default function LaunchPlanner({ sites, siteId, onSite, data, t, range }:
               })}
             </tbody>
           </table>
-          {plans.length === count && <button onClick={() => setCount((c) => c + 8)}>Show more days</button>}
+          <div className="launch-table-foot">
+            <span className="muted small">Select a row to see its flight path.</span>
+            {plans.length === count && <button onClick={() => setCount((c) => c + 8)}>Show more days</button>}
+          </div>
         </div>
       )}
+
+      {best && sel && <FlightPath option={best} landing={sel.day.landing} />}
 
       <section className="launch-sites" aria-label="NASA launch centres">
         {NASA_SITES.map((s) => (
