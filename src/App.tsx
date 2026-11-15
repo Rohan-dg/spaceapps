@@ -1,4 +1,4 @@
-import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
@@ -6,6 +6,7 @@ import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
 import Calculator, { initialCalc, type CalcState } from './components/Calculator';
 import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
+import MissionCompare, { type MissionPair } from './components/MissionCompare';
 import CustomSite from './components/CustomSite';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -71,6 +72,13 @@ export default function App() {
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
   const [palette, setPalette] = useState(false);
+  // mission comparison sidebar: open state and the two missions being compared
+  const [missionsOpen, setMissionsOpen] = useState(false);
+  const [pair, setPair] = useState<MissionPair>({ a: null, b: null, active: 'a' });
+  const toggleMissions = useCallback(() => setMissionsOpen((o) => {
+    if (!o) setPair((p) => (p.a || p.b ? p : { a: siteId || 'apollo-11', b: 'griffin-1', active: 'b' }));
+    return !o;
+  }), [siteId]);
   const [deep, setDeep] = useState<Deep>('calendar');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
@@ -115,6 +123,11 @@ export default function App() {
 
   const onT = useCallback((x: number) => setT(x), []);
   const pickSite = useCallback((id: string) => { setSiteId(id); if (mode !== 'explore') setMode('explore'); }, [mode]);
+  // with the mission sidebar open, a site clicked on the 3D Moon fills the active A/B slot
+  const onMoonSelect = useCallback((id: string) => {
+    if (missionsOpen) setPair((p) => (p.active === 'a' ? { a: id, b: p.b, active: 'b' } : { a: p.a, b: id, active: 'a' }));
+    pickSite(id);
+  }, [missionsOpen, pickSite]);
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
   const [homeSignal, setHomeSignal] = useState(0);
   const goHome = useCallback(() => {
@@ -142,13 +155,14 @@ export default function App() {
       }
       if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'm' || e.key === 'M')) toggleMissions();
       if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
         document.querySelectorAll<HTMLButtonElement>('.ct-tabs button')[Number(e.key) - 1]?.click();
       }
     };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [range, closeGuide]);
+  }, [range, closeGuide, toggleMissions]);
   // ⌘K / Ctrl+K toggles the command menu from anywhere, including inside inputs
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -177,6 +191,7 @@ export default function App() {
       })),
       { id: 'mode-explore', group: 'Views', title: 'Explore a site', icon: <Search size={16} />, accessory: <kbd>1</kbd>, run: () => goMode('explore') },
       { id: 'mode-compare', group: 'Views', title: 'Compare sites side by side', icon: <Columns2 size={16} />, accessory: <kbd>2</kbd>, run: () => goMode('compare') },
+      { id: 'missions', group: 'Views', title: 'Mission comparison (past and future)', keywords: 'missions clps apollo artemis chang\'e compare better efficient', icon: <Satellite size={16} />, accessory: <kbd>M</kbd>, run: toggleMissions },
       { id: 'mode-calc', group: 'Views', title: 'Calculator', keywords: 'solve equation variable', icon: <CalcIcon size={16} />, accessory: <kbd>3</kbd>, run: () => goMode('calc') },
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
@@ -187,7 +202,7 @@ export default function App() {
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
-  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle]);
+  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions]);
 
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
@@ -201,6 +216,7 @@ export default function App() {
         <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
         <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
         <button className={mode === 'launch' ? 'on' : ''} aria-label="Launch" title="Launch" onClick={() => setMode('launch')}><CalendarSync size={18} /></button>
+        <button className={missionsOpen ? 'on' : ''} aria-label="Mission comparison" aria-pressed={missionsOpen} title="Mission comparison (M)" onClick={toggleMissions}><Satellite size={18} /></button>
         <span className="ct-rail-gap" />
         <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
         <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={18} /></button>
@@ -226,6 +242,7 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'calc'} onClick={() => setMode('calc')}><CalcIcon size={15} /> Calculator</button>
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> Launch</button>
         </nav>
+        <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> Missions</button>
       </header>
       <div className="ct-kpis" aria-label="Summary at the selected time">
         <div className="ct-kpi"><span className="ct-kpi-ico"><Globe size={18} /></span><b className="num">{kpi.n}</b><span>Sites tracked</span></div>
@@ -236,7 +253,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={pickSite} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -390,6 +407,7 @@ export default function App() {
         <span className="num">{doc.range.start.slice(0, 10)} to {doc.range.end.slice(0, 10)} UTC</span>
       </footer>
       </div>
+      {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} />}
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}

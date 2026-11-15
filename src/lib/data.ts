@@ -67,7 +67,7 @@ export function useSiteData(id: string | null) {
     if (!id) return;
     let live = true;
     const hit = getLoaded(id);
-    if (hit) setData(hit); else loadSite(id).then((d) => live && setData(d));
+    if (hit) setData(hit); else loadSite(id).then((d) => live && setData(d), () => undefined);
     return () => { live = false; };
   }, [id]);
   return data && data.info.id === id ? data : null;
@@ -78,7 +78,8 @@ export function useAllSites(ids: string[]) {
   const [, force] = useState(0);
   useEffect(() => {
     let live = true;
-    ids.forEach((id) => loadSite(id).then(() => live && force((x) => x + 1)));
+    // a site uploaded without its precomputed files just shows no status here (the mission sidebar computes it instead)
+    ids.forEach((id) => loadSite(id).then(() => live && force((x) => x + 1), () => undefined));
     return () => { live = false; };
   }, [ids.join(',')]);
   return ids.map((id) => getLoaded(id) ?? null);
