@@ -176,7 +176,8 @@ export default function App() {
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
   // a computed point joins the list and becomes the current site; the previous site stays as the comparison partner
   const addCustom = useCallback((d: SiteData) => {
-    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info]);
+    // keep the last eight points so clicking around does not flood the list
+    setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8));
     setSiteId((cur) => { if (cur && cur !== d.info.id) setPartner(cur); return d.info.id; });
   }, []);
   const [pointBusy, setPointBusy] = useState<string | null>(null);
@@ -342,14 +343,23 @@ export default function App() {
     };
   }, [res, info, partner, allSites, siteId, mode, tl]);
   // "Compare this point" on the 3D Moon: compute any clicked point in the browser, then pair it with the current site
-  const comparePoint = useCallback((lat: number, lon: number) => {
-    if (!doc || pointBusy) return;
+  // Any point on the Moon becomes a site: its skyline is traced from LOLA terrain and its Sun / Earth series computed
+  // from the same ephemeris as the listed sites, in a Web Worker. Only the latest click is kept if clicks overlap.
+  const pointSeq = useRef(0);
+  const comparePoint = useCallback((lat: number, lon: number, mastM = 2, slot?: 'A' | 'B') => {
+    if (!doc) return;
+    const n = ++pointSeq.current;
     setPointBusy('Computing the point…');
-    computeSite(doc, lat, lon, (m) => setPointBusy(m))
-      .then((d) => { addCustom(d); setMode('explore'); })
-      .catch((e) => setPointBusy(`Could not compute that point (${String(e)})`))
-      .finally(() => setTimeout(() => setPointBusy(null), 1200));
-  }, [doc, pointBusy, addCustom]);
+    computeSite(doc, lat, lon, (m) => { if (n === pointSeq.current) setPointBusy(m); }, mastM)
+      .then((d) => {
+        if (n !== pointSeq.current) return;
+        // recalculating a point in the comparison replaces it in place; a fresh click pairs with the current site
+        if (slot) { setCustoms((c) => [...c.filter((x) => x.id !== d.info.id), d.info].slice(-8)); if (slot === 'A') setPartner(d.info.id); else setSiteId(d.info.id); }
+        else { addCustom(d); setMode('explore'); }
+      })
+      .catch((e) => { if (n === pointSeq.current) setPointBusy(`Could not compute that point (${String(e)})`); })
+      .finally(() => { if (n === pointSeq.current) setTimeout(() => setPointBusy(null), 1200); });
+  }, [doc, addCustom]);
   if (err) return <div className="fatal wrap">Couldn't load the site data ({err}). Reload the page; if it keeps failing, the data files are missing from the deploy.</div>;
   if (!doc) return <div className="fatal wrap"><Loading label="Loading site data" /></div>;
   const synthetic = doc.sites.some((s) => s.synthetic);
@@ -411,7 +421,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={comparePoint} closeUp={closeUp} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={comparePoint} closeUp={closeUp} onPointClick={mode === 'explore' ? comparePoint : undefined} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -532,7 +542,7 @@ export default function App() {
                     </div>
                   </div>
                   {deep === 'compare' && partnerData ? (
-                    <PairCompare a={partnerData} b={data} t={tl} expert={expert}
+                    <PairCompare a={partnerData} b={data} t={tl} expert={expert} range={doc.range} onRecompute={(lat, lon, mastM, slot) => comparePoint(lat, lon, mastM, slot)} busy={pointBusy}
                       onCloseUp={(id) => { setCloseUp((c) => ({ id, n: (c?.n ?? 0) + 1 })); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                       onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
                   ) : deep === 'calendar' ? (
