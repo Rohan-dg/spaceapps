@@ -45,7 +45,7 @@ export default function Timeline({ data, t, days = 30, onSeek }: Props) {
       g.fillStyle = c.ink2; g.font = `400 12px ${c.font}`; g.textAlign = 'right';
       g.fillText(name, padL - 8, y + 12);
     });
-    g.textAlign = 'center'; g.font = `400 10px ${c.mono}`;
+    g.textAlign = 'center'; g.font = `400 10px ${c.font}`;
     for (let d = 0; d <= days; d++) {
       const x = Math.round(X(day0 + d * 86400000)) + 0.5;
       g.fillStyle = c.line; g.fillRect(x, 54, 1, d % 5 === 0 ? 5 : 3);

@@ -55,7 +55,7 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
     g.fillStyle = k.sky; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
     const grid = mix(k.sky, k.ink, 0.12);
     // rings
-    g.lineWidth = 1; g.strokeStyle = grid; g.fillStyle = k.ink3; g.font = `400 10px ${k.mono}`; g.textAlign = 'left';
+    g.lineWidth = 1; g.strokeStyle = grid; g.fillStyle = k.ink3; g.font = `400 10px ${k.font}`; g.textAlign = 'left';
     for (const e of [45, 10, 5, 2, -2, -5, -10].filter((x) => x > LO)) { g.beginPath(); g.arc(cx, cy, rad(e), 0, 7); g.stroke(); g.fillText(`${e}°`, cx + 3, cy - rad(e) + 11); }
     g.strokeStyle = mix(k.sky, k.ink, 0.45); g.setLineDash([4, 4]); g.beginPath(); g.arc(cx, cy, rad(0), 0, 7); g.stroke(); g.setLineDash([]);
     g.fillStyle = k.ink2; g.fillText('0°', cx + 3, cy - rad(0) + 11);
