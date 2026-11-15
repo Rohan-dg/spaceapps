@@ -693,7 +693,7 @@ export default function App() {
           )}
         </div>
       </section>}
-      <div ref={dashRef} className={dash ? `dash dash-${mode}` : mode === 'explore' ? 'ct-split' : 'hero'}>
+      <div ref={dashRef} className={dash ? `dash dash-${mode}${dashExplore && sheet ? ' sheet-open' : ''}` : mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
