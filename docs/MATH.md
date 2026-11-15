@@ -73,3 +73,14 @@ where `d²/2R` is the drop of the surface below the observer's tangent plane due
 `npm run validate` compares 10 site/time points (20 Sun/Earth pairs) with JPL Horizons (DE441,
 `CENTER='coord@301'`). Max error is about 0.004° (see `docs/validation_results.md`). This is far smaller
 than the terrain uncertainty (DEM resolution → horizon errors of ~0.05–0.3°).
+
+## Libration and orbital variation tool
+
+`src/lib/libration.ts` reads the same Moon-fixed Earth and Sun vectors. The sub-Earth point
+(lon = atan2(y, x), lat = asin(z / |E|)) is the optical libration, checked against
+astronomy-engine's `Libration()` to 0.3°. Its measured periods are the anomalistic month
+(27.55 d, longitude and distance) and the draconic month (27.21 d, latitude); the sub-solar
+latitude repeats every eclipse year (about 346.6 d). For a site, the tool compares Earth's real
+track against the skyline with a counterfactual Earth held at its mean position (selenographic
+0°, 0°, 384,400 km). Shackleton rim: hidden without libration, in view 44 % of a cycle with it.
+Connecting ridge: always in view without libration, 47 % with it.

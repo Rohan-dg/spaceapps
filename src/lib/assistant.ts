@@ -18,7 +18,7 @@ export type Action =
   | { type: 'theme'; label: string }
   | { type: 'home'; label: string }
   | { type: 'view'; view: 'panorama' | 'sky' | 'first' | 'shadow'; label: string }
-  | { type: 'deep'; deep: 'calendar' | 'numbers' | 'mission'; label: string }
+  | { type: 'deep'; deep: 'libration' | 'calendar' | 'mission'; label: string }
   | { type: 'site'; id: string; label: string }
   | { type: 'support'; label: string };
 
@@ -44,7 +44,7 @@ export const TOPICS: Topic[] = [
     answer: 'The Moon has no air, so there is no refraction and no twilight. The app treats the Sun or Earth as up exactly when its geometric direction clears the skyline. In each direction the skyline is the highest terrain along the line of sight (LOLA heights traced up to 150 km, with the Moon\'s curvature). A perfectly smooth Moon would give about 0.09° below level for the 2 m mast; real terrain raises it near ridges and lowers it from peaks. On Earth, refraction would lift the Sun by about 0.57°. Expert mode shows both in All figures.' },
   { id: 'modes', examples: ['normal mode', 'expert mode', 'simple view', 'too complicated', 'show me more detail', 'switch mode', 'simpler please'],
     answer: 'Normal mode answers three questions in plain words: is it sunny, can it talk to Earth, and is it a good place to land. Expert mode adds exact angles, date-slip analysis, shadow maps, comparisons, the launch planner, mission planning and data export. Switch with Normal / Expert at the top.' },
-  { id: 'ratings', examples: ['what do the ratings mean', 'power rating', 'comms rating', 'green amber red', 'good marginal poor meaning', 'how is the verdict calculated'],
+  { id: 'ratings', examples: ['what do the ratings mean', 'how good is this site', 'power rating', 'comms rating', 'green amber red', 'good marginal poor meaning', 'how is the verdict calculated'],
     answer: 'Ratings cover the next lunar day (29.5 days). Power is good when the site is sunlit at least 70% of the time and the longest dark spell is at most 100 h; marginal at 40% or 200 h. Radio is good at 90% Earth visibility with gaps of at most 24 h; marginal at 40% or 120 h. Otherwise poor.' },
   { id: 'time', examples: ['how do i change the date', 'change the time', 'play the animation', 'go forward in time', 'set a date', 'time slider', 'speed up time'],
     answer: 'Use the time controls under the site summary: Play, the step buttons (hours and days), the date box, and the slider across 2027 to 2029. Space plays and pauses; the left and right arrow keys step an hour (with Shift, a day).',
@@ -80,8 +80,11 @@ export const TOPICS: Topic[] = [
     answer: 'The Horizon panel has three views: Panorama (the skyline with the Sun and Earth at true size), Sky plot (from above) and First person (look around from the mast).',
     actions: [{ type: 'view', view: 'first', label: 'First person' }, { type: 'view', view: 'panorama', label: 'Panorama' }, { type: 'view', view: 'sky', label: 'Sky plot' }] },
   { id: 'export', examples: ['export data', 'download csv', 'json export', 'save the results', 'share a link'],
-    answer: 'Readout has CSV and JSON export. The page address keeps the site, time and comparison, so you can share a link to exactly what you see.',
-    actions: [{ type: 'deep', deep: 'numbers', label: 'Open the Readout' }] },
+    answer: 'CSV and JSON export sit under the Libration & orbit tab in Detailed analysis. The page address keeps the site, time and comparison, so you can share a link to exactly what you see.',
+    actions: [{ type: 'deep', deep: 'libration', label: 'Open export' }] },
+  { id: 'libration', examples: ['libration', 'earth wobble', 'why does earth move in the sky', 'orbital variation', 'perigee apogee', 'earth moon distance', 'lunar seasons', 'does earth stay in view'],
+    answer: 'The Libration & orbit tool (Detailed analysis, first tab) shows Earth\'s wobble in the lunar sky (about ±8° in longitude and ±7° in latitude), the Earth–Moon distance from perigee to apogee, the Sun\'s ±1.5° seasonal swing, and whether libration hides Earth at this site or is the only reason it is ever in view.',
+    actions: [{ type: 'deep', deep: 'libration', label: 'Open Libration & orbit' }] },
   { id: 'data', examples: ['where does the data come from', 'how accurate is this', 'data sources', 'is this real data', 'jpl horizons', 'lola terrain', 'method'],
     answer: 'Terrain is NASA LRO LOLA (40 m near the south pole, about 1.9 km elsewhere). Skylines are traced 150 km out with the Moon\'s curvature. Sun and Earth positions come from astronomy-engine and agree with JPL Horizons to within 0.004°. Coordinates marked to verify are approximate.',
     actions: [{ type: 'about', label: 'About the data and method' }] },

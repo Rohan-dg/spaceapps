@@ -16,6 +16,8 @@ import SlipPanel from './components/SlipPanel';
 import MoonEarth from './components/MoonEarth';
 import SimpleView from './components/SimpleView';
 import TimeLeft from './components/TimeLeft';
+import Term from './components/Term';
+import { sphereHorizonDeg } from './lib/geometry';
 import ShadowMap from './components/ShadowMap';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -23,7 +25,8 @@ import { Loading } from './components/Help';
 import Heatmap from './components/Heatmap';
 import PairCompare from './components/PairCompare';
 import MissionPanel from './components/MissionPanel';
-import { Readout, Summary } from './components/Metrics';
+import { Summary } from './components/Metrics';
+import LibrationTool from './components/LibrationTool';
 import Panorama from './components/Panorama';
 import SiteList, { isAttempt } from './components/SiteList';
 import SkyPlot from './components/SkyPlot';
@@ -53,7 +56,7 @@ function loadPlan(t: number): MissionPlan {
   return { ...DEFAULT_PLAN, departure: t };
 }
 type View = 'panorama' | 'sky' | 'first' | 'shadow';
-type Deep = 'calendar' | 'numbers' | 'mission' | 'compare';
+type Deep = 'libration' | 'calendar' | 'mission' | 'compare';
 const VIEWS: { id: View; label: string }[] = [
   { id: 'panorama', label: 'Panorama' },
   { id: 'sky', label: 'Sky plot' },
@@ -81,7 +84,7 @@ function readHash() {
 // React draws the urgent parts (time controls, 3D view) first and catches the panels up when it has room.
 const SiteListM = memo(SiteList), HeatmapM = memo(Heatmap), PanoramaM = memo(Panorama), SkyPlotM = memo(SkyPlot);
 const SlipPanelM = memo(SlipPanel), MoonEarthM = memo(MoonEarth);
-const TimelineM = memo(Timeline), SummaryM = memo(Summary), ReadoutM = memo(Readout), ExportM = memo(Export);
+const TimelineM = memo(Timeline), SummaryM = memo(Summary), ExportM = memo(Export);
 /** Is the Sun / Earth up at time t, read straight from the precomputed series (no event search).
  *  The series store run-length visibility ([start, end, start, end, ...] sample indices), so this looks up the run. */
 const upAt = (runs: Runs, s: Series, t: number) => findRun(runs, Math.floor(indexAt(s, t))) >= 0;
@@ -117,7 +120,7 @@ export default function App() {
     if (!o) setPair((p) => (p.a || p.b ? p : { a: siteId || 'apollo-11', b: 'griffin-1', active: 'b' }));
     return !o;
   }), [siteId]);
-  const [deep, setDeep] = useState<Deep>('calendar');
+  const [deep, setDeep] = useState<Deep>('libration');
   const [view, setView] = useState<View>('panorama');
   const [customs, setCustoms] = useState<SiteInfo[]>([]);
   const [launchTarget, setLaunchTarget] = useState<LaunchTarget | null>(null);
@@ -191,7 +194,7 @@ export default function App() {
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
   const [homeSignal, setHomeSignal] = useState(0);
   const goHome = useCallback(() => {
-    setMode('explore'); setSiteId(''); setHomeSignal((n) => n + 1);
+    setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   const closeGuide = useCallback(() => setGuide(false), []);
@@ -257,8 +260,8 @@ export default function App() {
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
-      { id: 'deep-numbers', group: 'Views', title: 'Readout and export', keywords: 'csv json numbers', icon: <SlidersHorizontal size={16} />, run: showDeep('numbers') },
       { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Normal mode (simpler view)' : 'Switch to Expert mode (all tools)', keywords: 'simple normal expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
+      { id: 'deep-libration', group: 'Views', title: 'Libration and orbital variation', keywords: 'wobble libration orbit perigee apogee earth distance season export csv json', icon: <Earth size={16} />, run: showDeep('libration') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
@@ -347,7 +350,7 @@ export default function App() {
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={expert ? planLaunchTo : (la, lo) => { setUi('expert'); planLaunchTo(la, lo); }} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={expert ? planLaunchTo : (la, lo) => { setUi('expert'); planLaunchTo(la, lo); }} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -441,6 +444,12 @@ export default function App() {
                     : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
                     : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} />
                     : <SkyPlotM data={data} t={tl} />}
+                  {readoutHz && (
+                    <p className="hz-note">
+                      <span>Skyline <b className="num">{Math.min(...readoutHz.profile).toFixed(2)}°</b> to <b className="num">{Math.max(...readoutHz.profile).toFixed(2)}°</b>; a smooth Moon would give <b className="num">{sphereHorizonDeg(readoutHz.observerM).toFixed(2)}°</b> all round ({readoutHz.observerM} m mast).</span>
+                      <span><Term t="no-refraction">No refraction</Term>: with no air, the Sun or Earth is up exactly when it clears the terrain.</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="instrument">
@@ -467,16 +476,16 @@ export default function App() {
 
                 <section className="deep" aria-label="Detail">
                   <div className="view-head pnl-h">
-                    <div><h3>Detailed analysis</h3><p>{deep === 'compare' && partnerData ? 'The two picked sites side by side: conditions now, the next lunar day, the long run and an overall success score.' : deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'numbers' ? 'Every computed figure for this site and time, with CSV and JSON export.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
+                    <div><h3>Detailed analysis</h3><p>{deep === 'compare' && partnerData ? 'The two picked sites side by side: conditions now, the next lunar day, the long run and an overall success score.' : deep === 'calendar' ? 'Sunlight and Earth visibility for every day in the data range. Click a day to jump to it.' : deep === 'libration' ? 'Earth\'s wobble and the Moon\'s orbital variation, and what they do to Earth contact here. CSV and JSON export below.' : 'Mission inputs and the resulting power, communications and rover estimates.'}</p></div>
                     <div className="seg" role="tablist" aria-label="Detail panels">
+                      <button role="tab" className="seg-key" aria-selected={deep === 'libration'} onClick={() => setDeep('libration')}><Earth size={14} /> Libration &amp; orbit</button>
                       {partnerData && <button role="tab" aria-selected={deep === 'compare'} onClick={() => setDeep('compare')}>Compare</button>}
                       <button role="tab" aria-selected={deep === 'calendar'} onClick={() => setDeep('calendar')}>Calendar</button>
-                      <button role="tab" aria-selected={deep === 'numbers'} onClick={() => setDeep('numbers')}>All figures</button>
                       <button role="tab" aria-selected={deep === 'mission'} onClick={() => setDeep('mission')}>Mission plan</button>
                     </div>
                   </div>
                   {deep === 'compare' && partnerData ? (
-                    <PairCompare a={partnerData} b={data} t={tl} onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('calendar'); }} />
+                    <PairCompare a={partnerData} b={data} t={tl} onSwap={() => { const p = partner; setPartner(siteId); if (p) setSiteId(p); }} onClear={() => { setPartner(null); setDeep('libration'); }} />
                   ) : deep === 'calendar' ? (
                     <HeatmapM data={data} t={tl} onPick={pickDay} />
                   ) : deep === 'mission' ? (
@@ -486,7 +495,7 @@ export default function App() {
                       onCalc={() => { setMode('calc'); window.scrollTo({ top: 0 }); }} /> : <Loading label="Computing mission" />
                   ) : (
                     <div className="numbers">
-                      <ReadoutM r={res} hz={readoutHz} />
+                      <LibrationTool data={data} t={tl} range={range} onSeek={pickDay} />
                       <ExportM d={data} r={res} />
                     </div>
                   )}
