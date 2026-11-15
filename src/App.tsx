@@ -246,6 +246,9 @@ export default function App() {
   }, []);
   const [pointBusy, setPointBusy] = useState<string | null>(null);
   const planLaunchTo = useCallback((lat: number, lon: number) => { setLaunchTarget({ lat, lon, nonce: Date.now() }); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
+  // the current site (listed or a point already computed) is loaded, so the planner uses it as is instead of recomputing it as a new point
+  const clearLaunchTarget = useCallback(() => setLaunchTarget(null), []);
+  const planLaunchHere = useCallback(() => { setLaunchTarget(null); setMode('launch'); window.scrollTo({ top: 0 }); }, []);
   const [scenarios, setScenarios] = useState<Scenario[]>(init.scenarios ?? [
     { siteId: 'connecting-ridge', t: init.t },
     { siteId: 'de-gerlache-rim', t: init.t },
@@ -656,7 +659,7 @@ export default function App() {
             playing={playing} onPlaying={setPlaying} speed={speed} onSpeed={setSpeed}
             goodSites={goodSites} activeCount={active.length} onPickSite={chooseSite}
             partnerName={partnerData ? partnerData.info.short || partnerData.info.name : null} onCompare={openCompare}
-            onPlanLaunch={() => info && planLaunchTo(info.lat, info.lon)} onLogic={() => setMode('calc')} busy={pointBusy}
+            onPlanLaunch={planLaunchHere} onLogic={() => setMode('calc')} busy={pointBusy}
             sheet={sheet && (sheet !== 'compare' || partnerData) ? sheet : null} onSheet={setSheet} sheetBody={sheetBody()}
             utils={[]} />
         )}
@@ -667,7 +670,7 @@ export default function App() {
           </header>
           <section className="dash-wide glass" aria-label={mode === 'compare' ? 'Compare' : mode === 'calc' ? 'Calculator' : 'Launch planner'}>
             <div className="dw-body" key={mode}>
-              {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
+              {mode === 'launch' ? <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} onTargetUsed={clearLaunchTarget} />
                 : mode === 'calc' ? <Calculator state={calc} onState={setCalc} sim={simSnapshot(data, res, mission)} simLabel={`${info?.name ?? 'the selected site'} at ${when(t)} UTC`} />
                 : <Compare sites={allSites} scenarios={scenarios} onChange={setScenarios} range={range} />}
             </div>
@@ -691,7 +694,7 @@ export default function App() {
                     title={partnerData ? 'Open the side-by-side comparison' : 'Click a second site on the 3D Moon or in the list'}>
                     <Columns2 size={15} /> {partnerData ? <>Compare <b>{partnerData.info.short || partnerData.info.name}</b> and <b>{info.short || info.name}</b></> : L.pick2}
                   </button>
-                  {expert && <button onClick={() => planLaunchTo(info.lat, info.lon)}><CalendarSync size={14} /> {L.plan}</button>}
+                  {expert && <button onClick={planLaunchHere}><CalendarSync size={14} /> {L.plan}</button>}
                   {expert && <button onClick={() => setMode('calc')}><SlidersHorizontal size={14} /> {L.logic}</button>}
                   <button onClick={() => setAbout(true)}><Info size={14} /> {L.explain}</button>
                 </div>
@@ -794,7 +797,7 @@ export default function App() {
       ) : mode === 'launch' ? (
         <main key="m1" className="compare-main wrap view-in">
           {!expert && <p className="plain-intro">{L.intro.launch}</p>}
-          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} />
+          <LaunchPlanner doc={doc} sites={allSites} siteId={siteId} onSite={setSiteId} onCustom={addCustom} data={data} t={t} onTime={onT} range={range} target={launchTarget} onTargetUsed={clearLaunchTarget} />
         </main>
       ) : mode === 'calc' ? (
         <main key="m2" className="compare-main wrap view-in">

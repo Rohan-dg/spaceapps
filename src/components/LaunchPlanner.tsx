@@ -17,21 +17,37 @@ export interface LaunchTarget { lat: number; lon: number; nonce: number }
 interface Props {
   doc: SitesDoc; sites: SiteInfo[]; siteId: string; onSite: (id: string) => void; onCustom: (d: SiteData) => void;
   data: SiteData | null; t: number; onTime: (t: number) => void; range: [number, number]; target: LaunchTarget | null;
+  /** called once a target point has been taken up, so switching back to Launch later does not compute it again */
+  onTargetUsed?: () => void;
 }
 
 const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export default function LaunchPlanner({ doc, sites, siteId, onSite, onCustom, data, t, onTime, range, target }: Props) {
+export default function LaunchPlanner({ doc, sites, siteId, onSite, onCustom, data, t, onTime, range, target, onTargetUsed }: Props) {
   const [rule, setRule] = useState<GoodDayRule>('sun-earth');
   const [pick, setPick] = useState<'list' | 'coords'>(siteId.startsWith('custom') ? 'coords' : 'list');
   const fpRef = useRef<HTMLDivElement>(null);
-  // scroll so the flight path starts just below the sticky header (measured, so it works at every width)
+  // scroll the flight path into view. In the Scientific dashboard the planner sits in a glass panel that scrolls
+  // on its own, so scroll the nearest scrolling ancestor; on the plain page scroll the window below the sticky header.
   const showPath = () => {
     const el = fpRef.current; if (!el) return;
+    const behavior: ScrollBehavior = reduceMotion() ? 'auto' : 'smooth';
+    let box = el.parentElement;
+    while (box && box !== document.body) {
+      const oy = getComputedStyle(box).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && box.scrollHeight > box.clientHeight) break;
+      box = box.parentElement;
+    }
+    if (box && box !== document.body) {
+      box.scrollTo({ top: el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12, behavior });
+      return;
+    }
     const head = document.querySelector('.masthead')?.getBoundingClientRect().bottom ?? 0;
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - Math.max(0, head) - 12, behavior: reduceMotion() ? 'auto' : 'smooth' });
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - Math.max(0, head) - 12, behavior });
   };
-  const [pt, setPt] = useState({ lat: '', lon: '' });
+  // a point you already computed opens with its coordinates filled in
+  const [pt, setPt] = useState(() => data && siteId.startsWith('custom') && data.info.id === siteId
+    ? { lat: data.info.lat.toFixed(4), lon: (((data.info.lon % 360) + 360) % 360).toFixed(4) } : { lat: '', lon: '' });
   const [busy, setBusy] = useState<string | null>(null);
   const [ptErr, setPtErr] = useState<string | null>(null);
   const planPoint = (la: number, lo: number) => {
@@ -49,6 +65,7 @@ export default function LaunchPlanner({ doc, sites, siteId, onSite, onCustom, da
     setPick('coords');
     setPt({ lat: target.lat.toFixed(4), lon: (((target.lon % 360) + 360) % 360).toFixed(4) });
     planPoint(target.lat, target.lon);
+    onTargetUsed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
   const [transit, setTransit] = useState('4.5');
