@@ -3,7 +3,10 @@ import { bestWindows, dailyStats, type DayStat, type Metric } from '../lib/calen
 import type { SiteData } from '../lib/data';
 import { mix, useTheme } from '../lib/theme';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const WEEK = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+/** True when an rgb() colour is light enough to need dark text. */
+const light = (rgb: string) => { const [r, g, b] = (rgb.match(/\d+/g) ?? ['0', '0', '0']).map(Number); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 140; };
 const LABEL: Record<Metric, string> = { sun: 'Sunlight', earth: 'Earth in view', both: 'Both at once' };
 const pct = (f: number) => `${Math.round(f * 100)}%`;
 const fmt = (t: number) => new Date(t).toISOString().slice(0, 10);
@@ -42,30 +45,32 @@ export default function Heatmap({ data, t, onPick }: Props) {
         </div>
       </div>
       <div className="cal-body">
-        <div className="hm-grid-wrap">
-          <table className="hm-grid" aria-describedby="hm-legend">
-            <thead><tr><th />{Array.from({ length: 31 }, (_, i) => <th key={i} scope="col">{(i + 1) % 5 === 0 || i === 0 ? i + 1 : ''}</th>)}</tr></thead>
-            <tbody>
-              {months.map(([k, ds]) => (
-                <tr key={k}>
-                  <th scope="row">{MONTHS[Number(k.slice(5)) - 1]} {k.slice(0, 4)}</th>
-                  {Array.from({ length: 31 }, (_, i) => {
+        <div className="cal-months" aria-describedby="hm-legend">
+          {months.map(([k, ds]) => {
+            const y = Number(k.slice(0, 4)), mo = Number(k.slice(5)) - 1;
+            const lead = (new Date(Date.UTC(y, mo, 1)).getUTCDay() + 6) % 7; // Monday first
+            const n = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+            return (
+              <section key={k} className="cal-month" aria-label={`${MONTH_FULL[mo]} ${y}`}>
+                <h4><span>{MONTH_FULL[mo]}</span><span className="num">{y}</span></h4>
+                <div className="cal-wk" aria-hidden>{WEEK.map((w, i) => <span key={i}>{w}</span>)}</div>
+                <div className="cal-days">
+                  {Array.from({ length: lead }, (_, i) => <span key={`l${i}`} />)}
+                  {Array.from({ length: n }, (_, i) => {
                     const d = ds.find((x) => new Date(x.t).getUTCDate() === i + 1);
-                    if (!d) return <td key={i} />;
-                    const iso = fmt(d.t);
+                    if (!d) return <span key={i} className="cell none">{i + 1}</span>;
+                    const iso = fmt(d.t), bg = color(d[metric]);
                     return (
-                      <td key={i}>
-                        <button className={`cell${iso === today ? ' current' : ''}${inBest(d) ? ' best' : ''}`} style={{ background: color(d[metric]) }}
-                          aria-label={`${iso}: sunlight ${pct(d.sun)}, Earth ${pct(d.earth)}, both ${pct(d.both)}`}
-                          onMouseEnter={() => setHover(d)} onFocus={() => setHover(d)} onMouseLeave={() => setHover(null)}
-                          onClick={() => onPick(d.t)} />
-                      </td>
+                      <button key={i} className={`cell${iso === today ? ' current' : ''}${inBest(d) ? ' best' : ''}`} style={{ background: bg, color: light(bg) ? '#111' : '#f4f4f4' }}
+                        aria-label={`${iso}: sunlight ${pct(d.sun)}, Earth ${pct(d.earth)}, both ${pct(d.both)}`}
+                        onMouseEnter={() => setHover(d)} onFocus={() => setHover(d)} onMouseLeave={() => setHover(null)}
+                        onClick={() => onPick(d.t)}>{i + 1}</button>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              </section>
+            );
+          })}
         </div>
         <aside className="cal-side">
           <div className="readout-box" aria-live="polite">
