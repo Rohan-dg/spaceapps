@@ -662,7 +662,8 @@ kbd {
 .hud-probe b.ok { color: #4fae7a; } .hud-probe b.part { color: #e0b44a; } .hud-probe b.no { color: #ef6a5f; }
 .hud-probe-note { margin: 8px 0 0; font-size: 10.5px; color: #9a9a9a; }
 @media (max-width: 760px) {
-  .hud-probe { top: auto; bottom: 112px; }
+  .hud-probe { top: 104px; bottom: auto; max-height: calc(100% - 216px); overflow-y: auto; padding: 8px 10px; }
+  .hud-probe .hud-probe-note { display: none; }
 }
 /* ---------- site terrain viewport ---------- */
 .tv { position: fixed; inset: 0; z-index: 1000; display: grid; grid-template-rows: auto 1fr auto; background: #2b2b2b; color: #e6e6e6; font-size: 12px; }
