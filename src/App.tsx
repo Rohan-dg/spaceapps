@@ -1,7 +1,6 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
-import { flushSync } from 'react-dom';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -116,6 +115,7 @@ const COPY = {
     },
   },
 };
+const NO_SITES: SiteInfo[] = [];
 const MoonView = lazy(() => import('./components/MoonView'));
 const Onboarding = lazy(() => import('./components/Onboarding'));
 const DEFAULT_T = Date.parse('2027-07-08T00:00:00Z'); // opening scene of docs/DEMO.md
@@ -174,16 +174,19 @@ export default function App() {
       setUiState(u);
       try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
       if (u === 'normal') setMode('explore'); // the other modes are Expert tools
-      // the 3D Moon is rebuilt on every switch (keyed on the mode below); old camera requests must not replay in it
-      if (u !== uiRef.current) { setCloseUp(null); setHomeSignal(0); }
       alsoInside?.();
     };
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (!document.startViewTransition || reduce || (u === uiRef.current && !alsoInside)) { apply(); return; }
+    const changed = u !== uiRef.current;
+    apply();
+    // A light CSS fade on the panels that change. The 3D Moon stays mounted and is never snapshotted or blurred:
+    // remounting it (or a page-wide view transition over its WebGL canvas) is what made the switch lag.
+    if (!changed || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const root = document.documentElement;
-    root.dataset.uiSwitch = u;
-    const vt = document.startViewTransition(() => flushSync(apply));
-    vt.finished.finally(() => { delete root.dataset.uiSwitch; });
+    delete root.dataset.uiSwitch;
+    requestAnimationFrame(() => {
+      root.dataset.uiSwitch = u;
+      window.setTimeout(() => { if (root.dataset.uiSwitch === u) delete root.dataset.uiSwitch; }, 520);
+    });
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -231,7 +234,9 @@ export default function App() {
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
-  const allSites = useMemo(() => [...(doc?.sites ?? []), ...(expert ? customs : [])], [doc, customs, expert]);
+  // only a real change of the list reaches the 3D Moon (switching modes with no points of your own keeps the same array)
+  const shownCustoms = expert && customs.length ? customs : NO_SITES;
+  const allSites = useMemo(() => [...(doc?.sites ?? []), ...shownCustoms], [doc, shownCustoms]);
   // switching to Normal drops any custom point from the selection (it stays saved for Expert)
   useEffect(() => {
     if (expert) return;
@@ -532,7 +537,7 @@ export default function App() {
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Normal <-> Expert reloads the 3D rendering from scratch */}
-            <MoonView key={ui} sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} />
           </Suspense>
         </div>
         {mode === 'explore' && (
