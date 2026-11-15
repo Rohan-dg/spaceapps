@@ -1,6 +1,7 @@
 import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
+import { flushSync } from 'react-dom';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import About from './components/About';
 import Compare, { type Scenario } from './components/Compare';
@@ -163,10 +164,22 @@ export default function App() {
   const [mode, setMode] = useState<Mode>(init.mode);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(ui === 'normal' ? 2 : 1);
-  const setUi = useCallback((u: Ui) => {
-    setUiState(u);
-    try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
-    if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+  // switching modes cross-fades the whole page with the View Transitions API (instant without it, or with reduced motion)
+  const uiRef = useRef(ui);
+  useEffect(() => { uiRef.current = ui; }, [ui]);
+  const setUi = useCallback((u: Ui, alsoInside?: () => void) => {
+    const apply = () => {
+      setUiState(u);
+      try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+      if (u === 'normal') setMode('explore'); // the other modes are Expert tools
+      alsoInside?.();
+    };
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || reduce || (u === uiRef.current && !alsoInside)) { apply(); return; }
+    const root = document.documentElement;
+    root.dataset.uiSwitch = u;
+    const vt = document.startViewTransition(() => flushSync(apply));
+    vt.finished.finally(() => { delete root.dataset.uiSwitch; });
   }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
@@ -737,7 +750,7 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      {choosing && <ModeChooser last={lastUi} onChoose={(u) => { setUi(u); setChoosing(false); }} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
       <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
