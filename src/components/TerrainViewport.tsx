@@ -269,7 +269,7 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
           <button onClick={() => api.current?.frame('top')} title="Top (7)">Top</button>
           <button onClick={() => api.current?.frame('front')} title="Front (1)">Front</button>
           <button onClick={() => api.current?.frame('right')} title="Right (3)">Right</button>
-          <button onClick={() => api.current?.frame('persp')} title="Reset (0)">Persp</button>
+          <button onClick={() => api.current?.frame('persp')} title="Reset (0)">Perspective</button>
         </div>
         <button className="tv-close" onClick={onClose} aria-label="Close terrain viewport">Close</button>
       </div>

@@ -36,7 +36,7 @@ export default function Guide({ onClose }: Props) {
           <dt><Key k="path" /></dt><dd><b>Track</b>, next 24 h.</dd>
           <dt><Key k="flat" /></dt><dd><b>0° horizon</b> (local tangent plane).</dd>
           <dt className="lvls"><LevelIcon level="green" size={16} /><LevelIcon level="amber" size={16} /><LevelIcon level="red" size={16} /></dt>
-          <dd><b>Good / Marginal / Poor</b> over the next 29.5 d (one lunar day). Power: Good at 70% or more sunlit and no dark spell over about 4 d. Comms: Good at 90% or more in view and no gap over 24 h.</dd>
+          <dd><b>Good / Marginal / Poor</b> over the next 29.5 d (one lunar day). Power: Good at 70% or more sunlit and no dark spell over about 4 d. Radio to Earth: Good at 90% or more in view and no gap over 24 h.</dd>
           <dt className="lvls"><Sun size={16} className="ico-sun on" aria-hidden /><Earth size={16} className="ico-earth on" aria-hidden /></dt>
           <dd><b>Site list</b>: filled when sunlit or Earth in view now; grey when not.</dd>
         </dl>
