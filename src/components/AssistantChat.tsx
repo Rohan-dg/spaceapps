@@ -1,8 +1,8 @@
 /**
  * Help assistant: a chat panel backed by the on-device model in lib/assistant.ts (no network, no usage cost).
  * Answers are grounded in what is on screen (the selected site, its live Sun / Earth state and ratings, the time,
- * the tab, a second site picked for comparison), it "types" for a moment before replying, and "Talk to a person"
- * opens a support queue window (a placeholder: no live-agent backend is connected yet).
+ * the tab, a second site picked for comparison) and it "types" for a moment before replying. When it can't help,
+ * it links to the team's public support requests.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { answer, buildModel, type Action, type Reply, type SiteRef } from '../lib/assistant';
@@ -22,7 +22,7 @@ export interface HelpContext {
 interface Msg { id: number; from: 'user' | 'bot'; text: string; actions?: Action[]; support?: boolean; follow?: string[] }
 interface Props { sites: SiteRef[]; onAction: (a: Action) => void; context?: HelpContext }
 
-const SUGGEST = ['What is this site?', 'Is it sunlit right now?', 'Can it talk to Earth?', 'How good is this site?', 'Best launch time', 'Talk to a person'];
+const SUGGEST = ['What is this site?', 'Is it sunlit right now?', 'Can it talk to Earth?', 'How good is this site?', 'Best launch time'];
 const WELCOME = "Hi! I'm Sol, your guide to this site. Ask me anything in your own words: about the landing site you're looking at, what a number means, or where to find something. I can also take you places, like \"show me Apollo 15\".";
 
 /** Friendly next questions after each kind of answer, so there is always an easy way to keep going. */
@@ -33,9 +33,9 @@ const FOLLOW: Record<string, string[]> = {
   what: ['What is this site?', 'How do I pick a site?', 'How do I use the 3D Moon?'],
   calendar: ['How good is this site?', 'Best launch time', 'How do I change the date?'],
   missions: ['Compare two sites', 'What do the ratings mean?', 'Show me Malapert'],
-  launch: ['Best landing dates', 'How good is this site?', 'Talk to a person'],
+  launch: ['Best landing dates', 'How good is this site?'],
   greet: ['What is this site?', 'Is it sunlit right now?', 'How do I use the 3D Moon?'],
-  thanks: ['How good is this site?', 'Compare two sites', 'Talk to a person'],
+  thanks: ['How good is this site?', 'Compare two sites'],
 };
 const FOLLOW_DEFAULT = ['What is this site?', 'Is it sunlit right now?', 'How good is this site?'];
 const SMALL_TALK: [RegExp, string][] = [
@@ -78,29 +78,10 @@ function withContext(r: Reply, q: string, c?: HelpContext): string {
   return r.topic && !asksSite ? `${parts.join(' ')} ${r.text}` : parts.join(' ');
 }
 
-/** "Talk to a person": a queue window. Placeholder only: the position counts down but no agent is connected. */
-function QueueWindow({ onLeave }: { onLeave: () => void }) {
-  const [pos, setPos] = useState(3);
-  useEffect(() => {
-    if (pos <= 1) return;
-    const id = setTimeout(() => setPos((p) => p - 1), 6000);
-    return () => clearTimeout(id);
-  }, [pos]);
-  return (
-    <div className="as-queue" role="dialog" aria-label="Support queue">
-      <div className="as-queue-card">
-        <span className="as-queue-pulse" aria-hidden />
-        <b>You're in the queue</b>
-        <p className="as-queue-pos"><span className="num">{pos}</span>{pos === 1 ? ' You are next' : ' people ahead of you'}</p>
-        <p className="as-queue-eta">Estimated wait about <span className="num">{pos * 2}</span> min</p>
-        <div className="as-queue-bar" aria-hidden><i style={{ width: `${((4 - pos) / 3) * 100}%` }} /></div>
-        <p className="as-queue-note">Live chat with the team is not connected yet. Meanwhile you can leave a request and we will get back to you.</p>
-        <a className="as-support-btn" href={SUPPORT.issuesUrl} target="_blank" rel="noreferrer">Leave a support request <ArrowRight size={14} /></a>
-        <button className="as-queue-leave" onClick={onLeave}>Leave the queue</button>
-      </div>
-    </div>
-  );
-}
+/** The team's real support channel: a public request the whole team is notified of. */
+const SupportLink = () => (
+  <a className="as-support-btn" href={SUPPORT.issuesUrl} target="_blank" rel="noreferrer">Ask the team <ArrowRight size={14} /></a>
+);
 
 export default function AssistantChat({ sites, onAction, context, toggleSignal = 0 }: Props & { toggleSignal?: number }) {
   const model = useMemo(() => buildModel(), []);
@@ -108,7 +89,6 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
   const [closing, setClosing] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([{ id: 0, from: 'bot', text: WELCOME }]);
   const [typing, setTyping] = useState(false);
-  const [queue, setQueue] = useState(false);
   const [q, setQ] = useState('');
   const [misses, setMisses] = useState(0);
   const nextId = useRef(1);
@@ -136,7 +116,7 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
     if (!t || typing) return;
     setQ('');
     push({ from: 'user', text: t });
-    if (/talk to (a )?(person|human|someone)|real person|agent/i.test(t)) { setTyping(true); setTimeout(() => { setTyping(false); push({ from: 'bot', text: 'Connecting you to the team queue.' }); setQueue(true); }, 600); return; }
+    if (/talk to (a )?(person|human|someone)|real person|agent/i.test(t)) { setTyping(true); setTimeout(() => { setTyping(false); push({ from: 'bot', text: 'Leave a request and the team will get back to you.', support: true }); }, 600); return; }
     const small = SMALL_TALK.find(([re]) => re.test(t));
     if (small) {
       setTyping(true);
@@ -163,14 +143,14 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
   };
 
   const act = (a: Action) => {
-    if (a.type === 'support') { setQueue(true); return; }
+    if (a.type === 'support') { window.open(SUPPORT.issuesUrl, '_blank', 'noreferrer'); return; }
     onAction(a);
   };
 
   return (
     <>
       {(!open || closing) && (
-        <button className={`as-launch${closing ? ' back' : ''}`} onClick={show} aria-label="Open help: ask a question or talk to a person">
+        <button className={`as-launch${closing ? ' back' : ''}`} onClick={show} aria-label="Open help">
           <CircleHelp size={18} /> <span>Need help?</span>
         </button>
       )}
@@ -183,7 +163,6 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
             </div>
             <button className="as-close" onClick={hide} aria-label="Close help"><X size={16} /></button>
           </header>
-          <button className="as-person" onClick={() => setQueue(true)}>Need a person? Talk to the team <ArrowRight size={14} /></button>
           <div className="as-log" ref={log} aria-live="polite">
             {msgs.map((m, i) => (
               <div key={m.id} className={`as-msg ${m.from}`}>
@@ -191,7 +170,7 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
                 {m.actions && m.actions.length > 0 && (
                   <div className="as-actions">{m.actions.map((a, k) => <button key={k} onClick={() => act(a)}>{a.label}</button>)}</div>
                 )}
-                {m.support && <button className="as-support-btn" onClick={() => setQueue(true)}>Talk to a person <ArrowRight size={14} /></button>}
+                {m.support && <SupportLink />}
                 {m.follow && i === msgs.length - 1 && !typing && (
                   <div className="as-chips as-follow" aria-label="Suggested next questions">{m.follow.map((f) => <button key={f} onClick={() => ask(f)}>{f}</button>)}</div>
                 )}
@@ -204,10 +183,9 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
           </div>
           <form className="as-form" onSubmit={(e) => { e.preventDefault(); ask(q); }}>
             <input id="as-input" ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder={context?.site ? `Ask anything about ${context.site.short || context.site.name}…` : 'Ask me anything, in your own words…'} autoComplete="off"
-              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (queue) setQueue(false); else hide(); } }} />
+              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); hide(); } }} />
             <button type="submit" disabled={!q.trim() || typing} aria-label="Send">Ask</button>
           </form>
-          {queue && <QueueWindow onLeave={() => setQueue(false)} />}
         </section>
       )}
     </>
