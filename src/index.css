@@ -1774,3 +1774,13 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 .site-group.featured { background: color-mix(in srgb, var(--ember) 55%, transparent); }
 .chooser-card em { background: var(--ember); }
 .answer-card.good .answer-word, .verdict.good .verdict-word { color: var(--success); }
+
+/* inputs for clicked points */
+.pair-points { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.pair-point { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; align-items: end; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
+.pair-point .pair-lander-h, .pair-point .pair-known, .pair-point .pair-err, .pair-point .pair-recalc { grid-column: 1 / -1; }
+.pair-point label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pair-known { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; }
+.pair-known dt { color: var(--ink-2); } .pair-known dd { margin: 0; } .pair-known small { color: var(--ink-2); }
+.pair-recalc { height: 34px; border-radius: 6px; border: 0; background: var(--accent-fill); color: var(--accent-ink); font-weight: 600; font-size: 13px; }
+.pair-recalc:disabled { opacity: 0.6; }

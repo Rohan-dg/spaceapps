@@ -102,7 +102,7 @@ interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: num
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -110,6 +110,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   onHome?: () => void;
   /** "Compare this point": compute the probed point as a site and pair it with the current one. */
   onComparePoint?: (lat: number, lon: number) => void;
+  /** Any click on the ground (not a site marker): the app makes the point a comparable site. */
+  onPointClick?: (lat: number, lon: number) => void;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
 }) {
@@ -126,6 +128,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const [fail, setFail] = useState<string | null>(null);
   const [fill, setFill] = useState(false);
   const [probe, setProbe] = useState<Probe | null>(null);
+  const pointRef = useRef(onPointClick);
+  pointRef.current = onPointClick;
   /** Home: drop the probed point and any pivot, deselect everything, and fly out to the whole Moon. */
   const homeRef = useRef<() => void>(() => {});
   const [period, setPeriod] = useState<ProbePeriod | null>(null);
@@ -693,7 +697,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       if (!d0 || Math.hypot(e.clientX - d0[0], e.clientY - d0[1]) > 5) return;
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-      if (hit) { pickRef.current(hit); topRef.current(hit); }
+      if (hit) {
+        pickRef.current(hit); topRef.current(hit);
+        const r = hit.length();
+        pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
+      }
     };
     // a double-click flies down to that point for a near-horizontal close-up
     const onDbl = (e: MouseEvent) => {
