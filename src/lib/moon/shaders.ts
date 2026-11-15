@@ -340,10 +340,12 @@ ${FRAG_ONLY}
 ${DETAIL}
 varying vec3 vDir;
 varying vec3 vRel;
+uniform sampler2D uTileMask;   // 72 x 36, one texel per 5-degree tile: 1 where a real-terrain tile is drawn
 void main() {
   vec3 d = normalize(vDir);
   float lat = asin(clamp(d.z, -1.0, 1.0)), lon = atan(d.y, d.x);
   if (uCapOn > 0.5 && lat < -80.05 * DEG) discard;
+  if (textureLod(uTileMask, eqUV(lat, lon), 0.0).r > 0.5) discard;
   float fp = max(length(fwidth(vRel)), 1e-3);   // metres per pixel on the ground
   vec2 uv = seamlessUV(lat, lon);
   vec3 s = toENU(uSun, lat, lon);
@@ -364,6 +366,92 @@ void main() {
     vis = sunVisEq(lat, lon, h0 + 30.0, s, max(fp * 1.5, 900.0), fp);
   } else if (s.z < -0.06) vis = 0.0;
   gl_FragColor = vec4(shade(albedo, n, s, v, e, vis), 1.0);
+  ${TAIL_F}
+}`;
+
+/* ---------------- real-terrain tiles (LOLA ldem_64 from the CGI Moon Kit) ---------------- */
+/*
+ * One mesh per 5-degree tile, built on the CPU from the tile's 321 x 321 LOLA heights (true scale; uExag adds
+ * the optional exaggeration along the vertical). Slopes, shading and near-field shadows come from the same
+ * heights per pixel, read at the mip that matches the screen footprint. Positions are km relative to the tile
+ * centre, so precision holds at any zoom.
+ */
+export const TILE_V = /* glsl */ `
+${HEAD_V}
+attribute vec2 aUV;     // 0..1 across the tile, v = 0 on the north edge
+attribute vec3 aUp;     // unit outward direction of the sphere at the vertex
+attribute float aH;     // terrain height, metres
+uniform float uExag;
+varying vec2 vUV;
+varying vec3 vLoc;      // km, relative to the tile centre
+varying vec3 vW;        // km, Moon-fixed
+void main() {
+  vUV = aUV;
+  vec3 p = position + aUp * (aH * (uExag - 1.0) / 1000.0);
+  vLoc = p;
+  vW = (modelMatrix * vec4(p, 1.0)).xyz;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  #include <logdepthbuf_vertex>
+}`;
+
+export const TILE_F = /* glsl */ `
+${HEAD_F}
+${COMMON}
+uniform sampler2D uTH;    // tile heights, metres (corner-registered, mipmapped)
+uniform sampler2D uTC;    // tile colour (LROC WAC 16k)
+uniform vec3 uTileLL;     // north edge latitude, west edge longitude, tile size (radians)
+uniform float uTileN;     // samples per edge minus one
+varying vec2 vUV;
+varying vec3 vLoc;
+varying vec3 vW;
+
+float tileTexel() { return uTileLL.z * R_M / uTileN; }
+vec2 texUV(vec2 f) { return (f * uTileN + 0.5) / (uTileN + 1.0); }
+bool inTile(vec2 f) { return all(greaterThanEqual(f, vec2(0.0))) && all(lessThanEqual(f, vec2(1.0))); }
+/** Height from this tile where it covers the point, else from the global and polar maps. */
+float hAny(float la, float lo, float fp) {
+  vec2 f = vec2((lo - uTileLL.y) / uTileLL.z, (uTileLL.x - la) / uTileLL.z);
+  if (inTile(f)) return textureLod(uTH, texUV(f), lodFor(fp, tileTexel())).r;
+  return hAt(la, lo, fp);
+}
+float sunVisTile(float lat, float lon, float h0, vec3 s, float d0, float fp) {
+  float el = asin(clamp(s.z, -1.0, 1.0));
+  if (el < -0.06) return 0.0;
+  if (uShadows < 0.5) return smoothstep(-SUN_R, SUN_R, el);
+  vec2 hd = normalize(s.xy + 1e-9);
+  float k = exp(max(log(220000.0 / d0), 0.0) / 56.0);
+  float d = d0, vis = 1.0, cl = max(cos(lat), 0.02);
+  for (int i = 0; i < 56; i++) {
+    float la = lat + hd.y * d / R_M, lo = lon + hd.x * d / (R_M * cl);
+    float h = hAny(la, lo, max(fp, 0.5 * d * (k - 1.0)));
+    vis = min(vis, discVis(el, atan((h - h0) / d - d / (2.0 * R_M)), fp, d));
+    if (vis < 0.002) return 0.0;
+    d *= k;
+  }
+  return vis;
+}
+void main() {
+  float lat = uTileLL.x - vUV.y * uTileLL.z, lon = uTileLL.y + vUV.x * uTileLL.z;
+  float fp = max(length(fwidth(vLoc)) * 1000.0, 1e-3);   // metres per pixel on the ground
+  float tN = tileTexel(), cl = max(cos(lat), 1e-3);
+  float e = max(tN, fp), lod = lodFor(fp, tN);
+  vec2 tc = texUV(vUV);
+  vec2 dx = vec2(e / (uTileLL.z * R_M * cl) * uTileN / (uTileN + 1.0), 0.0);
+  vec2 dy = vec2(0.0, e / (uTileLL.z * R_M) * uTileN / (uTileN + 1.0));
+  float gx = (textureLod(uTH, tc + dx, lod).r - textureLod(uTH, tc - dx, lod).r) / (2.0 * e);   // east
+  float gy = (textureLod(uTH, tc - dy, lod).r - textureLod(uTH, tc + dy, lod).r) / (2.0 * e);   // north (v runs south)
+  vec3 s = toENU(uSun, lat, lon);
+  float gs = reliefGain(s.z) * uRelief;
+  vec3 n = normalize(vec3(-gx * gs, -gy * gs, 1.0));
+  vec3 v = toENU(normalize(cameraPosition - vW), lat, lon);
+  vec3 ee = toENU(uEarthDir, lat, lon);
+  vec3 albedo = texture(uTC, vUV).rgb;
+  float vis = 1.0;
+  if (dot(n, s) > -0.02 && s.z < 0.45) {
+    float h0 = textureLod(uTH, tc, lod).r;
+    vis = sunVisTile(lat, lon, h0 + 8.0, s, max(fp, tN) * 0.8, fp);
+  } else if (s.z < -0.06) vis = 0.0;
+  gl_FragColor = vec4(shade(albedo, n, s, v, ee, vis), 1.0);
   ${TAIL_F}
 }`;
 
