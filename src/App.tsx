@@ -1,4 +1,4 @@
-import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal, Sun, CircleCheck } from './components/Icons';
+import { CalendarSync, Calculator as CalcIcon, CircleHelp, Columns2, Contrast, Earth, Globe, Info, Pause, Play, Satellite, Search, Sparkles, SlidersHorizontal } from './components/Icons';
 import CommandPalette, { type Command } from './components/CommandPalette';
 import { LogoMark } from './components/Logo';
 import { lazy, memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
@@ -70,9 +70,9 @@ const COPY = {
   expert: {
     tabs: { explore: 'Explore', compare: 'Compare', calc: 'Calculator', launch: 'Launch', missions: 'Missions' },
     kpi: {
-      cap: (n: number) => `${n} active sites (crash and impact points excluded), at`,
-      sun: 'Sunlit', earth: 'Earth in view (DTE possible)', both: 'Sunlit and Earth in view',
-      good: 'Good power rating over the next lunar day (29.5 d), best first', goodUnit: (n: number) => (n === 1 ? 'site' : 'sites'), none: 'None in this window',
+      title: 'Now, all sites', cap: (n: number) => `of ${n} active sites (crash and impact points excluded)`,
+      state: { both: 'sunlit + Earth', sun: 'sunlit only', earth: 'Earth only', dark: 'dark' },
+      good: 'Good power, next lunar day', none: 'None in this window',
     },
     sites: 'Landing sites', review: 'Review site', pick2: 'Click a second site to compare', plan: 'Plan launch', logic: 'Show logic', explain: 'Explain',
     fPos: 'Position', fElev: 'Elevation', fDem: 'Terrain model', fNow: 'Now', fSrc: 'Source', empty: 'Select a site in the table or on the Moon.',
@@ -93,9 +93,9 @@ const COPY = {
   normal: {
     tabs: { explore: 'Explore', compare: 'Compare places', calc: 'How it works', launch: 'Plan a launch', missions: 'All missions' },
     kpi: {
-      cap: (n: number) => `Of the ${n} landing places (crash sites not counted), at`,
-      sun: 'are sunny', earth: 'can talk to Earth', both: 'are sunny and can talk to Earth',
-      good: 'get plenty of sunshine over the next month. Sunniest first; click one to see it:', goodUnit: (n: number) => (n === 1 ? 'place' : 'places'), none: 'None at the moment',
+      title: 'Right now, every place', cap: (n: number) => `out of ${n} places (crash sites not counted)`,
+      state: { both: 'sunny and can call Earth', sun: 'sunny only', earth: 'can call Earth only', dark: 'dark' },
+      good: 'Sunniest over the next month', none: 'None at the moment',
     },
     sites: 'Places to land', review: 'About this place', pick2: 'Pick a second place to compare', plan: 'Plan a trip here', logic: 'How it works', explain: 'About the app',
     fPos: 'Where it is', fElev: 'Height', fDem: 'Map used', fNow: 'Right now', fSrc: 'Where this comes from', empty: 'Pick a place from the list or click a dot on the Moon.',
@@ -238,14 +238,17 @@ export default function App() {
   const tq = Math.floor(tl / 3600000) * 3600000;
   // counted over the active sites only (crash and impact points are excluded), so the total stays fixed
   const active = useMemo(() => all.filter((d, i): d is SiteData => !!d && !lazyIds.has(ids[i])), [all, ids, lazyIds]);
+  // one mark per active site, grouped by state now (sunlit + Earth, sunlit only, Earth only, dark), south to north
   const kpi = useMemo(() => {
-    let n = 0, sun = 0, earth = 0, both = 0;
-    for (const d of active) {
-      n++;
+    const ORDER = { both: 0, sun: 1, earth: 2, dark: 3 } as const;
+    const marks = active.map((d) => {
       const su = upAt(d.series.sunUp, d.series, tq), eu = upAt(d.series.earthUp, d.series, tq);
-      if (su) sun++; if (eu) earth++; if (su && eu) both++;
-    }
-    return { n, sun, earth, both };
+      const state: keyof typeof ORDER = su && eu ? 'both' : su ? 'sun' : eu ? 'earth' : 'dark';
+      return { id: d.info.id, name: d.info.short || d.info.name, lat: d.info.lat, state };
+    }).sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.lat - b.lat);
+    const count = { both: 0, sun: 0, earth: 0, dark: 0 };
+    marks.forEach((m) => count[m.state]++);
+    return { n: marks.length, marks, count };
   }, [active, tq]);
   // "good for power" needs the full verdict, which covers the next lunar day, so a 6-hour step is plenty and cheap
   const t6 = Math.floor(tl / 21600000) * 21600000;
@@ -253,7 +256,6 @@ export default function App() {
     .map((d) => ({ d, r: scenarioFor(d, t6) }))
     .filter((x) => x.r.power.level === 'green')
     .sort((a, b) => b.r.metrics.sunPct - a.r.metrics.sunPct), [active, t6]);
-  const goodPower = goodSites.length;
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, tl);
@@ -469,34 +471,31 @@ export default function App() {
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> {L.tabs.missions}</button>
       </header>
       <section className="kp" aria-label="All landing sites at the selected time">
-        <p className="kp-cap">{L.kpi.cap(kpi.n)} <span className="num">{when(tl)} UTC</span></p>
-        <div className="kp-row">
-          {([['sun', <Sun size={16} />, kpi.sun, L.kpi.sun], ['earth', <Earth size={16} />, kpi.earth, L.kpi.earth], ['both', <CircleCheck size={16} />, kpi.both, L.kpi.both]] as const).map(([k, ico, v, lab]) => (
-            <div className={`kp-tile ${k}`} key={k}>
-              <span className="kp-ico" aria-hidden>{ico}</span>
-              <div className="kp-main">
-                <p className="kp-v"><b className="num">{v}</b><span className="num"> of {kpi.n}</span></p>
-                <p className="kp-l">{lab}</p>
-                <span className="kp-bar" role="meter" aria-label={lab} aria-valuemin={0} aria-valuemax={kpi.n} aria-valuenow={v}><i style={{ width: `${kpi.n ? (v / kpi.n) * 100 : 0}%` }} /></span>
-              </div>
-            </div>
-          ))}
-          <div className="kp-tile good wide">
-            <span className="kp-ico" aria-hidden><Sun size={16} /></span>
-            <div className="kp-main">
-              <p className="kp-v"><b className="num">{goodPower}</b><span> {L.kpi.goodUnit(goodPower)}</span></p>
-              <p className="kp-l">{L.kpi.good}</p>
-              <p className="kp-list">
-                {goodSites.length === 0 ? <span className="muted">{L.kpi.none}</span>
-                  : goodSites.slice(0, 3).map((x) => (
-                    <button key={x.d.info.id} className="kp-site" onClick={() => pickSite(x.d.info.id)} title={`${x.d.info.name}: ${x.r.metrics.sunPct.toFixed(0)}% sunlit over the next lunar day`}>
-                      {x.d.info.short || x.d.info.name} <span className="num">{x.r.metrics.sunPct.toFixed(0)}%</span>
-                    </button>
-                  ))}
-                {goodSites.length > 3 && <span className="kp-more">+{goodSites.length - 3} more</span>}
-              </p>
-            </div>
+        <div className="kp-now">
+          <p className="kp-h"><span>{L.kpi.title}</span><span className="num">{when(tl)} UTC</span></p>
+          <div className="kp-marks" role="list" aria-label={L.kpi.cap(kpi.n)}>
+            {kpi.marks.map((m) => (
+              <button key={m.id} role="listitem" className={`kp-m ${m.state}${m.id === siteId ? ' on' : ''}`} onClick={() => pickSite(m.id)}
+                title={`${m.name}: ${L.kpi.state[m.state]}`} aria-label={`${m.name}: ${L.kpi.state[m.state]}`} />
+            ))}
           </div>
+          <p className="kp-legend">
+            {(['both', 'sun', 'earth', 'dark'] as const).map((k) => (
+              <span key={k} className={`kp-k ${k}`}><i aria-hidden /><b className="num">{kpi.count[k]}</b> {L.kpi.state[k]}</span>
+            ))}
+            <span className="kp-of">{L.kpi.cap(kpi.n)}</span>
+          </p>
+        </div>
+        <div className="kp-good">
+          <p className="kp-h"><span>{L.kpi.good}</span></p>
+          {goodSites.length === 0 ? <p className="kp-none">{L.kpi.none}</p> : (
+            <ol className="kp-list">
+              {goodSites.slice(0, 4).map((x) => (
+                <li key={x.d.info.id}><button className="kp-site" onClick={() => pickSite(x.d.info.id)}>{x.d.info.short || x.d.info.name}</button><span className="num">{x.r.metrics.sunPct.toFixed(0)}%</span></li>
+              ))}
+              {goodSites.length > 4 && <li className="kp-more">+{goodSites.length - 4} more</li>}
+            </ol>
+          )}
         </div>
       </section>
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>

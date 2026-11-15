@@ -1889,28 +1889,39 @@ kbd, .ct-chip, .site-status, .flag { font-size: 10.5px; letter-spacing: 0.02em; 
 /* your points: the orange diamond only, never a blue ring */
 .moon-marker.mine.pair i, .moon-marker.mine.on i { background: #ff8a00; box-shadow: 0 0 0 2px #000; }
 
-/* Summary strip (App.tsx, .kp): what is counted and when, "N of total" with a bar, and the good-power sites by name */
-.kp { margin: 16px 16px 0; display: grid; gap: 8px; }
-.kp-cap { margin: 0; font-size: 12.5px; color: var(--ink-2); }
-.kp-cap .num { font-family: var(--font-mono); font-size: 12px; color: var(--ink); margin-left: 4px; }
-.kp-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr); gap: 8px; }
-.kp-tile { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: start; padding: 14px 16px; background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--panel-shadow); min-width: 0; }
-.kp-ico { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 99999px; background: var(--graphite); color: var(--ink-2); }
-.kp-tile.sun .kp-ico { color: var(--sun); } .kp-tile.earth .kp-ico { color: var(--earth); } .kp-tile.both .kp-ico, .kp-tile.good .kp-ico { color: var(--success); }
-.kp-main { display: grid; gap: 4px; min-width: 0; }
-.kp-v { margin: 0; display: flex; align-items: baseline; gap: 2px; font-size: 13px; color: var(--ink-2); }
-.kp-v b { font-size: 24px; font-weight: 500; color: var(--ink); line-height: 1; }
-.kp-l { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--ink-2); }
-.kp-bar { display: block; height: 4px; margin-top: 4px; border-radius: 9999px; background: var(--graphite); overflow: hidden; }
-.kp-bar i { display: block; height: 100%; border-radius: inherit; background: var(--ink-2); transition: width 300ms var(--ease-out, ease); }
-.kp-tile.sun .kp-bar i { background: var(--sun); } .kp-tile.earth .kp-bar i { background: var(--earth); } .kp-tile.both .kp-bar i { background: var(--success); }
-.kp-list { margin: 4px 0 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.kp-site { height: 24px; padding: 0 8px; gap: 6px; font-size: 12px; border-radius: 6px; background: var(--graphite); border-color: transparent !important; color: var(--ink); }
-.kp-site:hover { background: color-mix(in srgb, var(--mode, var(--ink)) 20%, var(--graphite)); }
-.kp-site .num { font-family: var(--font-mono); font-size: 11px; color: var(--success); }
-.kp-more { font-size: 12px; color: var(--ink-2); }
-@media (max-width: 1100px) { .kp-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kp-tile.wide { grid-column: 1 / -1; } }
-@media (max-width: 720px) { .kp { margin: 12px 12px 0; } .kp-row { grid-template-columns: 1fr; } .kp-tile { padding: 12px; } }
 /* a point still being computed: the same orange diamond, gently pulsing */
 .moon-marker.pending i { animation: pt-pulse 1s ease-in-out infinite; }
 @keyframes pt-pulse { 50% { opacity: 0.45; } }
+
+/* Summary strip (App.tsx, .kp): one ruled instrument row, not cards. Left: a mark per active site, coloured by its
+   state now and grouped (sunlit + Earth, sunlit only, Earth only, dark), so the split reads at a glance; each mark
+   opens its site. Right: the good-power sites as a short ranked list. */
+.kp { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; margin: 16px 16px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.kp-now { padding: 12px 24px 12px 0; min-width: 0; }
+.kp-good { padding: 12px 0 12px 24px; border-left: 1px solid var(--line); min-width: 220px; }
+.kp-h { margin: 0 0 10px; display: flex; gap: 12px; align-items: baseline; font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.kp-h .num { color: var(--ink-2); letter-spacing: 0.02em; text-transform: none; font-size: 11px; }
+.kp-marks { display: flex; gap: 2px; height: 26px; }
+.kp-m { flex: 1 1 0; min-width: 3px; height: 100%; padding: 0; border: 0 !important; border-radius: 2px; background: var(--graphite); cursor: pointer; transition: transform 120ms var(--ease-out, ease), filter 120ms; }
+.kp-m.both { background: var(--success); }
+.kp-m.sun { background: color-mix(in srgb, var(--sun) 80%, transparent); }
+.kp-m.earth { background: var(--earth); }
+.kp-m.dark { background: var(--graphite); box-shadow: inset 0 0 0 1px var(--slate); }
+.kp-m:hover { transform: scaleY(1.18); filter: brightness(1.15); }
+.kp-m.on { outline: 2px solid var(--mode, var(--ink)); outline-offset: 2px; position: relative; z-index: 1; }
+.kp-legend { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; font-size: 12.5px; color: var(--ink-2); }
+.kp-k { display: inline-flex; align-items: baseline; gap: 6px; }
+.kp-k i { width: 8px; height: 8px; border-radius: 2px; align-self: center; background: var(--graphite); }
+.kp-k.both i { background: var(--success); } .kp-k.sun i { background: var(--sun); } .kp-k.earth i { background: var(--earth); } .kp-k.dark i { box-shadow: inset 0 0 0 1px var(--slate); }
+.kp-k b { font-family: var(--font-mono); font-weight: 500; font-size: 13px; color: var(--ink); }
+.kp-of { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.kp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: kp; }
+.kp-list li { display: flex; align-items: baseline; gap: 10px; font-size: 13px; counter-increment: kp; }
+.kp-list li:not(.kp-more)::before { content: counter(kp); width: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+.kp-site { height: auto; padding: 0; border: 0 !important; background: none; color: var(--ink); font-size: 13px; font-weight: 500; text-align: left; }
+.kp-site:hover { background: none; color: var(--mode, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
+.kp-list .num { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--success); }
+.kp-more { font-size: 12px; color: var(--ink-3); padding-left: 22px; }
+.kp-none { margin: 0; font-size: 13px; color: var(--ink-2); }
+@media (max-width: 900px) { .kp { grid-template-columns: 1fr; } .kp-now { padding-right: 0; } .kp-good { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; } .kp-of { margin-left: 0; flex-basis: 100%; } }
+@media (max-width: 720px) { .kp { margin: 12px 12px 0; } .kp-marks { height: 22px; gap: 1px; } }
