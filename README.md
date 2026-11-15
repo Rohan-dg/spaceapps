@@ -10,6 +10,10 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 
 ## Features
 
+- **Normal and Expert modes.** A *Normal / Expert* switch in the top bar (remembered, and kept in shared links). Normal mode is for everyone: pick a place and get plain answers to three questions (is it sunny, can it talk to Earth, is it a good place to land), how long until that changes, a look-around view, the next 30 days and how it differs from Earth. Expert mode is the full mission-planning workspace described below.
+- **Time remaining.** Draining bars for daylight (or darkness) and Earth contact (or blackout) left, with the exact UTC event time and the length of the current stretch, in both modes. Event times are refined to about 30 s against the terrain skyline.
+- **No atmosphere, no refraction.** The Sun or Earth is up exactly when its geometric direction clears the skyline: the highest terrain along each line of sight, traced up to 150 km with the Moon's curvature. *All figures* shows the skyline range next to the smooth-sphere horizon (−0.09° for a 2 m mast), and the About panel explains the difference from Earth (about 0.57° of refraction).
+
 - **Skyline and overhead views.** The terrain horizon with the Sun and Earth at true angular size, and their paths over the next 24 hours.
 - **Libration and orbital variation.** The first tab of Detailed analysis, highlighted: Earth's wobble in the lunar sky (about ±8° in longitude, ±7° in latitude), the Earth–Moon distance from perigee to apogee and Earth's apparent size, and the Sun's ±1.5° seasonal swing, with their measured periods. For the selected site it charts Earth's track against the terrain skyline over the next lunar cycle and states what libration does there: whether it hides Earth part of the time or is the only reason Earth is ever in view (compared with Earth held at its mean position).
 - **Countdowns and verdicts.** Time to the next sunrise, sunset, Earthrise and Earthset, with a power and comms rating for the next lunar day.

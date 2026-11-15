@@ -14,6 +14,10 @@ import CustomSite from './components/CustomSite';
 import Countdown from './components/Countdown';
 import SlipPanel from './components/SlipPanel';
 import MoonEarth from './components/MoonEarth';
+import SimpleView from './components/SimpleView';
+import TimeLeft from './components/TimeLeft';
+import Term from './components/Term';
+import { sphereHorizonDeg } from './lib/geometry';
 import ShadowMap from './components/ShadowMap';
 import Export from './components/Export';
 import Guide from './components/Guide';
@@ -38,6 +42,14 @@ import { simSnapshot, useMission } from './lib/useMission';
 import { scenarioFor, useScenario } from './lib/useScenario';
 
 type Mode = 'explore' | 'compare' | 'calc' | 'launch';
+/** Normal: plain-language screen for a general audience. Expert: the full mission-planning workspace. */
+type Ui = 'normal' | 'expert';
+const UI_KEY = 'lsc-ui';
+function loadUi(fromHash: string | null): Ui {
+  if (fromHash === 'normal' || fromHash === 'expert') return fromHash;
+  try { const s = localStorage.getItem(UI_KEY); if (s === 'normal' || s === 'expert') return s; } catch { /* storage blocked */ }
+  return 'expert';
+}
 const PLAN_KEY = 'lsc-mission-plan';
 function loadPlan(t: number): MissionPlan {
   try { const s = localStorage.getItem(PLAN_KEY); if (s) return { ...DEFAULT_PLAN, departure: t, ...JSON.parse(s) }; } catch { /* storage blocked */ }
@@ -63,6 +75,7 @@ function readHash() {
     site: p.get('site')?.startsWith('custom') ? '' : p.get('site') ?? '',
     t: isFinite(t) && t > 0 ? t : DEFAULT_T,
     mode: (p.get('mode') as Mode) ?? 'explore',
+    ui: p.get('ui'),
     scenarios: cmp && !cmp.includes('custom') ? cmp.split('|').map((x) => { const [siteId, tt] = x.split('@'); return { siteId, t: Number(tt) }; }) : null,
   };
 }
@@ -86,9 +99,16 @@ export default function App() {
   const theme = useTheme();
   const [siteId, setSiteId] = useState(init.site);
   const [t, setT] = useState(init.t);
-  const [mode, setMode] = useState<Mode>(init.mode);
+  const [ui, setUiState] = useState<Ui>(() => loadUi(init.ui));
+  const expert = ui === 'expert';
+  const [mode, setMode] = useState<Mode>(ui === 'normal' ? 'explore' : init.mode);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(ui === 'normal' ? 2 : 1);
+  const setUi = useCallback((u: Ui) => {
+    setUiState(u);
+    try { localStorage.setItem(UI_KEY, u); } catch { /* storage blocked */ }
+    if (u === 'normal') { setMode('explore'); setMissionsOpen(false); setSpeed(2); } // a day per second reads well
+  }, []);
   const [about, setAbout] = useState(false);
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
@@ -142,15 +162,17 @@ export default function App() {
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, tl);
+  const readoutHz = useMemo(() => (data ? { profile: data.horizon.horizonDeg, observerM: data.horizon.observerHeightM } : undefined), [data]);
   const [calc, setCalc] = useState<CalcState>(initialCalc);
 
   useEffect(() => {
     if (playing) return;
     const p = new URLSearchParams({ t: String(Math.round(t)), mode });
     if (siteId) p.set('site', siteId);
+    if (!expert) p.set('ui', 'normal');
     if (mode === 'compare') p.set('cmp', scenarios.map((s) => `${s.siteId}@${Math.round(s.t)}`).join('|'));
     try { history.replaceState(null, '', `#${p}`); } catch { /* sandboxed host */ }
-  }, [siteId, t, mode, scenarios, playing]);
+  }, [siteId, t, mode, scenarios, playing, expert]);
 
   const onT = useCallback((x: number) => setT(x), []);
   const pickDay = useCallback((x: number) => { setPlaying(false); setT(Math.max(range[0], Math.min(range[1], x))); }, [range]);
@@ -172,7 +194,7 @@ export default function App() {
   // the logo: back to Explore with nothing selected, the 3D Moon on its home view, top of the page
   const [homeSignal, setHomeSignal] = useState(0);
   const goHome = useCallback(() => {
-    setMode('explore'); setSiteId(''); setHomeSignal((n) => n + 1);
+    setMode('explore'); setSiteId(''); setPartner(null); setHomeSignal((n) => n + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
   const closeGuide = useCallback(() => setGuide(false), []);
@@ -196,8 +218,8 @@ export default function App() {
       }
       if (e.key === 'Escape') { setAbout(false); closeGuide(); }
       if (e.key === '?') setGuide(true);
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'm' || e.key === 'M')) toggleMissions();
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
+      if (expert && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'm' || e.key === 'M')) toggleMissions();
+      if (expert && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4')) {
         document.querySelectorAll<HTMLButtonElement>('.ct-tabs button')[Number(e.key) - 1]?.click();
       }
     };
@@ -215,11 +237,12 @@ export default function App() {
 
   const goMode = useCallback((m: Mode) => {
     if (m === 'compare' && mode !== 'compare') setScenarios((s) => [{ siteId, t }, ...s.slice(1)]);
+    if (m !== 'explore' && !expert) setUi('expert');
     setMode(m);
     window.scrollTo({ top: 0 });
-  }, [mode, siteId, t]);
+  }, [mode, siteId, t, expert, setUi]);
   const commands = useMemo<Command[]>(() => {
-    const showDeep = (d: Deep) => () => { setMode('explore'); setDeep(d); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+    const showDeep = (d: Deep) => () => { setUi('expert'); setMode('explore'); setDeep(d); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
     return [
       ...allSites.map((s) => ({
         id: `site-${s.id}`, group: 'Sites', title: s.name, keywords: `${s.short} ${s.mission} ${s.region}`,
@@ -237,13 +260,14 @@ export default function App() {
       { id: 'mode-launch', group: 'Views', title: 'Launch planner', keywords: 'launch kennedy wallops nasa rocket window date', icon: <CalendarSync size={16} />, accessory: <kbd>4</kbd>, run: () => goMode('launch') },
       { id: 'deep-calendar', group: 'Views', title: 'Daily visibility calendar', keywords: 'heatmap best windows', icon: <CalendarSync size={16} />, run: showDeep('calendar') },
       { id: 'deep-mission', group: 'Views', title: 'Mission variables', keywords: 'plan power battery comms', icon: <SlidersHorizontal size={16} />, run: showDeep('mission') },
+      { id: 'ui-toggle', group: 'Actions', title: expert ? 'Switch to Normal mode (simpler view)' : 'Switch to Expert mode (all tools)', keywords: 'simple normal expert advanced beginner mode', icon: <SlidersHorizontal size={16} />, run: () => setUi(expert ? 'normal' : 'expert') },
       { id: 'deep-libration', group: 'Views', title: 'Libration and orbital variation', keywords: 'wobble libration orbit perigee apogee earth distance season export csv json', icon: <Earth size={16} />, run: showDeep('libration') },
       { id: 'act-play', group: 'Actions', title: playing ? 'Pause time' : 'Play time', icon: playing ? <Pause size={15} /> : <Play size={15} />, accessory: <kbd>Space</kbd>, run: () => setPlaying((p) => !p) },
       { id: 'act-theme', group: 'Actions', title: `Switch to ${theme.name === 'dark' ? 'light' : 'dark'} theme`, keywords: 'appearance dark light', icon: <Contrast size={16} />, run: theme.toggle },
       { id: 'act-about', group: 'Actions', title: 'About', keywords: 'about data method sources lola nasa', icon: <Info size={16} />, run: () => setAbout(true) },
       { id: 'act-help', group: 'Actions', title: 'How to use', keywords: 'help guide shortcuts', icon: <CircleHelp size={16} />, accessory: <kbd>?</kbd>, run: () => setGuide(true) },
     ];
-  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions]);
+  }, [allSites, pickSite, applyPreset, goMode, playing, theme.name, theme.toggle, toggleMissions, expert, setUi]);
 
   // what the help chat knows about the screen, so its answers can use the live numbers for the site in view
   const helpContext = useMemo<HelpContext>(() => {
@@ -268,26 +292,28 @@ export default function App() {
   // the help assistant's buttons drive the app like the user would
   const onHelpAction = (a: HelpAction) => {
     if (a.type === 'mode') goMode(a.mode);
-    else if (a.type === 'missions') { if (!missionsOpen) toggleMissions(); }
+    else if (a.type === 'missions') { setUi('expert'); if (!missionsOpen) toggleMissions(); }
     else if (a.type === 'guide') setGuide(true);
     else if (a.type === 'about') setAbout(true);
     else if (a.type === 'palette') setPalette(true);
     else if (a.type === 'theme') theme.toggle();
     else if (a.type === 'home') goHome();
-    else if (a.type === 'view') { setMode('explore'); setView(a.view); }
-    else if (a.type === 'deep') { setMode('explore'); setDeep(a.deep); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
+    else if (a.type === 'view') { setUi('expert'); setMode('explore'); setView(a.view); }
+    else if (a.type === 'deep') { setUi('expert'); setMode('explore'); setDeep(a.deep); requestAnimationFrame(() => document.querySelector('.deep')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }
     else if (a.type === 'site') pickSite(a.id);
   };
 
   return (
-    <div className="app">
+    <div className={`app${expert ? '' : ' ui-normal'}`}>
       {synthetic && <div className="banner" role="alert">Synthetic terrain: horizons are placeholders, not LOLA data. Run <code>python scripts/build_horizons.py</code> to replace them.</div>}
       <nav className="ct-rail" aria-label="Sections">
         <button className={mode === 'explore' ? 'on' : ''} aria-label="Explore" title="Explore" onClick={() => setMode('explore')}><Globe size={18} /></button>
+        {expert && <>
         <button className={mode === 'compare' ? 'on' : ''} aria-label="Compare" title="Compare" onClick={() => setMode('compare')}><Columns2 size={18} /></button>
         <button className={mode === 'calc' ? 'on' : ''} aria-label="Calculator" title="Calculator" onClick={() => setMode('calc')}><CalcIcon size={18} /></button>
         <button className={mode === 'launch' ? 'on' : ''} aria-label="Launch" title="Launch" onClick={() => setMode('launch')}><CalendarSync size={18} /></button>
         <button className={missionsOpen ? 'on' : ''} aria-label="Mission comparison" aria-pressed={missionsOpen} title="Mission comparison (M)" onClick={toggleMissions}><Satellite size={18} /></button>
+        </>}
         <span className="ct-rail-gap" />
         <button aria-label="Search sites and actions" title="Search (Ctrl K)" onClick={() => setPalette(true)}><Search size={18} /></button>
         <button aria-label="About" title="About" onClick={() => setAbout(true)}><Info size={18} /></button>
@@ -299,6 +325,11 @@ export default function App() {
         <h1 className="ct-title">
           <button className="ct-home" onClick={goHome} title="Home: Explore, no site selected, whole Moon"><LogoMark size={22} /><span>Sol Teris</span></button>
         </h1>
+        <div className="ui-toggle seg" role="radiogroup" aria-label="Interface">
+          <button role="radio" aria-checked={!expert} onClick={() => setUi('normal')} title="Plain-language view for everyone">Normal</button>
+          <button role="radio" aria-checked={expert} onClick={() => setUi('expert')} title="Full mission-planning tools">Expert</button>
+        </div>
+        {expert && <>
         <nav className="ct-tabs" role="tablist" aria-label="Mode">
           <button role="tab" aria-selected={mode === 'explore'} onClick={() => setMode('explore')}><Globe size={15} /> Explore</button>
           <button role="tab" aria-selected={mode === 'compare'}
@@ -307,18 +338,19 @@ export default function App() {
           <button role="tab" aria-selected={mode === 'launch'} onClick={() => setMode('launch')}><CalendarSync size={15} /> Launch</button>
         </nav>
         <button className={`ct-missions${missionsOpen ? ' on' : ''}`} aria-pressed={missionsOpen} onClick={toggleMissions} title="Compare any two missions, past and future (M)"><Satellite size={15} /> Missions</button>
+        </>}
       </header>
-      <div className="ct-kpis" aria-label="Summary at the selected time">
+      {expert && <div className="ct-kpis" aria-label="Summary at the selected time">
         <div className="ct-kpi"><span className="ct-kpi-ico"><Globe size={18} /></span><b className="num">{kpi.n}</b><span>Sites tracked</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico sun"><Sun size={18} /></span><b className="num">{kpi.sun}</b><span>Sunlit now</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico earth"><Earth size={18} /></span><b className="num">{kpi.earth}</b><span>Earth in view now</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico good"><CircleCheck size={18} /></span><b className="num">{goodPower}</b><span>Good for power, next lunar day</span></div>
         <div className="ct-kpi"><span className="ct-kpi-ico"><CalendarSync size={18} /></span><b className="num">{when(t).slice(0, 10)}</b><span>{when(t).slice(11)} UTC</span></div>
-      </div>
+      </div>}
       <div className={mode === 'explore' ? 'ct-split' : 'hero'}>
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={expert ? planLaunchTo : (la, lo) => { setUi('expert'); planLaunchTo(la, lo); }} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} />
           </Suspense>
         </div>
         {mode === 'explore' && (
@@ -326,9 +358,9 @@ export default function App() {
             <section className="ct-panel">
               <header className="ct-panel-h"><h2>Landing sites</h2><span className="ct-chip num">{allSites.length} sites</span></header>
               <SiteListM sites={allSites} all={all} t={tl} selected={siteId} onSelect={chooseSite} />
-              <CustomSite doc={doc} onReady={addCustom} />
+              {expert && <CustomSite doc={doc} onReady={addCustom} />}
             </section>
-            <section className="ct-panel">
+            {expert && <section className="ct-panel">
               <header className="ct-panel-h"><h2>Review site</h2></header>
               {info && (
                 <div className="ct-actions">
@@ -353,12 +385,31 @@ export default function App() {
                   <p className="ct-src"><small>Source</small>{info.source}{info.verify && <> <span className="flag flag-verify">verify</span> coordinate unchecked</>}</p>
                 </div>
               ) : <p className="ct-empty">Select a site in the table or on the Moon.</p>}
-            </section>
+            </section>}
           </aside>
         )}
       </div>
 
-      {mode === 'explore' ? (
+      {!expert ? (
+        <main key="normal" className="explore wrap view-in">
+          {data && res ? (
+            <div className={updating ? 'updating' : ''} aria-busy={updating}>
+              <SimpleView data={data} r={res} t={tl} tLive={t} t0={range[0]} t1={range[1]} onT={pickDay} playing={playing} onPlaying={setPlaying} onExpert={() => setUi('expert')} />
+            </div>
+          ) : siteId ? <Loading label="Loading site" /> : (
+            <div className="simple-empty">
+              <h2>Where would you land on the Moon?</h2>
+              <p>Pick a place from the list or click a dot on the Moon. You'll see whether it's sunny, whether it can talk to Earth, and whether it's a good place for a spacecraft to land.</p>
+              <div className="simple-picks">
+                {['apollo-11', 'connecting-ridge', 'shackleton-floor', 'change-4'].map((id) => {
+                  const s2 = allSites.find((x) => x.id === id);
+                  return s2 ? <button key={id} onClick={() => chooseSite(id)}><b>{s2.short || s2.name}</b><small>{s2.mission}</small></button> : null;
+                })}
+              </div>
+            </div>
+          )}
+        </main>
+      ) : mode === 'explore' ? (
         <main key="explore" className="explore wrap view-in">
 
           <section className={`work${updating ? ' updating' : ''}`} aria-label="Selected site" aria-busy={updating}>
@@ -377,11 +428,12 @@ export default function App() {
                 <div className="instrument">
                   <header className="pnl-h"><h3>Conditions</h3><p>Sunlight and Earth visibility now, and the power and radio outlook for this lunar day.</p></header>
                   <SummaryM r={res} />
+                  <TimeLeft s={data.series} m={res.metrics} t={tl} />
                 </div>
 
                 <div className="instrument">
                   <div className="view-head pnl-h">
-                    <div><h3>Horizon</h3><p>The terrain skyline seen from the site, with the paths of the Sun and Earth.</p></div>
+                    <div><h3>Horizon</h3><p>The terrain skyline seen from the site, with the paths of the Sun and Earth. No air means no refraction: the skyline is pure geometry, the highest terrain in each direction with the Moon's curvature.</p></div>
                     <div className="seg" role="radiogroup" aria-label="View">
                       {VIEWS.map((v) => (
                         <button key={v.id} role="radio" aria-checked={view === v.id} onClick={() => setView(v.id)}>{v.label}</button>
@@ -392,6 +444,12 @@ export default function App() {
                     : view === 'first' ? <FirstPerson data={data} t={tl} height={320} />
                     : view === 'shadow' ? <ShadowMap data={data} t={tl} mastPct={res.metrics.sunPct} />
                     : <SkyPlotM data={data} t={tl} />}
+                  {readoutHz && (
+                    <p className="hz-note">
+                      <span>Skyline <b className="num">{Math.min(...readoutHz.profile).toFixed(2)}°</b> to <b className="num">{Math.max(...readoutHz.profile).toFixed(2)}°</b>; a smooth Moon would give <b className="num">{sphereHorizonDeg(readoutHz.observerM).toFixed(2)}°</b> all round ({readoutHz.observerM} m mast).</span>
+                      <span><Term t="no-refraction">No refraction</Term>: with no air, the Sun or Earth is up exactly when it clears the terrain.</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="instrument">
@@ -500,7 +558,7 @@ export default function App() {
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       <div className="action-bar">
-        {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} /> : (
+        {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
           <b>{mode === 'explore' ? info?.short ?? 'Site' : mode === 'compare' ? 'Compare' : mode === 'launch' ? 'Launch' : 'Calculator'}</b>
         </span>)}
