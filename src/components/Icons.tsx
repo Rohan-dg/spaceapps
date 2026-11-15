@@ -74,6 +74,7 @@ const extra: Record<string, ReactNode> = {
   shadow: <><circle cx="9" cy="10" r="4.4" /><path d="M12.4 13.4 20 21M14.6 11.6 21 18M10.6 14.6 17 21" /></>,
   mountain: <path d="M2.8 19.5 9.2 8.8l3.4 5.4 2.2-3.2 6.4 8.5z" />,
   sparkle: <path d="M12 3.5c.7 4.3 2.9 6.5 7.2 7.2-4.3.7-6.5 2.9-7.2 7.2-.7-4.3-2.9-6.5-7.2-7.2C9.1 10 11.3 7.8 12 3.5z" />,
+  lamp: <><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z" /></>,
   scope: <><circle cx="12" cy="12" r="7.5" /><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" /></>,
 };
 export const Icon = ({ name, ...p }: P & { name: keyof typeof extra | string }) => <Svg {...p}>{extra[name]}</Svg>;

@@ -28,6 +28,7 @@ uniform vec3 uSun;                    // unit, Moon-fixed
 uniform vec3 uEarthDir;               // unit, Moon-fixed
 uniform float uEarthshine;
 uniform float uSunPower;
+uniform float uFill;                  // 0..1: viewer-side floodlight that ignores shadows (shows dark areas)
 uniform sampler2D uColor;
 uniform sampler2D uNormal;
 uniform sampler2D uEqH;               // equirect heights, metres
@@ -171,6 +172,8 @@ vec3 shade(vec3 albedo, vec3 n, vec3 s, vec3 v, vec3 e, float vis) {
   // light scattered from nearby sunlit ground keeps shadows from going pure black
   float bounce = 0.035 * clamp(s.z * 4.0 + 0.12, 0.0, 1.0) * (1.0 - 0.6 * vis) * (0.6 + 0.4 * n.z);
   c += albedo * uSunPower * bounce;
+  // floodlight: a lamp at the viewer, so night-side and permanently shadowed ground become readable
+  c += albedo * vec3(0.92, 0.95, 1.0) * uFill * (0.3 + 0.7 * mu);
   return c;
 }
 
