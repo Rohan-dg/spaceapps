@@ -98,6 +98,9 @@ const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFix
 const fmtClear = (d: number) => `${Math.abs(d).toFixed(2)}° ${d >= 0 ? 'above' : 'below'} the skyline`;
 /** Default battery life without sunlight: the mission plan's usable charge over its driving load. */
 const DEFAULT_BATTERY_H = (DEFAULT_PLAN.batteryWh * (1 - DEFAULT_PLAN.reservePct / 100)) / (DEFAULT_PLAN.hotelW + DEFAULT_PLAN.driveW);
+/** A site marker and what was last written to its DOM node, so unchanged frames write nothing. */
+interface Marker { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number; sp?: HTMLElement | null;
+  k?: { op: string; tf: string; crowded: boolean; left: boolean; more: string } }
 interface RangeShown { lat: number; lon: number; batteryH: number; speedKmH: number; oneWayKm: number; returnKm: number; longestDarkH: number | null;
   missionKm: number; startSunPct: number | null; startEarthUp: boolean | null; earthPct: number | null; longestNoEarthH: number | null }
 interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM: number; src: string; distKm: number | null }
@@ -163,7 +166,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; controls: OrbitControls;
     u: Record<string, THREE.IUniform>; patch: THREE.Mesh | null; patchOrigin: V3; earth: THREE.Mesh; sun: THREE.Sprite;
     eq: EqGrid | null; cap: PolarGrid | null; hi: PolarGrid | null; mode: 'globe' | 'site'; flying: gsap.core.Tween | null;
-    request: () => void; markers: { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number }[]; meta: TexMeta | null;
+    request: () => void; markers: Marker[]; meta: TexMeta | null;
     exag: number; core: THREE.Mesh; probePos: THREE.Vector3 | null; rangeGroup: THREE.Group; rangePos: THREE.Vector3 | null; sunPos: THREE.Vector3 | null; earthLine: THREE.Line; sunLine: THREE.Line;
     terrainM: (lat: number, lon: number) => { h: number; resM: number; src: string };
     surfaceRadius: (p: THREE.Vector3) => number;
@@ -349,7 +352,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const st = {
       renderer, scene, camera, controls, u, patch: null as THREE.Mesh | null, patchOrigin: [0, 0, 0] as V3, earth, sun,
       eq: null as EqGrid | null, cap: null as PolarGrid | null, hi: null as PolarGrid | null, mode: 'globe' as 'globe' | 'site',
-      flying: null as gsap.core.Tween | null, request, markers: [] as { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number }[], meta: null as TexMeta | null,
+      flying: null as gsap.core.Tween | null, request, markers: [] as Marker[], meta: null as TexMeta | null,
       exag: 1, core, probePos: null as THREE.Vector3 | null, terrainM, rangeGroup, rangePos: null as THREE.Vector3 | null, sunPos: null as THREE.Vector3 | null, earthLine, sunLine,
       surfaceRadius: (p: THREE.Vector3): number => surfaceRadius(p),
       focus: null as { P: THREE.Vector3; lat: number; lon: number; D: number } | null,
@@ -599,16 +602,18 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         const mine = m.el.classList.contains('mine');
         const show = mine ? tmp.z < 1 && facing > 0
           : tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
-        m.el.style.opacity = show ? '1' : '0';
-        m.el.style.pointerEvents = show ? 'auto' : 'none';
-        m.el.style.transform = `translate(${sx}px, ${sy}px)`;
-        if (show) { vis.push({ m, sx, sy }); boxes.push([sx - 6, sy - 6, sx + 6, sy + 6]); dots.push([sx, sy]); }
+        // DOM writes happen once per marker at the end of the pass, and only for values that changed
+        const k = (m.k ??= { op: '', tf: '', crowded: false, left: false, more: '' });
+        if (k.op !== (show ? '1' : '0')) { k.op = show ? '1' : '0'; m.el.style.opacity = k.op; m.el.style.pointerEvents = show ? 'auto' : 'none'; }
+        if (!show) continue;
+        vis.push({ m, sx, sy }); boxes.push([sx - 6, sy - 6, sx + 6, sy + 6]); dots.push([sx, sy]);
       }
       const labelled: { m: (typeof order)[number]; sx: number; sy: number; more: number }[] = [];
       for (const v of vis) {
         const { m, sx, sy } = v;
         // text width plus room for a possible "+N" badge, measured once
-        const lw = (m.lw ??= ((m.el.querySelector('span') as HTMLElement | null)?.offsetWidth || 70) + 26);
+        m.sp ??= m.el.querySelector('span') as HTMLElement | null;
+        const lw = (m.lw ??= (m.sp?.offsetWidth || 70) + 26);
         const right: [number, number, number, number] = [sx + 8, sy - 8, sx + 10 + lw, sy + 8];
         const left: [number, number, number, number] = [sx - 10 - lw, sy - 8, sx - 8, sy + 8];
         // a label may cover points of its own cluster (within 30 px; it speaks for them with "+N") but never another
@@ -616,10 +621,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         const free = (b: [number, number, number, number]) => !hit(...b) || (!hitLabel(...b) && !hitFarDot(b, sx, sy));
         // the selected site and your own points are always labelled
         const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') || m.el.classList.contains('mine') ? right : null;
-        m.el.classList.toggle('crowded', !side);
-        m.el.classList.toggle('left', side === left);
-        // a left-hand label: the row is reversed and shifted left so the point stays on the site
-        m.el.style.transform = side === left ? `translate(${sx}px, ${sy}px) translateX(-100%)` : `translate(${sx}px, ${sy}px)`;
+        const k = m.k!;
+        if (k.crowded !== !side) { k.crowded = !side; m.el.classList.toggle('crowded', k.crowded); }
+        if (k.left !== (side === left)) { k.left = side === left; m.el.classList.toggle('left', k.left); }
+        // a left-hand label: the row is reversed and shifted left so the point stays on the site (rounded to whole
+        // pixels so a still camera writes nothing)
+        const tf = `translate(${Math.round(sx)}px, ${Math.round(sy)}px)${side === left ? ' translateX(-100%)' : ''}`;
+        if (k.tf !== tf) { k.tf = tf; m.el.style.transform = tf; }
         if (side) { boxes.push(side); labels.push(side); labelled.push({ ...v, more: 0 }); }
         else {
           // credit the hidden label to the nearest shown one, so a cluster reads "Connecting ridge +6"
@@ -628,7 +636,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           if (best) best.more++;
         }
       }
-      for (const v of vis) { const l = labelled.find((x) => x.m === v.m); const sp = v.m.el.querySelector('span') as HTMLElement | null; if (sp) sp.dataset.more = l && l.more ? `+${l.more}` : ''; }
+      const moreOf = new Map(labelled.map((l) => [l.m, l.more]));
+      for (const v of vis) { const n = moreOf.get(v.m), more = n ? `+${n}` : ''; const k = v.m.k!; if (k.more !== more && v.m.sp) { k.more = more; v.m.sp.dataset.more = more; } }
       // Sun and Earth pointers: always an arrow pinned to the edge of the 3D window, on the line from the centre of
       // the view toward the body (its screen position when it is in front, its direction when it is behind), so they
       // never wander into the middle of the picture
@@ -711,7 +720,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const rect = renderer.domElement.getBoundingClientRect();
       const hit = pickGround(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       if (hit) {
-        pickRef.current(hit); topRef.current(hit, pointRef.current && selRef.current ? v3(posOf(selRef.current.lat, selRef.current.lon, 0)) : null);
+        // start the flight first; the 360° skyline trace for the probe runs when the browser is idle, so the
+        // click never stalls the first frames of the camera move
+        topRef.current(hit, pointRef.current && selRef.current ? v3(posOf(selRef.current.lat, selRef.current.lon, 0)) : null);
+        const h = hit.clone();
+        const idle = (window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+        if (idle) idle(() => pickRef.current(h), { timeout: 400 }); else setTimeout(() => pickRef.current(h), 60);
         const r = hit.length();
         pointRef.current?.(Math.asin(hit.z / r) * 180 / Math.PI, Math.atan2(hit.y, hit.x) * 180 / Math.PI);
       }
@@ -843,6 +857,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     layer.replaceChildren();
     st.markers = siteList.map((s) => {
       const b = document.createElement('button');
+      b.style.opacity = '0'; // hidden until the first frame places it, so it never flashes at the corner
       // NASA's Artemis III candidate regions (the challenge's reference sites) get their own colour
       b.className = `moon-marker${s.id === selectedId ? ' on' : ''}${s.program === 'artemis' ? ' nasa' : ''}${s.id.startsWith('custom') || s.id.startsWith('pending') ? ' mine' : ''}${s.id.startsWith('pending') ? ' pending' : ''}${s.id === secondId ? ' pair' : ''}`;
       b.innerHTML = `<i></i><span>${s.short || s.name}</span>`;
