@@ -13,6 +13,8 @@ import type { Ui } from '../components/ModeChooser';
 export interface TourApi {
   /** Make sure a site is selected and Explore is showing (picks Mons Mouton if nothing is selected). */
   ensureSite: () => void;
+  /** Close any open dock section, so the Moon's own controls are showing. */
+  closePanels?: () => void;
 }
 
 export interface TourStep {
@@ -31,7 +33,27 @@ export interface TourStep {
   think?: string;
 }
 
-const vis = (e: Element | null | undefined) => (e && (e as HTMLElement).getClientRects().length ? e : null);
+/** On screen for real: laid out, not hidden or faded out by itself or any parent. */
+const vis = (e: Element | null | undefined) => {
+  if (!e || !(e as HTMLElement).getClientRects().length) return null;
+  for (let a: Element | null = e; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) < 0.05) return null;
+  }
+  return e;
+};
+/** Not covered by another control: the element (or a child of it) is what sits at its centre. */
+const onTop = (e: Element) => {
+  const r = e.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return !!hit && (hit === e || e.contains(hit) || !!hit.closest('.tour'));
+};
+/** The visible, uncovered match nearest the middle of the screen. */
+const qTop = (sel: string) => () => {
+  const cx = innerWidth / 2, cy = innerHeight / 2;
+  const all = [...document.querySelectorAll(sel)].filter((e) => vis(e) && onTop(e));
+  all.sort((a, b) => { const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return Math.hypot(ra.x - cx, ra.y - cy) - Math.hypot(rb.x - cx, rb.y - cy); });
+  return all[0] ?? null;
+};
 const q = (sel: string) => () => vis([...document.querySelectorAll(sel)].find((e) => vis(e)));
 const btn = (text: string, within = '') => () =>
   vis([...document.querySelectorAll(`${within} button`)].find((b) => vis(b) && b.textContent?.trim().startsWith(text)));
@@ -46,7 +68,7 @@ const NORMAL: TourStep[] = [
   { target: q('section.moon'), kicker: '3D Moon', title: 'A real map of the Moon',
     body: 'Built from NASA laser measurements of every hill and crater, lit by the real Sun for the date shown.',
     tryIt: 'Drag to spin and scroll to zoom. The south pole is at the bottom.' },
-  { target: q('.moon-marker'), kicker: 'Mission points', title: 'Every dot is a landing site',
+  { target: qTop('.moon-marker'), kicker: 'Mission points', title: 'Every dot is a landing site',
     body: 'Click one to see the mission, how often it gets sunlight, and how often Earth is in view.',
     learn: 'Radio travels in straight lines, so a hill between a lander and Earth blocks the signal.' },
   { target: q('.edu-build'), kicker: 'Rover path', title: 'Plan a drive',
@@ -87,7 +109,7 @@ const EXPERT: TourStep[] = [
   { target: q('.dash-dock'), kicker: 'Dock', title: 'Every analysis panel',
     body: 'Conditions, the site table, horizon, next 30 days, date slip, calendar and mission plan open over the Moon.',
     tryIt: 'Hover an icon to see its name.' },
-  { target: btn('Display', 'section.moon'), prep: site, kicker: 'Map tools', title: 'Layers, rover range, Terrain 3D',
+  { target: btn('Display', 'section.moon'), prep: (api) => { api.closePanels?.(); site(api); }, kicker: 'Map tools', title: 'Layers, rover range, Terrain 3D',
     body: 'Display toggles shadows, relief and sight lines. Rover range draws the ground a rover can reach. Terrain 3D opens the site mesh.' },
   { target: q('.ct-tabs'), prep: top, kicker: 'Workspaces', title: 'Compare, Calculator, Launch',
     body: 'Compare sites and dates side by side, solve the mission equations for any variable, or find launch windows.',

@@ -9,6 +9,7 @@ import Calculator, { initialCalc, type CalcState } from './components/Calculator
 import LaunchPlanner, { type LaunchTarget } from './components/LaunchPlanner';
 import MissionCompare, { type MissionPair } from './components/MissionCompare';
 import AssistantChat, { type HelpContext } from './components/AssistantChat';
+import StartChoice from './components/StartChoice';
 import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
@@ -214,6 +215,8 @@ export default function App() {
   // Help opens only from its button (or the ? key), never on its own.
   const [guide, setGuide] = useState(false);
   const [palette, setPalette] = useState(false);
+  // after the Education tutorial: drive a rover, or experiment
+  const [startPick, setStartPick] = useState(false);
   const openRover = useCallback(() => {
     setPlaying(false); setTour(null); setPalette(false); setGuide(false); setRoverOpen(true);
   }, []);
@@ -442,6 +445,7 @@ export default function App() {
       if (siteId && mode === 'explore') return;
       pickSite(siteId || (allSites.find((x) => /mouton/i.test(x.name)) ?? allSites[0])?.id);
     },
+    closePanels: () => setSheet(null),
   }), [siteId, mode, pickSite, allSites]);
   // Home: close every panel, clear the selection and fly back to the opening view of the whole Moon; on the
   // Scientific dashboard the cards step away too (bare Moon) until a site is picked again
@@ -698,7 +702,9 @@ export default function App() {
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
-      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
+      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => { setStartPick(tour === 'normal'); setTour(null); }} /></Suspense>}
+      {startPick && !tour && <StartChoice onExplore={() => setStartPick(false)}
+        onRover={() => { setStartPick(false); openRover(); }} />}
     </div>
   );
 
@@ -934,7 +940,9 @@ export default function App() {
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
       {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
-      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
+      {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => { setStartPick(tour === 'normal'); setTour(null); }} /></Suspense>}
+      {startPick && !tour && <StartChoice onExplore={() => setStartPick(false)}
+        onRover={() => { setStartPick(false); openRover(); }} />}
       {!dash && <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (
         <span className="ab-ctx">
