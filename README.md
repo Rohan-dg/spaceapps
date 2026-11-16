@@ -6,7 +6,7 @@ Sunlight and Earth visibility for Moon south-pole landing sites, computed on rea
 
 Built for the NASA Space Apps Challenge 2026: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/).
 
-![Sol Teris](https://raw.githubusercontent.com/Rohan-dg/spaceapps/main/docs/screenshot.png)
+![Sol Teris: the Scientific dashboard](docs/screenshot-dashboard.png)
 
 Near the lunar south pole the Sun never climbs far above the horizon, and Earth hangs low and drifts with libration. There is no atmosphere and no twilight, so a single ridge decides whether a lander has power and a direct radio link. For any site and time, the app shows where the Sun and Earth sit against the actual terrain horizon, and for how long.
 
