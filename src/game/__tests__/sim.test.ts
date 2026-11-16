@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advance, CHARGE_PCT, distance, iceSignal, newQuest, newVitals, planMission, SPEC, stepVitals, type Maps, type MissionPlan, type Quest, type QuestCtx } from '../sim';
+import { advance, CHARGE_PCT, MISSIONS, missionById, objective, distance, iceSignal, newQuest, newVitals, planMission, SPEC, stepVitals, type Maps, type MissionPlan, type Quest, type QuestCtx } from '../sim';
 
 const light = { sunFrac: 1, drive: 0, dig: false, tx: false, lamp: false };
 const plan: MissionPlan = { start: { e: 0, n: 0 }, charge: { e: 100, n: 0 }, phone: { e: 120, n: 0 }, zone: { c: { e: 200, n: 100 }, r: 60 }, ice: [{ e: 200, n: 100 }, { e: 240, n: 100 }, { e: 200, n: 140 }], haven: { e: 80, n: 0 }, bonus: [] };
@@ -126,4 +126,36 @@ describe('mission placement', () => {
     expect(advance(newQuest(plan), plan, { ...ctx, battPct: 5, chargePct: 0 }, { type: 'tick' }).q.phase).toBe('phone');
   });
   it('rejects incomplete grids', () => { expect(planMission({ ...terrain(), sun: new Uint8Array(2) })).toBeNull(); });
+});
+
+describe('missions', () => {
+  it('every mission has steps, a start charge and sensible star thresholds', () => {
+    for (const m of MISSIONS) { expect(m.steps.length).toBeGreaterThan(0); expect(m.startPct).toBeGreaterThan(0); expect(m.stars[0]).toBeLessThan(m.stars[1]); }
+    expect(missionById('nope').id).toBe('survey');
+  });
+  it('runs the Science Hunt: scan every target, then send the results', () => {
+    const m = missionById('hunt');
+    let q = newQuest(plan, m.steps);
+    expect(q.phase).toBe('targets');
+    expect(advance(q, plan, { ...ctx, targetsLeft: 2 }, { type: 'tick' }).q.phase).toBe('targets');
+    const r = advance(q, plan, { ...ctx, targetsLeft: 0 }, { type: 'tick' });
+    expect(r.done).toBe('targets'); q = r.q;
+    expect(q.phase).toBe('uplink');
+    expect(objective(q, plan, true).text).toContain('science results');
+    q = advance(q, plan, ctx, { type: 'sent' }).q;
+    expect(q.phase).toBe('done');
+  });
+  it('runs the Shadow Dive: the ice leads straight to the haven', () => {
+    let q = newQuest(plan, missionById('dive').steps);
+    for (const pos of plan.ice) q = advance(q, plan, { ...ctx, pos }, { type: 'dug' }).q;
+    expect(q.phase).toBe('haven');
+    q = advance(q, plan, { ...ctx, pos: plan.haven }, { type: 'tick' }).q;
+    expect(q.phase).toBe('done');
+    expect(objective(q, plan, true).n).toBe(2);
+  });
+  it('runs the Sun Sprint without needing to charge', () => {
+    let q = newQuest(plan, missionById('sprint').steps);
+    q = advance(q, plan, { ...ctx, battPct: 30, chargePct: 0 }, { type: 'tick' }).q;
+    expect(q.phase).toBe('haven');
+  });
 });
