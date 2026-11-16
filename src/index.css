@@ -1079,29 +1079,36 @@ details > :not(summary) { animation: view-in 280ms var(--ease-out) both; }
  * site marker   2.9 "Sol Teris" slides in   3.7 fade out (LEAVE_MS in Intro.tsx)
  */
 .intro { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow: hidden; background: #000; cursor: pointer; }
-.intro.out { animation: intro-out 420ms var(--ease-out) forwards; }
+.intro.leaving { pointer-events: none; }
 .emb { display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.emb-svg { width: min(380px, 72vmin); height: auto; overflow: visible; }
+.emb-svg { width: min(380px, 72vmin); height: auto; overflow: visible; will-change: transform, opacity; }
 .emb-dial { transform-origin: 200px 200px; animation: emb-turn 2.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .emb .draw { fill: none; stroke: #fff; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
   stroke-dasharray: 1; stroke-dashoffset: 1; animation: emb-draw var(--dur) cubic-bezier(0.45, 0, 0.2, 1) var(--at) forwards; }
 .emb .draw.faint { stroke: rgba(255, 255, 255, 0.22); stroke-width: 1; }
 .emb .draw.dim { stroke: rgba(255, 255, 255, 0.5); }
-.emb .draw.bright { stroke-width: 2.2; }
+.emb .draw.bright { stroke-width: 2; }
 .emb .draw.blue { stroke: #63a1ff; stroke-width: 2.2; }
 .emb .draw.thin { stroke-width: 1.2; }
-.emb .draw.etch { stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.6; }
+.emb .draw.horizon { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.2; }
+.emb .draw.contour { stroke: rgba(20, 22, 26, 0.16); stroke-width: 1; }
+.emb .draw.crater-wall { stroke: rgba(20, 22, 26, 0.55); stroke-width: 1.4; }
+.emb .draw.crater-rim { stroke: #fff; stroke-width: 1.3; }
+.emb .draw.pole { stroke: #fff; stroke-width: 2.2; }
 .emb .fill { opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
 .emb .fill.sun { fill: #63a1ff; }
-.emb .fill.ground { fill: #fff; }
 .emb .fill.earth { fill: #fff; }
-.emb-label { fill: #fff; font: 700 11px var(--font-body); text-anchor: middle; opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
-.intro-word { font: 700 clamp(30px, 5.5vw, 56px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; opacity: 0; animation: intro-word 560ms var(--ease-out) 2.9s forwards; }
+.emb .fill.crater { fill: rgba(30, 33, 38, 0.18); }
+.emb .fill.flag { fill: #ff6363; }
+.emb .star { fill: #fff; opacity: 0; animation: emb-star var(--dur) ease-out var(--at) forwards, emb-twinkle var(--tw) ease-in-out calc(var(--at) + var(--dur)) infinite alternate; }
+.emb-label { fill: #fff; font: 700 13px var(--font-body); text-anchor: middle; opacity: 0; animation: emb-fade var(--dur) ease-out var(--at) forwards; }
+.intro-word { font: 700 clamp(30px, 5.5vw, 56px)/1 var(--font-display); letter-spacing: -0.02em; color: #fff; opacity: 0; animation: intro-word 560ms var(--ease-out) 2.9s forwards; will-change: transform, opacity; }
 @keyframes emb-draw { to { stroke-dashoffset: 0; } }
 @keyframes emb-fade { to { opacity: 1; } }
+@keyframes emb-star { to { opacity: var(--o); } }
+@keyframes emb-twinkle { from { opacity: var(--o); } to { opacity: calc(var(--o) * 0.3); } }
 @keyframes emb-turn { from { transform: rotate(-35deg); } to { transform: none; } }
 @keyframes intro-word { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
-@keyframes intro-out { to { opacity: 0; visibility: hidden; } }
 
 /* Accent jobs: filled blue for primary actions and selected states; lighter blue for links, the active tab,
    focus rings, site points and Earth. All from the theme tokens so light mode follows. */
