@@ -13,7 +13,6 @@ import { eventText } from './components/Metrics';
 import type { Action as HelpAction } from './lib/assistant';
 import CustomSite from './components/CustomSite';
 import ModeChooser, { type Ui } from './components/ModeChooser';
-import { tourSeen } from './onboarding/seen';
 import type { TourApi } from './onboarding/steps';
 import { computeSite } from './lib/customSite';
 import Countdown from './components/Countdown';
@@ -172,6 +171,14 @@ export default function App() {
   const [choosing, setChoosing] = useState(true);
   // the guided tour for a mode opens right after that mode is first chosen, and on request (rail, command menu)
   const [tour, setTour] = useState<Ui | null>(null);
+  // Every visit starts with the tour for the chosen mode, and switching to the other mode starts its tour the first
+  // time in this visit. It can always be closed (Esc or ×) and replayed from Tutorial.
+  const toured = useRef(new Set<Ui>());
+  useEffect(() => {
+    if (choosing || toured.current.has(ui)) return;
+    toured.current.add(ui);
+    setTour(ui);
+  }, [choosing, ui]);
   const [roverOpen, setRoverOpen] = useState(false);
   const expert = ui === 'expert';
   const L = COPY[ui];
@@ -690,7 +697,7 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => { setChoosing(false); if (!tourSeen(u)) setTour(u); })} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
       {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
     </div>
   );
@@ -926,7 +933,7 @@ export default function App() {
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
-      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => { setChoosing(false); if (!tourSeen(u)) setTour(u); })} />}
+      {choosing && <ModeChooser last={lastUi} onChoose={(u) => setUi(u, () => setChoosing(false))} />}
       {tour && <Suspense fallback={null}><Onboarding ui={tour} api={tourApi} onClose={() => setTour(null)} /></Suspense>}
       {!dash && <div className="action-bar">
         {mode === 'explore' && res && info ? <Countdown m={res.metrics} t={t} name={info.short || info.name} simple={!expert} /> : (

@@ -1,7 +1,7 @@
 /**
  * Guided tour over the live app: a spotlight glides from one real control to the next, with a card that says how to
  * use it. Nothing is blocked; the page underneath stays fully clickable, so each step can be tried as it is explained.
- * Steps differ by mode (onboarding/steps.ts). Shown after the mode chooser once per mode, and from the rail or ⌘K.
+ * Steps differ by mode (onboarding/steps.ts). Opens at the start of every visit (and the first switch to the other mode), and from the Tutorial button or ⌘K.
  *
  * Motion: one requestAnimationFrame loop follows the current target (it may move as the page scrolls or the 3D view
  * animates). Between steps the spotlight and card ease from where they were to the new target over ~0.55 s; after
@@ -10,8 +10,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Ui } from './ModeChooser';
 import { ArrowRight, ChevronLeft, X } from './Icons';
+import { createPortal } from 'react-dom';
 import { TOUR, type TourApi } from '../onboarding/steps';
-import { markTourSeen } from '../onboarding/seen';
 
 const MOVE_MS = 560;
 const PAD = 8;
@@ -37,7 +37,6 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
   const reduce = useRef(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
   const finish = useCallback(() => {
-    markTourSeen(ui);
     setClosing(true);
     window.setTimeout(onClose, reduce.current ? 0 : 320);
   }, [ui, onClose]);
@@ -65,7 +64,7 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
         lastLook = now;
         const found = step.target();
         el = shown(found) ? found : null;
-        if (!el && now - t0 > 2600) { go(i + dir.current); return; }
+        if (!el && now - t0 > 1400) { go(i + dir.current); return; }
       }
       let to: Box;
       if (el) {
@@ -77,12 +76,16 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
           // would only fight the step's own scroll
           for (let a: HTMLElement | null = el; a && !pinned; a = a.parentElement) pinned = /fixed|sticky/.test(getComputedStyle(a).position);
         }
-        if (!pinned && !scrolledTo) {
+        if (!scrolledTo) {
           scrolledTo = true;
-          const tall = r.height > H - 140;
-          if (r.top < 64 || r.bottom > H - 16) window.scrollTo({ top: scrollY + r.top - (tall ? 84 : (H - r.height) / 2), behavior: reduce.current ? 'auto' : 'smooth' });
+          const off = r.top < 64 || r.bottom > H - 16 || r.left < 0 || r.right > W;
+          if (off) el.scrollIntoView({ block: r.height > H - 140 ? 'start' : 'center', inline: 'nearest', behavior: reduce.current ? 'auto' : 'smooth' });
+          else if (!pinned && (r.top < 64 || r.bottom > H - 16)) window.scrollTo({ top: scrollY + r.top - (H - r.height) / 2, behavior: reduce.current ? 'auto' : 'smooth' });
         }
-      } else to = step.target ? shownBox.current : { x: W / 2, y: H / 2, w: 0, h: 0 };
+      } else {
+        const c0 = shownBox.current;
+        to = step.target ? { x: c0.x + c0.w / 2, y: c0.y + c0.h / 2, w: 0, h: 0 } : { x: W / 2, y: H / 2, w: 0, h: 0 };
+      }
       const t = reduce.current ? 1 : Math.max(0, Math.min(1, (now - t0) / MOVE_MS)), e = ease(t);
       const b = t >= 1 ? to : mix(from, to, e);
       shownBox.current = b;
@@ -135,7 +138,8 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
 
   const s = steps[i];
   const first = i === 0, end = i === last;
-  return (
+  // rendered on the page body, above every other layer (the app container isolates its own z-index stack)
+  return createPortal(
     <div ref={root} className={`tour tour-${ui}${closing ? ' closing' : ''}`}>
       <div ref={spot} className="tour-spot" aria-hidden />
       <div ref={card} className="tour-card" role="dialog" aria-modal="false" aria-label={`${ui === 'expert' ? 'Scientific' : 'Education'} mode tour`}>
@@ -168,5 +172,5 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }

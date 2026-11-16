@@ -53,8 +53,9 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
 
   const pick = useCallback((id: string) => {
     onSelect(id);
-    setOpen(id);
-    if (building) setPath((p) => (p[p.length - 1] === id ? p : [...p, id]));
+    // while planning a path a click only adds the stop: no description card over the Moon
+    if (building) { setOpen(null); setPath((p) => (p[p.length - 1] === id ? p : [...p, id])); }
+    else setOpen(id);
   }, [onSelect, building]);
   const toggleStop = (id: string) => setPath((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const removeAt = (i: number) => setPath((p) => p.filter((_, k) => k !== i));
@@ -118,7 +119,7 @@ export default function EduView({ doc, sites, t, range, selectedId, onSelect, on
       </p>
 
       <div className="edu-dock">
-        <button className={`edu-build${building ? ' on' : ''}`} aria-pressed={building} onClick={() => setBuilding((b) => !b)}>
+        <button className={`edu-build${building ? ' on' : ''}`} aria-pressed={building} onClick={() => { setOpen(null); setBuilding((b) => !b); }}>
           {building ? 'Done adding stops' : path.length ? 'Add more stops' : 'Plan a rover path'}
         </button>
         {path.length > 0 && <button className="edu-clear" onClick={() => { setPath([]); setBuilding(false); }}>Clear path</button>}

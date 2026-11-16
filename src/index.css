@@ -2042,7 +2042,7 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 
 /* Guided tour (components/Onboarding.tsx): a spotlight over the live page plus one card. The overlay never takes
    clicks (only the card does), so everything under it stays usable while it explains. */
-.tour { --tour-accent: #ff6363; --tour-accent-rgb: 255, 99, 99; position: fixed; inset: 0; z-index: 120; pointer-events: none; contain: strict; font-family: var(--font-display); animation: tour-fade 360ms var(--ease-out, ease) both; }
+.tour { --tour-accent: #ff6363; --tour-accent-rgb: 255, 99, 99; position: fixed; inset: 0; z-index: 120; pointer-events: none; contain: layout style size; font-family: var(--font-display); animation: tour-fade 360ms var(--ease-out, ease) backwards; }
 .tour-expert { --tour-accent: #63a1ff; --tour-accent-rgb: 99, 161, 255; }
 .tour.closing { animation: tour-fade-out 320ms var(--ease-out, ease) both; }
 @keyframes tour-fade { from { opacity: 0; } }
@@ -2843,3 +2843,33 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 @media (min-width: 901px) and (max-height: 720px) { .dash-dock { gap: 1px; padding: 5px; width: 42px; } .dash-dock button, .dash-dock button.util { width: 32px; height: 32px; } .dock-sep { margin: 3px 6px; } }
 @media (min-width: 901px) and (max-height: 640px) { .dash-dock { top: 228px; width: 38px; padding: 4px; } .dash-dock button, .dash-dock button.util { width: 28px; height: 28px; } .dash-dock button svg { width: 15px; height: 15px; } }
 @media (min-width: 901px) and (max-height: 560px) { .dash-dock { max-height: calc(100% - 228px - var(--gap)); overflow-y: auto; scrollbar-width: none; } }
+
+/* ---- every remaining window in the Scientific glass: tour box, About / Help, search palette, mission comparison ---- */
+:root { --sx-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)), rgba(16, 18, 22, 0.62);
+  --sx-line: rgba(255, 255, 255, 0.12); --sx-blur: blur(20px) saturate(160%); }
+.tour-card { background: var(--sx-glass); -webkit-backdrop-filter: var(--sx-blur); backdrop-filter: var(--sx-blur); border: 1px solid var(--sx-line);
+  border-radius: 24px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 28px 70px -24px rgba(0, 0, 0, 0.8);
+  max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
+.tour-card button { border-radius: 999px; }
+.tour-bar { border-radius: 2px; overflow: hidden; }
+.tour-spot.lit { border-radius: 16px; }
+.tour-spot.lit::after { border-radius: 18px; }
+.tour-spot { transition: border-radius 300ms; }
+:root:not([data-theme='light']) .modal, :root:not([data-theme='light']) .cmdk, :root:not([data-theme='light']) .mc {
+  background: var(--sx-glass); -webkit-backdrop-filter: var(--sx-blur); backdrop-filter: var(--sx-blur); border: 1px solid var(--sx-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 30px 80px -28px rgba(0, 0, 0, 0.85); }
+:root:not([data-theme='light']) .modal, :root:not([data-theme='light']) .cmdk { border-radius: 26px; }
+:root:not([data-theme='light']) .mc { top: 12px; right: 12px; bottom: 12px; border-radius: 26px; }
+:root:not([data-theme='light']) .modal button, :root:not([data-theme='light']) .cmdk input { border-radius: 999px; }
+.modal { animation: glass-pop 420ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes glass-pop { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+
+/* the tour box uses the dashboard cards' exact glass. Its parent no longer keeps an opacity animation applied, which
+   had made it a backdrop root, so the blur now reaches the app behind it instead of only the dimming layer */
+.tour-card { background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)), rgba(20, 22, 27, 0.4);
+  -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 24px 60px -24px rgba(0, 0, 0, 0.7); }
+
+/* the tutorial is in front of everything during the tour (it renders on the page body) */
+.tour { z-index: 1500; }
