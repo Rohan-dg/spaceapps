@@ -8,6 +8,7 @@ import { siteOf } from '../lib/useScenario';
 import type { ShadowRequest } from '../workers/shadowMap';
 import { Loading } from './Help';
 import { useDpr } from './useDpr';
+import { fmtInt } from '../lib/fmt';
 
 const DAY = 86400_000;
 const FRAC_STEP_H = 3;
@@ -229,7 +230,7 @@ export default function ShadowMap({ data, t, mastPct, plain = false }: { data: S
       </div>
       <div className="sm-body">
         <div className="sm-map" ref={wrap}>
-          {!H && <div className="sm-busy"><Loading label={`Tracing the horizon for ${(n * n).toLocaleString('en-US')} ground points`} /></div>}
+          {!H && <div className="sm-busy"><Loading label={`Tracing the horizon for ${fmtInt(n * n)} ground points`} /></div>}
           <canvas ref={cv} style={{ width: w, height: w }} onPointerMove={onMove} onPointerLeave={() => setHover(null)} role="img"
             aria-label={`Top-down map of ${T.halfKm * 2} by ${T.halfKm * 2} km around ${data.info.name}, north up, showing ${mode === 'now' ? 'sunlit and shadowed ground now' : 'the share of the next lunar day each point is sunlit'}`} />
         </div>

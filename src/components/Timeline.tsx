@@ -3,6 +3,7 @@ import type { SiteData } from '../lib/data';
 import { indexAt, timeAt } from '../lib/series';
 import { mix, useTheme } from '../lib/theme';
 import { fitCanvas, useDpr } from './useDpr';
+import { fmtMonth } from '../lib/fmt';
 
 interface Props { data: SiteData; t: number; days?: number; onSeek?: (t: number) => void; fill?: boolean }
 
@@ -152,7 +153,7 @@ function TimelineFill({ data, t, days = 30, onSeek }: Props) {
       if (d < days && d % every === 0) {
         const mid = X(tt + 43200000);
         g.fillStyle = c.ink2; g.globalAlpha = 0.75; g.font = `500 11.5px ${c.font}`; g.fillText(String(dt.getUTCDate()), mid, top - 14);
-        if (d === 0 || dt.getUTCDate() === 1) { g.globalAlpha = 1; g.fillStyle = c.ink; g.font = `600 11.5px ${c.font}`; g.textAlign = 'left'; g.fillText(dt.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }), X(tt) + 2, top - 30); g.textAlign = 'center'; }
+        if (d === 0 || dt.getUTCDate() === 1) { g.globalAlpha = 1; g.fillStyle = c.ink; g.font = `600 11.5px ${c.font}`; g.textAlign = 'left'; g.fillText(fmtMonth(tt), X(tt) + 2, top - 30); g.textAlign = 'center'; }
         g.globalAlpha = 1;
       }
     }

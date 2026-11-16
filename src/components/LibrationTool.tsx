@@ -6,11 +6,12 @@ import { useMemo } from 'react';
 import type { SiteData } from '../lib/data';
 import { horizonAt } from '../lib/horizon';
 import { librationAt, librationSeries, periodDays, rangeOf, siteLibration, unwrap, type LibrationState } from '../lib/libration';
+import { fmtInt } from '../lib/fmt';
 
 const DAY = 86400000;
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 const sgn = (x: number, d = 2) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(d)}`;
-const km = (x: number) => `${Math.round(x).toLocaleString('en-US')} km`;
+const km = (x: number) => `${fmtInt(x)} km`;
 
 let FULL: { key: string; s: LibrationState[] } | null = null;
 /** The whole data range at 12 h steps, computed once. */

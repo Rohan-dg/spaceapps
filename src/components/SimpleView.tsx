@@ -6,9 +6,10 @@ import type { ScenarioResult } from '../lib/useScenario';
 import FirstPerson from './FirstPerson';
 import TimeLeft from './TimeLeft';
 import Timeline from './Timeline';
+import { fmtInt, fmtLongDateTime } from '../lib/fmt';
 
 const inDays = (h: number) => (h >= 48 ? `${Math.round(h / 24)} days` : h >= 2 ? `${Math.round(h)} hours` : `${Math.round(h * 60)} minutes`);
-const longDate = (t: number) => new Date(t).toLocaleString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' UTC';
+const longDate = (t: number) => fmtLongDateTime(t) + ' UTC';
 
 const POWER: Record<Level, string> = {
   green: 'Plenty of sunlight for solar power',
@@ -70,7 +71,7 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
         {info.description && <p className="sv-lede">{info.description}</p>}
         <ul className="sv-facts">
           <li>{whereWords(info.lat, info.lon)}</li>
-          <li>{Math.abs(info.siteHeightM).toLocaleString('en-US', { maximumFractionDigits: 0 })} m {info.siteHeightM >= 0 ? 'above' : 'below'} the Moon's average level</li>
+          <li>{fmtInt(Math.abs(info.siteHeightM))} m {info.siteHeightM >= 0 ? 'above' : 'below'} the Moon's average level</li>
           {info.mission && <li>{info.mission}</li>}
         </ul>
       </header>

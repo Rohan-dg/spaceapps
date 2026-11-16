@@ -50,7 +50,7 @@ export interface Callbacks {
   onError: (m: string) => void;
 }
 export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean; roverId: string; missionId?: string }
-export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map: HTMLCanvasElement }
+export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map?: HTMLCanvasElement }
 
 const TERRAIN_VS = /* glsl */ `
 varying vec3 vW; varying vec3 vN;
@@ -123,6 +123,8 @@ export class Game {
   private loadReject: ((e: Error) => void) | null = null;
   private w!: World;
   private raf = 0; private last = 0; private live = true; private ro?: ResizeObserver;
+  /** The view's CSS size, kept by size() (ResizeObserver), so the frame loop never forces a layout by reading it. */
+  private vw = 1; private vh = 1;
   private state: 'load' | 'brief' | 'play' | 'pause' | 'end' = 'load';
   // uniforms shared by every terrain material
   private U = {
@@ -395,9 +397,10 @@ export class Game {
   /** The chosen mission's steps and starting charge, facing its first objective (or the nearest science target). */
   private startMission() {
     this.quest = newQuest(this.plan, this.mission.steps);
+    this.taken = this.plan.bonus.map(() => false); this.pickNext(this.plan.start);
     this.vit = newVitals(this.mission.startPct, this.spec);
     const st = this.plan.start, ob = objective(this.quest, this.plan, false, this.chargePct, this.plan.bonus.length);
-    const to = ob.target ?? this.plan.bonus.reduce((a, b) => (distance(a, st) < distance(b, st) ? a : b), this.plan.charge);
+    const to = ob.target ?? this.nextTarget() ?? this.plan.charge;
     this.psi = Math.atan2(to.e - st.e, to.n - st.n); this.camAz = this.psi / D2R;
   }
   /** Swap the mission while the briefing is open. */
@@ -503,7 +506,7 @@ export class Game {
     const c = this.check; if (!c) return;
     this.e = c.e; this.n = c.n; this.psi = c.psi; this.v = 0; this.simT = c.simT; this.odo = c.odo; this.busy = null;
     this.vit = { ...c.vit, wh: Math.max(c.vit.wh, this.spec.batteryWh * 0.45), tempC: Math.max(c.vit.tempC, 0) };
-    this.quest = { phase: c.quest.phase, found: [...c.quest.found] }; this.score = c.score; this.taken = [...c.taken]; this.parts = [...c.parts]; this.combo = 1; this.skyAt = -1; this.trackLast = null; this.litU = null;
+    this.quest = { phase: c.quest.phase, found: [...c.quest.found] }; this.score = c.score; this.taken = [...c.taken]; this.pickNext({ e: c.e, n: c.n }); this.parts = [...c.parts]; this.combo = 1; this.skyAt = -1; this.trackLast = null; this.litU = null;
     this.queue = []; this.flagsSaid.clear(); this.held = 0; this.ff = false; this.keys.clear();
     this.camOff = 0; this.tgt.set(0, 0, 0); this.heave = this.heaveV = this.pitchD = this.pitchV = this.rollD = this.rollV = 0;
     this.syncMarkers(); this.syncBonus(); this.state = 'play'; this.last = performance.now();
@@ -522,6 +525,15 @@ export class Game {
   private static BONUS_NAMES = ['Fresh crater rim', 'Boulder trail', 'Bright ray material', 'Glassy impact melt', 'Regolith ripple', 'Ancient ejecta block', 'Dark soil swirl', 'Possible meteorite'];
   private award(pts: number, label: string) {
     this.score += pts; this.parts.push([label, pts]); this.gain = { id: ++this.gainN, pts, label };
+  }
+  /** The science target the objective marker points at: the nearest one still to scan from where the last scan
+   *  (or the start) happened, so the marker holds still while you drive to it. */
+  private nextIdx = -1;
+  private nextTarget(): Pt | null { return this.nextIdx >= 0 && !this.taken[this.nextIdx] ? this.plan.bonus[this.nextIdx] : null; }
+  private pickNext(from: Pt) {
+    let best = -1, bd = Infinity;
+    this.plan.bonus.forEach((p, i) => { if (!this.taken[i] && distance(p, from) < bd) { bd = distance(p, from); best = i; } });
+    this.nextIdx = best;
   }
   private syncBonus() {
     this.bonusMarks.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); if (m.isMesh) (m.material as THREE.Material).dispose(); });
@@ -548,7 +560,7 @@ export class Game {
       const name = Game.BONUS_NAMES[i % Game.BONUS_NAMES.length];
       this.award(150 * this.combo, this.combo > 1 ? `${name} ×${this.combo}` : name);
       this.say({ from: this.def.callsign, text: `Scanned: ${name.toLowerCase()}.${this.combo > 1 ? ` Combo ×${this.combo}!` : ''}${this.taken.every(Boolean) ? ' Every science target scanned.' : ''}` });
-      this.syncBonus();
+      this.pickNext({ e: this.e, n: this.n }); this.syncBonus(); this.syncMarkers();
     });
   }
   pause(on: boolean) {
@@ -575,7 +587,7 @@ export class Game {
   setTags(t: Tags) { this.tags = t; }
 
   private syncMarkers() {
-    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length, this.nextTarget());
     this.goal.visible = !!ob.target && this.quest.phase !== 'ice';
     if (ob.target && this.goal.visible) { this.goal.position.set(ob.target.e, groundY(this.w, ob.target.e, ob.target.n, true), -ob.target.n); this.goal.children[1].scale.setScalar(ob.ring); }
     this.zoneRing.visible = this.quest.phase === 'ice';
@@ -609,6 +621,7 @@ export class Game {
 
   private size() {
     const { clientWidth: w, clientHeight: h } = this.o.host; if (!w || !h) return;
+    this.vw = w; this.vh = h;
     this.renderer.setSize(w, h, false); this.cam.aspect = this.farCam.aspect = w / h; this.cam.updateProjectionMatrix(); this.farCam.updateProjectionMatrix();
   }
   private gy = (e: number, n: number) => groundY(this.w, e, n, Math.abs(e) < NEAR && Math.abs(n) < NEAR);
@@ -621,7 +634,7 @@ export class Game {
     this.place(this.state === 'pause' ? 0 : dt, now);
     this.renderer.clear(); this.renderer.render(this.far, this.farCam); this.renderer.clearDepth(); this.renderer.render(this.near, this.cam);
     if (now - this.hudAt > 110) { this.hudAt = now; this.cb.onHud(this.hud()); }
-    if (now - this.mapAt > 260) { this.mapAt = now; this.drawMap(); }
+    if (this.tags?.map && now - this.mapAt > 260) { this.mapAt = now; this.drawMap(); }
     if (this.state !== 'pause' && this.state !== 'end') this.raf = requestAnimationFrame(this.frame);
   };
 
@@ -886,7 +899,7 @@ export class Game {
   /** Sky labels and the objective label follow their targets on screen, or sit on the nearest edge with an arrow. */
   private placeTags() {
     const t = this.tags; if (!t) return;
-    const { clientWidth: W, clientHeight: H } = this.o.host, cam = this.cam, v = new THREE.Vector3();
+    const W = this.vw, H = this.vh, cam = this.cam, v = new THREE.Vector3();
     const put = (el: HTMLElement, world: THREE.Vector3, show: boolean) => {
       if (!show) { el.style.opacity = '0'; return; }
       v.copy(world).project(cam);
@@ -905,12 +918,12 @@ export class Game {
     const s = this.sky, cp = cam.position;
     put(t.sun, dirOf(s.sunAz, s.sunEl).multiplyScalar(1e5).add(cp), true);
     put(t.earth, dirOf(s.earthAz, s.earthEl).multiplyScalar(1e5).add(cp), true);
-    const ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
+    const ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length, this.nextTarget());
     put(t.goal, ob.target ? new THREE.Vector3(ob.target.e, this.gy(ob.target.e, ob.target.n) + 4, -ob.target.n) : cp, !!ob.target && this.state === 'play');
   }
 
   private hud(): Hud {
-    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length), pos = { e: this.e, n: this.n };
+    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length, this.nextTarget()), pos = { e: this.e, n: this.n };
     const ice = iceSignal(this.quest, this.plan, pos, this.def.detectM);
     return {
       t: this.simT, rate: this.ff ? RATE_FF : RATE, battPct: (100 * this.vit.wh) / this.spec.batteryWh, netW: this.vit.solarW - this.vit.loadW, solarW: this.vit.solarW,
@@ -943,7 +956,7 @@ export class Game {
     if (this.quest.phase === 'ice') { g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.arc(X(this.plan.zone.c.e), Y(this.plan.zone.c.n), this.plan.zone.r * sc, 0, 6.283); g.stroke(); }
     this.plan.ice.forEach((p, i) => { if (this.quest.found[i]) { g.fillStyle = '#63a1ff'; g.fillRect(X(p.e) - 3, Y(p.n) - 3, 6, 6); } });
     this.plan.bonus.forEach((p, i) => { if (this.taken[i]) return; const x = X(p.e), y = Y(p.n); g.strokeStyle = '#ff6363'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); g.stroke(); });
-    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length, this.nextTarget());
     if (ob.target && this.quest.phase !== 'ice') { const x = X(ob.target.e), y = Y(ob.target.n); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.fill(); }
     const tick = (az: number, color: string) => { const a = az * D2R, r = S / 2 - 5; g.fillStyle = color; g.beginPath(); g.arc(S / 2 + Math.sin(a) * r, S / 2 - Math.cos(a) * r, 5, 0, 6.283); g.fill(); };
     tick(this.sky.sunAz, '#ffd23f'); tick(this.sky.earthAz, '#63a1ff');

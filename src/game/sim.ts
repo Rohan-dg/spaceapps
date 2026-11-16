@@ -208,14 +208,14 @@ export const CHARGE_PCT = 85, REACH_M = 14, DIG_M = 6;
 
 export interface Objective { n: number; total: number; title: string; text: string; target: Pt | null; ring: number }
 /** `chargePct` 0 means the rover has no solar panels: the first step is just to reach the light. */
-export function objective(q: Quest, plan: MissionPlan, earthUp: boolean, chargePct = CHARGE_PCT, targetsLeft = 0): Objective {
+export function objective(q: Quest, plan: MissionPlan, earthUp: boolean, chargePct = CHARGE_PCT, targetsLeft = 0, nextTarget: Pt | null = null): Objective {
   const left = q.found.filter((f) => !f).length, steps = stepsOf(q), total = steps.length, n = q.phase === 'done' ? total : steps.indexOf(q.phase) + 1;
   const what = steps.includes('ice') ? 'ice data' : 'science results';
   switch (q.phase) {
     case 'charge': return { n, total, title: 'First light', text: chargePct > 0 ? `Drive to the sunlit ground and charge the battery to ${chargePct}%.` : 'Drive to the sunlit ground and stop there.', target: plan.charge, ring: REACH_M };
     case 'phone': return { n, total, title: 'Phone home', text: earthUp ? 'Earth is in view. Press T to send your status report.' : 'No signal here. Drive to where Earth clears the hills, then press T.', target: earthUp ? null : plan.phone, ring: REACH_M };
     case 'ice': return { n, total, title: 'Into the dark', text: `Find ${left} ice deposit${left === 1 ? '' : 's'} in the shadow. Follow the ice detector, stop when it peaks, press E to dig.`, target: plan.zone.c, ring: plan.zone.r };
-    case 'targets': return { n, total, title: 'Science hunt', text: `Scan ${targetsLeft} more science target${targetsLeft === 1 ? '' : 's'}: drive over the red markers. The map shows where they are.`, target: null, ring: 0 };
+    case 'targets': return { n, total, title: 'Science hunt', text: `Scan ${targetsLeft} more science target${targetsLeft === 1 ? '' : 's'}: follow the marker to the next red target and drive over it.`, target: nextTarget, ring: 9 };
     case 'uplink': return { n, total, title: 'Bring it home', text: earthUp ? `Earth is in view. Press T to send the ${what}.` : `The ${what} are on board. Get to where Earth is in view and press T.`, target: earthUp ? null : plan.phone, ring: REACH_M };
     case 'haven': return { n, total, title: 'Safe haven', text: 'Park on the high ground that keeps both sunlight and Earth in view.', target: plan.haven, ring: REACH_M };
     default: return { n, total, title: 'Mission complete', text: 'Explore freely.', target: null, ring: 0 };

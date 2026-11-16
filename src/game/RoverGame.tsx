@@ -5,13 +5,13 @@ import { MISSIONS, missionById, RATE, type MissionId, type Phase } from './sim';
 import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
 import RoverPreview from './RoverPreview';
 import './game.css';
+import { fmtInt } from '../lib/fmt';
 
 type Stage = 'loading' | 'brief' | 'play' | 'pause' | 'done' | 'frozen' | 'power' | 'time' | 'unavailable' | 'error';
 type Message = { id: number; from: string; text: string };
 interface Props { sites: SiteInfo[]; selectedId: string; t: number; tMax: number; onClose: () => void }
 const SITES = ['mons-mouton', 'connecting-ridge', 'shackleton-rim', 'de-gerlache-rim', 'malapert', 'nobile-rim', 'faustini-rim', 'haworth'];
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
-const deg = (v: number) => `${v.toFixed(1)}°`;
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}`;
 const STEP_NAME: Record<Phase, string> = { charge: 'Charge', phone: 'Contact', ice: 'Sample', targets: 'Scan', uplink: 'Uplink', haven: 'Park', done: 'Done' };
 const PICK_KEY = 'rover-pick', MISSION_KEY = 'rover-mission';
@@ -19,7 +19,7 @@ const PICK_KEY = 'rover-pick', MISSION_KEY = 'rover-mission';
 const bestKey = (id: string, m: string) => (m === 'survey' ? `rover-best-${id}` : `rover-best-${id}-${m}`);
 const stored = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
-const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+const fmt = fmtInt;
 
 /** A small set of original control glyphs, shared by mouse, keyboard, and touch controls. */
 export function RoverGlyph({ kind = 'rover' }: { kind?: 'rover' | 'pause' | 'close' | 'play' | 'camera' | 'sun' | 'earth' | 'reset' }) {
@@ -36,13 +36,6 @@ export function RoverGlyph({ kind = 'rover' }: { kind?: 'rover' | 'pause' | 'clo
   return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[kind]}</svg>;
 }
 
-function Meter({ label, value, percent, detail, tone = '' }: { label: string; value: string; percent: number; detail: string; tone?: string }) {
-  return <div className={`rg-meter ${tone}`}>
-    <span>{label}</span><strong>{value}</strong>
-    <div className="rg-meter-track" aria-hidden="true"><i style={{ width: `${Math.max(0, Math.min(100, percent))}%` }} /></div>
-    <small>{detail}</small>
-  </div>;
-}
 
 function Hold({ label, control, send, children, disabled = false, className = '' }: { label: string; control: string; send: (key: string, down: boolean) => void; children: ReactNode; disabled?: boolean; className?: string }) {
   const held = useRef(false);
@@ -81,7 +74,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const [log, setLog] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
   const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
-  const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null), map = useRef<HTMLCanvasElement>(null);
+  const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null);
   const engine = useRef<Game | null>(null), serial = useRef(0);
   const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
   const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
@@ -118,7 +111,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       onError: (e) => { if (live) { setError(e); setStage('error'); } },
     });
     engine.current = game;
-    if (sunTag.current && earthTag.current && goalTag.current && map.current) game.setTags({ sun: sunTag.current, earth: earthTag.current, goal: goalTag.current, map: map.current });
+    if (sunTag.current && earthTag.current && goalTag.current) game.setTags({ sun: sunTag.current, earth: earthTag.current, goal: goalTag.current });
     return () => { live = false; game.dispose(); if (engine.current === game) engine.current = null; };
   }, [site, t, tMax, run]);
 
@@ -174,28 +167,27 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   return <div className="rg" ref={root} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="rg-title" data-stage={stage}>
     <div className="rg-world" ref={host} aria-label="Interactive lunar terrain. Drag to orbit the camera and scroll to zoom." />
     <header className="rg-bar">
-      <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">Rover mission</h1><span>{rover.callsign} · {rover.basis} · {site?.short || site?.name}</span></div></div>
-      <div className="rg-clock"><strong>{utc(hud?.t ?? ready?.t ?? t)} UTC</strong><span>{hud?.rate ?? RATE}× simulation time{stage === 'pause' ? ' · Paused' : ''}</span></div>
+      <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">{rover.callsign}</h1><span>{site?.short || site?.name}</span></div></div>
+      {hud && stage !== 'brief' && <div className="rg-stats" aria-label="Rover status">
+        <span className={`rg-stat${hud.battPct < 20 ? ' danger' : ''}`} title={`Battery: ${signed(hud.netW)} W net`}><small>Battery</small><b>{hud.battPct.toFixed(0)}%</b><i className="rg-mini" aria-hidden="true"><u style={{ width: `${Math.max(0, Math.min(100, hud.battPct))}%` }} /></i></span>
+        <span className={`rg-stat${hud.tempC < -25 ? ' danger' : ''}`} title={hud.heaterW > 0 ? `Heater on, ${hud.heaterW.toFixed(0)} W` : 'Heater standby'}><small>Temp</small><b>{signed(hud.tempC)} °C</b></span>
+        <button className={`rg-stat ${hud.sunFrac > 0 ? 'solar' : 'danger'}`} onClick={() => engine.current?.pointCamera('sun')} title="Sun: tap to point the camera at it"><small>Sun</small><b>{hud.sunFrac > 0 ? `${hud.solarW.toFixed(0)} W` : 'No sun'}</b></button>
+        <button className={`rg-stat ${hud.earthUp ? 'signal' : 'danger'}`} onClick={() => engine.current?.pointCamera('earth')} title="Earth: tap to point the camera at it"><small>Earth</small><b>{hud.earthUp ? 'Connected' : 'No signal'}</b></button>
+        <span className="rg-stat" title={`${CAM_VIEWS.find((v) => v.id === hud.view)?.label ?? 'Chase'} camera`}><small>Speed</small><b>{Math.abs(hud.speed).toFixed(1)} m/s</b></span>
+        <span className={`rg-stat score${hud.combo > 1 ? ' combo' : ''}`} aria-live="polite" title="Score and science targets scanned"><small>Score</small><b key={hud.score}>{fmt(hud.score)}</b>{hud.combo > 1 && <em>×{hud.combo}</em>}<small className="rg-targets">◆ {hud.bonus}/{hud.bonusTotal}</small></span>
+      </div>}
+      <div className="rg-clock"><strong>{utc(hud?.t ?? ready?.t ?? t)} UTC</strong><span>{hud?.rate ?? RATE}× time{stage === 'pause' ? ' · Paused' : ''}</span></div>
       <div className="rg-bar-actions"><button onClick={() => { pause(); setHelp(true); }} disabled={stage !== 'play' && stage !== 'pause'}>Controls</button><button onClick={playing ? pause : resume} disabled={stage !== 'play' && stage !== 'pause'} aria-label={playing ? 'Pause mission' : 'Resume mission'}><RoverGlyph kind={playing ? 'pause' : 'play'} /></button><button onClick={close} aria-label="Exit rover mission"><RoverGlyph kind="close" /></button></div>
     </header>
 
     <div className="rg-flight" inert={blocked} aria-hidden={blocked}>
-      <section className="rg-telemetry" aria-label="Rover telemetry">
-        <Meter label="Battery" value={`${hud?.battPct.toFixed(0) ?? '0'}%`} percent={hud?.battPct ?? 0} detail={`${signed(hud?.netW ?? 0)} W net`} tone={(hud?.battPct ?? 100) < 20 ? 'danger' : ''} />
-        <Meter label="Temperature" value={`${signed(hud?.tempC ?? 10)} °C`} percent={((hud?.tempC ?? 10) + 40) / 80 * 100} detail={(hud?.heaterW ?? 0) > 0 ? `${hud?.heaterW.toFixed(0)} W heater` : 'Heater standby'} tone={(hud?.tempC ?? 10) < -25 ? 'danger' : ''} />
-        <button className={`rg-link ${hud && hud.sunFrac > 0 ? 'solar' : 'danger'}`} onClick={() => engine.current?.pointCamera('sun')} title="Point the camera toward the Sun"><RoverGlyph kind="sun" /><span><b>{hud && hud.sunFrac > 0 ? `${hud.solarW.toFixed(0)} W solar` : 'No power received'}</b><small>Sun {deg(hud?.sunAz ?? 0)} az · {deg(hud?.sunEl ?? 0)} el</small></span></button>
-        <button className={`rg-link ${hud?.earthUp ? 'signal' : 'danger'}`} onClick={() => engine.current?.pointCamera('earth')} title="Point the camera toward Earth"><RoverGlyph kind="earth" /><span><b>{hud?.earthUp ? 'Earth connected' : 'No signal'}</b><small>Earth {deg(hud?.earthAz ?? 0)} az · {deg(hud?.earthEl ?? 0)} el</small></span></button>
-      </section>
-
-      <aside className="rg-objective">
-        <div className="rg-steps" aria-label="Mission progress">{(hud?.steps ?? mission.steps).map((step, i, all) => { const at = hud ? (hud.phase === 'done' ? all.length : all.indexOf(hud.phase)) : 0; return <span key={step} className={complete || at > i ? 'finished' : at === i ? 'current' : ''} title={STEP_NAME[step]}>{complete || at > i ? '✓' : i + 1}</span>; })}</div>
-        <div className="rg-objective-heading"><h2>{hud?.obj.title ?? 'Preparing mission'}</h2>{hud?.objDist != null && <b>{hud.objDist.toFixed(0)} m</b>}</div>
-        <p>{hud?.obj.text}</p>
-        {hud?.phase === 'charge' && stopped && hud.objDist !== null && hud.objDist < 21 && <p className="rg-tip">Hold <kbd>F</kbd> or Wait to charge faster.</p>}
-        {hud?.phase === 'ice' && <div className={`rg-detector ${hud.canDig ? 'locked' : ''}`}><span>Ice detector <b>{hud.canDig ? 'Deposit located' : `${(hud.ice * 100).toFixed(0)}%`}</b></span><div><i style={{ width: `${hud.ice * 100}%` }} /></div><small>{hud.found} / {hud.total} samples collected</small></div>}
-      </aside>
-
-      <aside className="rg-navigation"><div className="rg-map-head"><b>Surface map</b><span>N ↑</span></div><canvas ref={map} width="320" height="320" aria-label="North-up map showing the rover, sunlight and current objective." /><div className="rg-map-legend"><span>▲ Rover</span><span>◇ Goal</span><span>1.6 km</span></div><div className="rg-nav-readout"><span>Heading <b>{(hud?.heading ?? 0).toFixed(0).padStart(3, '0')}°</b></span><span>Slope <b>{signed(hud?.slope ?? 0)}°</b></span><span>Travel <b>{(hud?.odo ?? 0).toFixed(0)} m</b></span></div></aside>
+      {hud && <div className="rg-goal" aria-label="Current objective" title={hud.obj.text}>
+        <span className="rg-steps" aria-label="Mission progress">{hud.steps.map((step, i, all) => { const at = hud.phase === 'done' ? all.length : all.indexOf(hud.phase); return <span key={step} className={complete || at > i ? 'finished' : at === i ? 'current' : ''} title={STEP_NAME[step]}>{complete || at > i ? '✓' : i + 1}</span>; })}</span>
+        <b>{hud.obj.title}</b>{hud.objDist != null && <em>{hud.objDist.toFixed(0)} m</em>}
+        <span className="rg-goal-text">{hud.obj.text}</span>
+        {hud.phase === 'charge' && stopped && hud.objDist !== null && hud.objDist < 21 && <span className="rg-goal-tip">Hold <kbd>F</kbd> to charge faster</span>}
+        {hud.phase === 'ice' && <span className={`rg-goal-ice${hud.canDig ? ' locked' : ''}`}>Ice {hud.canDig ? 'found' : `${(hud.ice * 100).toFixed(0)}%`}<i aria-hidden="true"><u style={{ width: `${hud.ice * 100}%` }} /></i>{hud.found}/{hud.total}</span>}
+      </div>}
 
       <div className="rg-tags" aria-hidden="true">
         <div ref={sunTag} className={`rg-tag ${hud && hud.sunFrac > 0 ? 'solar' : 'danger'}`}><span><RoverGlyph kind="sun" /><b>Sun</b><small>{hud && hud.sunFrac > 0 ? `${Math.round(hud.sunFrac * 100)}% visible` : 'No power received'}</small></span></div>
@@ -204,16 +196,9 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       </div>
 
       {hud && !hud.earthUp && (transmit || Date.now() - signalFlash < 5000) && <div className="rg-alert" role="alert"><RoverGlyph kind="earth" /><span><b>No Earth signal</b> Earth is behind the terrain, so you can't transmit. Drive until Earth is in view, or hold <kbd>F</kbd> to wait for it.</span></div>}
-      {hud && <div className={`rg-points${hud.combo > 1 ? ' combo' : ''}`} aria-live="polite" aria-label={`Score ${fmt(hud.score)} points`}>
-        <span className="rg-pts-star" aria-hidden="true">★</span>
-        <span className="rg-pts-n"><strong key={hud.score}>{fmt(hud.score)}</strong><small>points</small></span>
-        {hud.combo > 1 && <em>×{hud.combo} combo!</em>}
-        <span className="rg-pts-t" title="Science targets scanned"><i aria-hidden="true">◆</i> {hud.bonus}/{hud.bonusTotal}</span>
-      </div>}
       {hud?.gain && <div className="rg-gain" key={hud.gain.id}><b>+{fmt(hud.gain.pts)}</b><span>{hud.gain.label}</span></div>}
       {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}
-      <div className="rg-drive-data"><span>{CAM_VIEWS.find((v) => v.id === hud?.view)?.label ?? 'Chase'} camera</span><strong>{Math.abs(hud?.speed ?? 0).toFixed(1)}<small> m/s</small></strong><span>View {(hud?.camAz ?? 0).toFixed(0).padStart(3, '0')}°</span></div>
 
       <footer className="rg-controls">
         <div className="rg-dpad" role="group" aria-label="Driving controls">
