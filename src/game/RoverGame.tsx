@@ -151,6 +151,17 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const retry = () => { engine.current?.retry(); setStage('play'); setHelp(false); setLog(false); setConfirmExit(false); root.current?.focus(); };
   const last = messages[messages.length - 1];
   const complete = hud?.phase === 'done';
+  // warnings, most urgent first: big, pulsing pop-ups at the top of the screen while the condition lasts
+  const alerts: { id: string; title: string; text: ReactNode; icon: 'sun' | 'earth'; critical: boolean }[] = [];
+  if (hud && stage === 'play') {
+    if (hud.battPct < 20) alerts.push({ id: 'batt', icon: 'sun', critical: hud.battPct < 10, title: hud.battPct < 10 ? 'Battery critical' : 'Low battery',
+      text: hud.sunFrac > 0 ? 'Stop in the sunlight and hold F to recharge.' : 'Drive into sunlight now, or the rover will shut down.' });
+    if (hud.tempC < -25) alerts.push({ id: 'cold', icon: 'sun', critical: hud.tempC < -33, title: hud.tempC < -33 ? 'Freezing!' : 'Getting cold',
+      text: `${signed(hud.tempC)} °C. The electronics freeze at −40 °C: get out of the shadow.` });
+    // the signal warning keeps its old rule: while a transmit is due, or for 5 s after the signal drops
+    if (!hud.earthUp && (transmit || Date.now() - signalFlash < 5000)) alerts.push({ id: 'signal', icon: 'earth', critical: false, title: 'No Earth signal',
+      text: <>Earth is behind the terrain, so you can't transmit. Drive until Earth is in view, or hold <kbd>F</kbd> to wait for it.</> });
+  }
 
   function downloadLog() {
     const data = { mission: 'Rover education scenario', rover: `${rover.callsign} (${rover.basis})`, score: stats?.score ?? hud?.score, site: site?.name, latitude: site?.lat, longitude: site?.lon, startedUTC: ready ? new Date(ready.t).toISOString() : null, timeUTC: hud ? new Date(hud.t).toISOString() : null, stats, phase: hud?.phase, batteryPct: hud?.battPct, temperatureC: hud?.tempC, messages: messages.map(({ from, text }) => ({ from, text })), note: 'NASA terrain and ephemeris; fictional ice deposits, solar equipment, power, thermal and motion model.' };
@@ -175,9 +186,9 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     </header>
 
     <div className="rg-flight" inert={blocked} aria-hidden={blocked}>
-      {hud && <div className="rg-goal" aria-label="Current objective" title={hud.obj.text}>
+      {hud && <div className="rg-goal" key={hud.obj.title} aria-label="Current objective" title={hud.obj.text}>
         <span className="rg-steps" aria-label="Mission progress">{phaseNames.map((name, i) => <span key={name} className={complete || PHASES.indexOf(hud.phase) > i ? 'finished' : hud.obj.n === i + 1 ? 'current' : ''} title={name}>{complete || PHASES.indexOf(hud.phase) > i ? '✓' : i + 1}</span>)}</span>
-        <b>{hud.obj.title}</b>{hud.objDist != null && <em>{hud.objDist.toFixed(0)} m</em>}
+        <span className="rg-goal-k">Task {Math.min(hud.obj.n, phaseNames.length)}</span><b>{hud.obj.title}</b>{hud.objDist != null && <em>{hud.objDist.toFixed(0)} m</em>}
         <span className="rg-goal-text">{hud.obj.text}</span>
         {hud.phase === 'charge' && stopped && hud.objDist !== null && hud.objDist < 21 && <span className="rg-goal-tip">Hold <kbd>F</kbd> to charge faster</span>}
         {hud.phase === 'ice' && <span className={`rg-goal-ice${hud.canDig ? ' locked' : ''}`}>Ice {hud.canDig ? 'found' : `${(hud.ice * 100).toFixed(0)}%`}<i aria-hidden="true"><u style={{ width: `${hud.ice * 100}%` }} /></i>{hud.found}/{hud.total}</span>}
@@ -189,7 +200,9 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
         <div ref={goalTag} className="rg-tag goal"><span><b>◇ {hud?.phase === 'ice' ? 'Survey area' : 'Objective'}</b><small>{hud?.objDist?.toFixed(0)} m</small></span></div>
       </div>
 
-      {hud && !hud.earthUp && (transmit || Date.now() - signalFlash < 5000) && <div className="rg-alert" role="alert"><RoverGlyph kind="earth" /><span><b>No Earth signal</b> Earth is behind the terrain, so you can't transmit. Drive until Earth is in view, or hold <kbd>F</kbd> to wait for it.</span></div>}
+      {alerts.length > 0 && <div className="rg-alerts" role="alert">{alerts.map((a) => (
+        <div key={a.id} className={`rg-alert${a.critical ? ' critical' : ''}`}><RoverGlyph kind={a.icon} /><span><b>{a.title}</b>{a.text}</span></div>
+      ))}</div>}
       {hud?.gain && <div className="rg-gain" key={hud.gain.id}><b>+{fmt(hud.gain.pts)}</b><span>{hud.gain.label}</span></div>}
       {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}

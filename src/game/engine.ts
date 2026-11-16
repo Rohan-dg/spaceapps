@@ -22,6 +22,9 @@ import {
   RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, type Spec,
 } from './sim';
 import { buildRover, disposeBuilt, roverById, roverEnvironment, type Built, type RoverDef } from './rovers';
+
+/** How much faster than each rover's listed top speed the game drives. */
+const SPEED_BOOST = 1.35;
 import type { Req, Res } from './worker';
 
 const NEAR = 800, MID = 7600, FAR = 152000, BOUND = 700;
@@ -137,7 +140,9 @@ export class Game {
   // rover
   private rover = new THREE.Group(); private tilt = new THREE.Group();
   private wheels: THREE.Group[] = [];
-  private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec; private built: Built | null = null; private digNow = 0;
+  private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec;
+  /** Top speed on level ground: each rover's own figure, sped up for the game so drives feel brisk (power at top speed is unchanged). */
+  private get vMax() { return this.spec.vMax * SPEED_BOOST; } private built: Built | null = null; private digNow = 0;
   private roverParts: THREE.Object3D[] = []; private roverGen = 0;
   // score
   private score = 0; private combo = 1; private comboAt = -1e9; private taken: boolean[] = []; private gain: Hud['gain'] = null; private gainN = 0; private parts: [string, number][] = [];
@@ -630,14 +635,14 @@ export class Game {
     const fx = Math.sin(this.psi), fn = Math.cos(this.psi);
     this.slope = Math.atan((this.gy(this.e + fx * 0.6, this.n + fn * 0.6) - this.gy(this.e - fx * 0.6, this.n - fn * 0.6)) / 1.2) / D2R;
     const climb = thr >= 0 ? this.slope : -this.slope;
-    let vT = thr * this.spec.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
+    let vT = thr * this.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
     if (climb > 25 && thr !== 0) {
       vT = -Math.sign(thr) * 0.7;
       if (!this.flagsSaid.has('slope')) { this.flagsSaid.add('slope'); this.say({ from: 'RASSOR', text: 'This slope is too steep. Approach along a gentler route.' }); }
     }
     const acc = K.has('brake') ? 12 : thr === 0 ? 5 : 4.2;
     this.v += clamp((K.has('brake') ? 0 : vT) - this.v, -acc * dt, acc * dt);
-    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / this.spec.vMax), k(8, dt));
+    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / this.vMax), k(8, dt));
     this.psi += this.yawRate * dt;
     this.e += fx * this.v * dt; this.n += fn * this.v * dt; this.odo += Math.abs(this.v) * dt;
     const r = Math.hypot(this.e, this.n);
@@ -659,7 +664,7 @@ export class Game {
     const lamp = this.lampAuto ? this.sky.sunFrac < 0.3 : this.lampOn;
     this.lampOn = lamp;
     this.vit = stepVitals(this.vit, (dt * rate) / 3600, {
-      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / this.spec.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp,
+      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / this.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp,
     }, this.spec);
     this.minTemp = Math.min(this.minTemp, this.vit.tempC);
     if (this.vit.wh / this.spec.batteryWh < 0.2 && this.sky.sunFrac < 0.2) this.once('lowBatt');
@@ -850,7 +855,7 @@ export class Game {
     } else {
       // perspective zoom: the long lens pulls the camera back as it narrows, so the rover stays the same size
       // while the hills, the Sun and Earth behind it swell
-      const sp = Math.abs(this.v) / this.spec.vMax, wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
+      const sp = Math.abs(this.v) / this.vMax, wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
       const dist = this.camDist * (Math.tan((wide / 2) * D2R) / Math.tan((fov / 2) * D2R));
       const p = lerp(this.camPitch, Math.min(this.camPitch, 9), this.lens) * D2R;
       const look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));

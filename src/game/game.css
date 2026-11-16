@@ -458,3 +458,64 @@
   .rg .rg-controls { left: 6px; right: 6px; bottom: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { .rg .rg-stat.score b { animation: none; } }
+
+/* ---------- big, bright warnings and tasks ----------
+   Flashy but easy on the eyes: slow (1.6 s) glow pulses, no strobing, nothing at full white. Reduced motion keeps
+   the size and colour and drops the movement. */
+.rg-alerts { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); z-index: 4; width: min(640px, calc(100% - 32px)); display: grid; gap: 10px; pointer-events: none; }
+.rg .rg-alerts .rg-alert { position: static; transform: none; max-width: none; top: auto; left: auto;
+  display: flex; align-items: center; gap: 16px; padding: 16px 22px; border-radius: 20px; border: 2px solid #ff6363;
+  background: linear-gradient(135deg, rgba(120, 22, 26, 0.92), rgba(48, 12, 16, 0.92)); color: #fff; font-size: 16px; line-height: 1.45;
+  box-shadow: 0 0 0 0 rgba(255, 99, 99, 0.5), 0 18px 40px -14px #000;
+  animation: rg-alert-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both, rg-alert-glow 1.6s ease-in-out 420ms infinite; }
+.rg .rg-alerts .rg-alert svg { flex: none; width: 34px; height: 34px; color: #ff8a8a; animation: rg-alert-icon 1.6s ease-in-out infinite; }
+.rg .rg-alerts .rg-alert b { display: block; margin: 0 0 2px; font-size: 21px; font-weight: 800; letter-spacing: -0.01em; color: #ffd0d0; text-transform: uppercase; }
+.rg .rg-alerts .rg-alert kbd { font-size: 13px; }
+.rg .rg-alerts .rg-alert.critical { border-color: #ff8f6b; background: linear-gradient(135deg, rgba(150, 26, 22, 0.95), rgba(70, 12, 12, 0.95)); animation-duration: 420ms, 1.1s; }
+.rg .rg-alerts .rg-alert.critical b { color: #fff; }
+@keyframes rg-alert-pop { from { opacity: 0; transform: translateY(-14px) scale(0.92); } }
+@keyframes rg-alert-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 99, 99, 0.45), 0 0 24px -4px rgba(255, 99, 99, 0.35), 0 18px 40px -14px #000; }
+  50% { box-shadow: 0 0 0 8px rgba(255, 99, 99, 0), 0 0 46px 2px rgba(255, 99, 99, 0.55), 0 18px 40px -14px #000; }
+}
+@keyframes rg-alert-icon { 50% { transform: scale(1.12); } }
+/* a soft red vignette round the screen edge while anything is critical */
+.rg:has(.rg-alert.critical) .rg-world::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  box-shadow: inset 0 0 140px 20px rgba(255, 60, 60, 0.32); animation: rg-vignette 1.1s ease-in-out infinite; }
+@keyframes rg-vignette { 50% { opacity: 0.45; } }
+/* the danger readings in the top bar pulse too */
+.rg .rg-stat.danger { animation: rg-stat-warn 1.6s ease-in-out infinite; }
+@keyframes rg-stat-warn { 50% { background: rgba(255, 99, 99, 0.28); box-shadow: 0 0 18px rgba(255, 99, 99, 0.45); } }
+
+/* the task: a big glass bar with the step dots, a "Task n" label and a glow sweep whenever a new one arrives */
+.rg .rg-goal { top: 84px; gap: 14px; padding: 10px 22px 10px 12px; font-size: 16px; border-width: 1.5px; border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(255, 99, 99, 0.25), 0 16px 40px -16px #000; overflow: hidden;
+  animation: rg-goal-in 560ms cubic-bezier(0.34, 1.56, 0.64, 1) both, rg-goal-glow 2.4s ease-out 1; }
+.rg .rg-goal::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%); transform: translateX(-120%); animation: rg-goal-sweep 1.4s ease-out 250ms 1 both; }
+.rg .rg-goal b { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.rg .rg-goal em { font-size: 16px; font-weight: 600; color: #ffb3b3; font-variant-numeric: tabular-nums; }
+.rg .rg-goal-text { font-size: 15px; color: rgba(255, 255, 255, 0.82); }
+.rg-goal-k { flex: none; padding: 4px 10px; border-radius: 999px; background: #ff6363; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.rg .rg-goal .rg-steps { gap: 5px; margin: 0; }
+.rg .rg-goal .rg-steps > span { width: 30px; height: 30px; font-size: 13px; }
+.rg .rg-goal .rg-steps > span.current { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2), 0 0 16px rgba(255, 255, 255, 0.55); animation: rg-step-on 1.8s ease-in-out infinite; }
+.rg .rg-goal-tip, .rg .rg-goal-ice { padding: 5px 12px; font-size: 14px; }
+.rg .rg-goal-ice i { width: 80px; height: 6px; border-radius: 3px; }
+@keyframes rg-goal-in { from { opacity: 0; transform: translate(-50%, -12px) scale(0.94); } to { transform: translate(-50%, 0); } }
+@keyframes rg-goal-glow { 0% { box-shadow: 0 0 0 2px rgba(255, 99, 99, 0.9), 0 0 50px 6px rgba(255, 99, 99, 0.55), 0 16px 40px -16px #000; } 100% { box-shadow: 0 0 0 1px rgba(255, 99, 99, 0.25), 0 0 0 0 transparent, 0 16px 40px -16px #000; } }
+@keyframes rg-goal-sweep { to { transform: translateX(120%); } }
+@keyframes rg-step-on { 50% { box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.12), 0 0 22px rgba(255, 255, 255, 0.7); } }
+.rg .rg-gain, .rg .rg-near { top: 146px; }
+@media (max-width: 900px) {
+  .rg .rg-goal { top: 112px; font-size: 14px; padding: 8px 14px 8px 8px; gap: 10px; }
+  .rg .rg-goal b { font-size: 16px; }
+  .rg .rg-goal .rg-steps > span { width: 24px; height: 24px; font-size: 11px; }
+  .rg-alerts { top: 168px; }
+  .rg .rg-alerts .rg-alert { padding: 12px 14px; font-size: 14px; gap: 12px; }
+  .rg .rg-alerts .rg-alert b { font-size: 17px; }
+  .rg .rg-alerts .rg-alert svg { width: 26px; height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg .rg-alerts .rg-alert, .rg .rg-alerts .rg-alert svg, .rg .rg-stat.danger, .rg .rg-goal, .rg .rg-goal::after, .rg .rg-goal .rg-steps > span.current, .rg:has(.rg-alert.critical) .rg-world::after { animation: none; }
+}
