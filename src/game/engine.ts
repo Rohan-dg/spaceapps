@@ -24,6 +24,8 @@ import {
 import { buildRover, disposeBuilt, roverById, roverEnvironment, type Built, type RoverDef } from './rovers';
 import type { Req, Res } from './worker';
 
+/** top speed multiplier while Shift is held */
+const BOOST = 1.8;
 const NEAR = 800, MID = 7600, FAR = 152000, BOUND = 700;
 const LIT_N = 160, PLAN_N = 128;
 /** Height of the solar panels and antenna above the ground, for the Sun and Earth tests (m). */
@@ -36,7 +38,7 @@ export interface Hud {
   tempC: number; heaterW: number; speed: number; heading: number; slope: number; ice: number; canDig: boolean;
   busy: null | { kind: 'dig' | 'tx'; p: number }; obj: Objective; objDist: number | null; objBearing: number | null;
   found: number; total: number; sunAz: number; sunEl: number; earthAz: number; earthEl: number;
-  lamp: boolean; view: CamView; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number;
+  lamp: boolean; view: CamView; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number; boost: boolean;
   score: number; combo: number; bonus: number; bonusTotal: number; steps: Phase[]; gain: { id: number; pts: number; label: string } | null; nearBonus: number | null;
 }
 export interface Stats { odo: number; hours: number; found: number; minTempC: number; battPct: number; score: number; bonus: number; bonusTotal: number; parts: [string, number][]; stars: number; playS: number }
@@ -161,7 +163,7 @@ export class Game {
   private view: CamView = 'chase'; private tgt = new THREE.Vector3(); private camRoll = 0; private exposure = 1.2;
   // rules
   private simT = 0; private vit: Vitals = newVitals(); private plan!: MissionPlan; private quest!: Quest;
-  private busy: null | { kind: 'dig' | 'tx'; p: number } = null; private ff = false; private lampAuto = true; private lampOn = false;
+  private busy: null | { kind: 'dig' | 'tx'; p: number } = null; private ff = false; private boost = false; private lampAuto = true; private lampOn = false;
   private keys = new Set<string>(); private held = 0;
   private queue: { from: string; text: string }[] = []; private flagsSaid = new Set<string>();
   private check: { e: number; n: number; psi: number; vit: Vitals; simT: number; quest: Quest; odo: number; score: number; taken: boolean[]; parts: [string, number][] } | null = null;
@@ -459,7 +461,7 @@ export class Game {
   }
   private onBlur = () => { this.keys.clear(); };
   private onContextLost = (ev: Event) => { ev.preventDefault(); this.fail(new Error('The graphics context was lost. Close other graphics-heavy tabs, then retry.')); };
-  private static MAP: Record<string, string> = { arrowup: 'w', arrowdown: 's', arrowleft: 'a', arrowright: 'd', ' ': 'brake' };
+  private static MAP: Record<string, string> = { arrowup: 'w', arrowdown: 's', arrowleft: 'a', arrowright: 'd', ' ': 'brake', shift: 'boost' };
   private onKey = (ev: KeyboardEvent) => {
     if (this.state !== 'play') return;
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -468,7 +470,7 @@ export class Game {
     const key = Game.MAP[ev.key.toLowerCase()] ?? ev.key.toLowerCase();
     if (key === 'escape') return; // the HUD owns pause
     // the game owns the keyboard while it is open: the app's shortcuts (space = play, arrows = time) must not fire
-    if (!['w', 'a', 's', 'd', 'brake', 'e', 't', 'f', 'z', 'c', 'l'].includes(key)) return;
+    if (!['w', 'a', 's', 'd', 'brake', 'boost', 'e', 't', 'f', 'z', 'c', 'l'].includes(key)) return;
     ev.stopPropagation();
     ev.preventDefault();
     if (ev.type === 'keydown') { if (!ev.repeat) this.press(key, true); } else this.press(key, false);
@@ -653,14 +655,16 @@ export class Game {
     const fx = Math.sin(this.psi), fn = Math.cos(this.psi);
     this.slope = Math.atan((this.gy(this.e + fx * 0.6, this.n + fn * 0.6) - this.gy(this.e - fx * 0.6, this.n - fn * 0.6)) / 1.2) / D2R;
     const climb = thr >= 0 ? this.slope : -this.slope;
-    let vT = thr * this.spec.vMax * (thr < 0 ? 0.55 : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
+    // Shift: boost. The motors run past their rating, so top speed rises by 80% and the battery drains about four times as fast
+    this.boost = K.has('boost') && thr > 0 && !dead && this.vit.wh > 0;
+    let vT = thr * this.spec.vMax * (thr < 0 ? 0.55 : this.boost ? BOOST : 1) * clamp(1 - Math.max(0, climb) / 27, 0, 1);
     if (climb > 25 && thr !== 0) {
       vT = -Math.sign(thr) * 0.7;
       if (!this.flagsSaid.has('slope')) { this.flagsSaid.add('slope'); this.say({ from: 'RASSOR', text: 'This slope is too steep. Approach along a gentler route.' }); }
     }
-    const acc = K.has('brake') ? 12 : thr === 0 ? 5 : 4.2;
+    const acc = K.has('brake') ? 12 : thr === 0 ? 5 : this.boost ? 7 : 4.2;
     this.v += clamp((K.has('brake') ? 0 : vT) - this.v, -acc * dt, acc * dt);
-    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.abs(this.v) / this.spec.vMax), k(8, dt));
+    this.yawRate = lerp(this.yawRate, steer * (1.9 - 0.9 * Math.min(1, Math.abs(this.v) / this.spec.vMax)), k(8, dt));
     this.psi += this.yawRate * dt;
     this.e += fx * this.v * dt; this.n += fn * this.v * dt; this.odo += Math.abs(this.v) * dt;
     const r = Math.hypot(this.e, this.n);
@@ -682,7 +686,7 @@ export class Game {
     const lamp = this.lampAuto ? this.sky.sunFrac < 0.3 : this.lampOn;
     this.lampOn = lamp;
     this.vit = stepVitals(this.vit, (dt * rate) / 3600, {
-      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / this.spec.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp,
+      sunFrac: this.sky.sunFrac, drive: clamp((Math.abs(this.v) / this.spec.vMax) * (1 + Math.max(0, climb) / 15), 0, 2), dig: this.busy?.kind === 'dig', tx: this.busy?.kind === 'tx', lamp, boost: this.boost && Math.abs(this.v) > 0.3,
     }, this.spec);
     this.minTemp = Math.min(this.minTemp, this.vit.tempC);
     if (this.vit.wh / this.spec.batteryWh < 0.2 && this.sky.sunFrac < 0.2) this.once('lowBatt');
@@ -828,7 +832,7 @@ export class Game {
       const i = this.dustI++ % DN; dp.setXYZ(i, x, y, z); this.dustV.set([vx, vy, vz], i * 3); this.dustLife[i] = 1;
     };
     const sp = Math.abs(this.v);
-    if (!this.o.reduce && sp > 0.6) for (let c = 0; c < Math.ceil(sp * dt * 9); c++) {
+    if (!this.o.reduce && sp > 0.6) for (let c = 0; c < Math.ceil(sp * dt * (this.boost ? 16 : 9)); c++) {
       const side = Math.random() < 0.5 ? 0 : 1, dl = side ? -G.tw : G.tw, back = -(G.wb + 0.05) * Math.sign(this.v);
       spawn(e + f.x * back + l.x * dl, rearH[side] + 0.05, -n + f.z * back + l.z * dl, -f.x * this.v * 0.25 + (Math.random() - 0.5) * 0.8, 0.5 + Math.random() * 1.1, -f.z * this.v * 0.25 + (Math.random() - 0.5) * 0.8);
     }
@@ -873,7 +877,7 @@ export class Game {
     } else {
       // perspective zoom: the long lens pulls the camera back as it narrows, so the rover stays the same size
       // while the hills, the Sun and Earth behind it swell
-      const sp = Math.abs(this.v) / this.spec.vMax, wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
+      const sp = Math.min(1.6, Math.abs(this.v) / this.spec.vMax), wide = 58 + (this.o.reduce ? 0 : 7 * sp * sp), fov = Math.exp(lerp(Math.log(wide), Math.log(17), this.lens));
       const dist = this.camDist * (Math.tan((wide / 2) * D2R) / Math.tan((fov / 2) * D2R));
       const p = lerp(this.camPitch, Math.min(this.camPitch, 9), this.lens) * D2R;
       const look = new THREE.Vector3(Math.sin(az) * Math.cos(p), -Math.sin(p), -Math.cos(az) * Math.cos(p));
@@ -931,7 +935,7 @@ export class Game {
       ice, canDig: this.plan.ice.some((p, i) => !this.quest.found[i] && distance(p, pos) <= DIG_M), busy: this.busy ? { ...this.busy } : null, obj: ob,
       objDist: ob.target ? distance(ob.target, pos) : null, objBearing: ob.target ? ((Math.atan2(ob.target.e - this.e, ob.target.n - this.n) / D2R) + 360) % 360 : null,
       found: this.quest.found.filter(Boolean).length, total: this.quest.found.length, sunAz: s.sunAz, sunEl: s.sunEl, earthAz: s.earthAz, earthEl: s.earthEl,
-      lamp: this.lampOn, view: this.view, tele: this.lensTo > 0, odo: this.odo, dead: this.vit.wh <= 0, phase: this.quest.phase, camAz: ((this.camAz % 360) + 360) % 360, held: this.held,
+      lamp: this.lampOn, view: this.view, tele: this.lensTo > 0, odo: this.odo, dead: this.vit.wh <= 0, phase: this.quest.phase, camAz: ((this.camAz % 360) + 360) % 360, held: this.held, boost: this.boost,
       steps: stepsOf(this.quest), score: this.score, combo: this.playS - this.comboAt < 40 ? this.combo : 1, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, gain: this.gain,
       nearBonus: this.plan.bonus.reduce<number | null>((m, p, i) => (this.taken[i] ? m : Math.min(m ?? Infinity, distance(p, pos))), null),
     };

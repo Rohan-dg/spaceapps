@@ -159,3 +159,11 @@ describe('missions', () => {
     expect(q.phase).toBe('haven');
   });
 });
+
+describe('boost', () => {
+  it('drains the battery several times faster than normal driving', () => {
+    const v = newVitals(80), l = { sunFrac: 0, drive: 1, dig: false, tx: false, lamp: false };
+    const plain = v.wh - stepVitals(v, 0.1, l).wh, boosted = v.wh - stepVitals(v, 0.1, { ...l, boost: true }).wh;
+    expect(boosted / plain).toBeGreaterThan(2.5);
+  });
+});

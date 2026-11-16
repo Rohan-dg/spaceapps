@@ -1,0 +1,85 @@
+/* =====================================================================================================
+   Liquid glass, closer to macOS Tahoe: clearer panes with a stronger blur and more colour pulled through,
+   a bright specular edge along the top, a faint inner rim all round, a soft inner glow and a deep shadow.
+   Panels also catch a soft light under the cursor (src/lib/pointerGlow.ts sets --mx, --my, --px, --py and
+   fades --ga), and buttons give a little when pressed. Loaded after index.css; the game's stylesheet loads later (lazily), so its rules here use .rg.rg to win.
+   ===================================================================================================== */
+@property --mx { syntax: '<length>'; inherits: false; initial-value: -9999px; }
+@property --my { syntax: '<length>'; inherits: false; initial-value: -9999px; }
+@property --px { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --py { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --ga { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+:root {
+  --tahoe-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.045) 36%, rgba(255, 255, 255, 0.025) 70%, rgba(255, 255, 255, 0.06) 100%);
+  --tahoe-blur: blur(30px) saturate(190%);
+  --tahoe-edge: rgba(255, 255, 255, 0.13);
+  --tahoe-edge-top: rgba(255, 255, 255, 0.26);
+  --tahoe-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 14px 28px -18px rgba(255, 255, 255, 0.14),
+    0 1px 1px rgba(0, 0, 0, 0.22),
+    0 26px 64px -26px rgba(0, 0, 0, 0.8);
+  --tahoe-shadow-sm:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.06),
+    0 10px 26px -14px rgba(0, 0, 0, 0.7);
+}
+
+/* the panes themselves */
+.dash { --g-bg: var(--tahoe-pane), rgba(16, 18, 23, 0.34); --g-blur: var(--tahoe-blur); --g-line: var(--tahoe-edge); --g-hi: rgba(255, 255, 255, 0.3); }
+.edu { --eg: var(--tahoe-pane), rgba(16, 18, 23, 0.36); --eblur: var(--tahoe-blur); --eline: var(--tahoe-edge); --ehi: rgba(255, 255, 255, 0.3); }
+.rg.rg { --rg-g: var(--tahoe-pane), rgba(16, 18, 22, 0.44); --rg-gl: var(--tahoe-edge); --rg-blur: var(--tahoe-blur); }
+
+/* every pane that follows the cursor: a soft light at the pointer, faded in and out with --ga */
+.dash .glass, .dash .pill, .dash .chip, .dash .dt-pill, .dash .hud-tr,
+.edu .edu-glass, .edu .edu-card, .edu .edu-pg, .edu .edu-dock button, .edu .edu-top .ui-toggle, .edu .edu-actions, .edu .edu-rover, .edu .hud-seg button, .edu .hud-toggle,
+.chooser-backdrop .chooser, .chooser-backdrop .chooser-card,
+.rg.rg .rg-bar, .rg.rg .rg-goal, .rg.rg button.rg-radio, .rg.rg .rg-controls {
+  --pg: radial-gradient(var(--pg-r, 220px) circle at var(--mx) var(--my), color-mix(in srgb, var(--pg-c, #fff) calc(var(--ga) * var(--pg-a, 11%)), transparent), transparent 72%);
+}
+.dash .glass, .edu .edu-glass, .edu .edu-card, .edu .edu-pg, .chooser-backdrop .chooser, .rg.rg .rg-controls, .rg.rg .rg-bar { --pg-r: 300px; }
+.chooser-backdrop .chooser { --pg-r: 460px; --pg-a: 7%; }
+.chooser-backdrop .chooser-card { --pg-c: var(--mode, #fff); --pg-a: 20%; }
+
+.dash .glass { background: var(--pg), var(--g-bg); border-color: var(--g-line); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow); }
+.dash .pill, .dash .hud-tr { background: var(--pg), var(--tahoe-pane), rgba(16, 18, 22, 0.4); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow-sm); }
+.dash .chip { background: var(--pg), rgba(16, 18, 22, 0.38); -webkit-backdrop-filter: var(--tahoe-blur); backdrop-filter: var(--tahoe-blur); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
+.dash .dt-pill { background: var(--pg), var(--btn); }
+.dash .dt-pill:hover { background: var(--pg), var(--btn-hover); }
+
+.edu .edu-glass, .edu .edu-card, .edu .edu-pg, .edu .edu-top .ui-toggle, .edu .edu-actions, .edu .edu-rover {
+  background: var(--pg), var(--eg); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow); }
+.edu .edu-top .ui-toggle, .edu .edu-actions, .edu .edu-rover { box-shadow: var(--tahoe-shadow-sm); }
+.edu .edu-dock button, .edu .hud-seg button, .edu .hud-toggle { background: var(--pg), var(--eg); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow-sm); }
+.edu .edu-dock button:hover { background: var(--pg), rgba(255, 255, 255, 0.16); }
+.edu .hud-seg button[aria-checked='true'], .edu .hud-toggle.on { background: #fff; }
+
+.chooser-backdrop .chooser { background: var(--pg), var(--tahoe-pane), rgba(18, 20, 26, 0.36); -webkit-backdrop-filter: var(--tahoe-blur); backdrop-filter: var(--tahoe-blur);
+  border-color: var(--tahoe-edge); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow), 0 50px 120px -40px rgba(0, 0, 0, 0.9); }
+.chooser-backdrop .chooser-card { background: var(--pg), rgba(255, 255, 255, 0.05); border-top-color: rgba(255, 255, 255, 0.18); }
+/* the cards lean a few degrees toward the cursor */
+.chooser-backdrop .chooser-card:hover, .chooser-backdrop .chooser-card:focus-visible {
+  background: var(--pg), rgba(255, 255, 255, 0.09);
+  transform: perspective(900px) translateY(-3px) rotateX(calc(var(--py) * -3deg)) rotateY(calc(var(--px) * 4deg)); }
+
+.rg.rg .rg-bar, .rg.rg .rg-controls { background: var(--pg), var(--rg-g); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow); }
+.rg.rg .rg-goal, .rg.rg button.rg-radio, .rg.rg button.rg-radio:hover:not(:disabled) { background: var(--pg), var(--rg-g); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow-sm); }
+
+/* small motion: buttons give a little under the finger, the dock's icons lift on hover, the main call to action breathes */
+.dash button:active:not(:disabled), .edu button:active:not(:disabled), .rg.rg button:active:not(:disabled), .chooser-backdrop .chooser-card:active { scale: 0.965; }
+.dash-dock button svg, .edu .edu-actions button svg { transition: translate 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+.dash-dock button:hover:not(:disabled) svg, .edu .edu-actions button:hover svg { translate: 0 -1.5px; }
+.edu .edu-build:not(.on) { animation: tahoe-breathe 2.8s ease-in-out infinite alternate; }
+@keyframes tahoe-breathe { to { filter: brightness(1.1) saturate(1.12); } }
+/* pop-up panels arrive with a little blur, like glass coming into focus */
+.edu .edu-card, .dash .dash-alert { animation-name: tahoe-focus; animation-duration: 420ms; animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1); animation-fill-mode: both; }
+@keyframes tahoe-focus { from { opacity: 0; transform: translateY(6px) scale(0.98); filter: blur(6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .edu .edu-build:not(.on), .edu .edu-card, .dash .dash-alert { animation: none; }
+  .chooser-backdrop .chooser-card:hover, .chooser-backdrop .chooser-card:focus-visible { transform: none; }
+  .dash button:active, .edu button:active, .rg.rg button:active, .chooser-backdrop .chooser-card:active { scale: none; }
+}

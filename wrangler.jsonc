@@ -1,6 +1,6 @@
 // Cloudflare Workers deploy: static assets only, no Worker code runs.
-// Build, then deploy:  npm run build && npx wrangler deploy
-// Live at https://sol.teris.workers.dev
+// Build, then deploy to both addresses:  npm run build && npm run deploy
+// Live at https://sol.teris.workers.dev (main) and https://lunar-site-compare.cuda.workers.dev (wrangler.cuda.jsonc)
 {
   "name": "sol",
   "compatibility_date": "2026-11-01",
