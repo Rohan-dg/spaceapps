@@ -21,7 +21,7 @@ import {
   type Maps, type MissionPlan, type Objective, type Phase, type Pt, type Quest, type Vitals,
   RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, type Spec,
 } from './sim';
-import { buildRover, disposeBuilt, roverById, type Built, type RoverDef } from './rovers';
+import { buildRover, disposeBuilt, roverById, roverEnvironment, type Built, type RoverDef } from './rovers';
 import type { Req, Res } from './worker';
 
 const NEAR = 800, MID = 7600, FAR = 152000, BOUND = 700;
@@ -265,6 +265,8 @@ export class Game {
     o.host.appendChild(this.renderer.domElement);
     this.renderer.domElement.addEventListener('webglcontextlost', this.onContextLost);
     this.buildTerrain(); this.buildSky(); this.buildEffects();
+    // reflections for the rover's metal and foil (the terrain uses its own shader and ignores this)
+    this.near.environment = roverEnvironment(this.renderer); this.near.environmentIntensity = 0.25;
     cb.onStage('Unpacking the rover');
     await this.buildRover();
     if (!this.live) return;
@@ -745,6 +747,7 @@ export class Game {
     this.fill.intensity = this.lampOn ? 2.2 : 1.2;
     // sunlit regolith throws light back up onto the rover's shaded side (the only 'ambient' light on the Moon)
     this.bounce.intensity = 0.12 + 1.1 * s.sunFrac;
+    this.near.environmentIntensity = 0.08 + 0.32 * s.sunFrac;
     const lampP = this.rover.localToWorld(new THREE.Vector3(0, Math.max(0.35, G.mastH * 0.4), G.wb + 0.05)), lampD = new THREE.Vector3(0, -0.2, 1).normalize().transformDirection(this.rover.matrixWorld);
     this.U.uLampPos.value.copy(lampP); this.U.uLampDir.value.copy(lampD); this.U.uLampI.value = this.lampOn && this.vit.wh > 0 ? 5 : 0;
 
@@ -946,7 +949,7 @@ export class Game {
       const m = x as THREE.Mesh; m.geometry?.dispose?.();
       for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshBasicMaterial).map?.dispose(); mt.dispose(); }
     });
-    this.lit.forEach((l) => l.tex.dispose());
+    this.lit.forEach((l) => l.tex.dispose()); this.near.environment?.dispose();
     if (this.renderer) { this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost); this.renderer.dispose(); this.renderer.forceContextLoss(); this.renderer.domElement.remove(); }
   }
 }

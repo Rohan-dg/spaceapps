@@ -12,6 +12,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { SPEC, type Spec } from './sim';
 
 export type RoverId = 'badger' | 'frostbite' | 'dustdevil' | 'tortoise' | 'hare';
@@ -97,7 +99,11 @@ export interface Built { body: THREE.Group; wheels: THREE.Group[]; pose: (dig: n
 type Mat = THREE.Material;
 const M = (color: number, metal = 0.4, rough = 0.55, extra: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, metalness: metal, roughness: rough, ...extra });
 const mesh = (g: THREE.BufferGeometry, m: Mat | Mat[], x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); return o; };
-const box = (w: number, h: number, d: number, m: Mat | Mat[], x = 0, y = 0, z = 0) => mesh(new THREE.BoxGeometry(w, h, d), m, x, y, z);
+/** a box with softly bevelled edges, so its corners catch highlights like machined or folded metal (tiny parts stay sharp) */
+const box = (w: number, h: number, d: number, m: Mat | Mat[], x = 0, y = 0, z = 0) => {
+  const lo = Math.min(w, h, d);
+  return mesh(lo >= 0.03 ? new RoundedBoxGeometry(w, h, d, 2, Math.min(0.03, lo * 0.18)) : new THREE.BoxGeometry(w, h, d), m, x, y, z);
+};
 const cyl = (r0: number, r1: number, h: number, m: Mat | Mat[], seg = 20) => new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, seg), m);
 /** a round bar from a to b (suspension links, frame tubes, antenna struts) */
 function tube(a: [number, number, number], b: [number, number, number], r: number, m: Mat, seg = 8) {
@@ -114,8 +120,15 @@ const canvasTex = (w: number, h: number, draw: (g: CanvasRenderingContext2D) => 
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 };
+/** a height map for surface relief (white = raised), drawn in greyscale */
+const bumpTex = (w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) => {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')!);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+};
 /** solar cells: dark blue tiles with silver busbars */
-const panelMat = () => new THREE.MeshStandardMaterial({ metalness: 0.65, roughness: 0.28, map: canvasTex(256, 256, (g) => {
+const panelMat = () => new THREE.MeshPhysicalMaterial({ metalness: 0.5, roughness: 0.3, clearcoat: 0.45, clearcoatRoughness: 0.25, bumpScale: 1.2,
+  bumpMap: bumpTex(256, 256, (g) => { g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#fff'; for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) g.fillRect(x + 2, y + 2, 28, 28); }),
+  map: canvasTex(256, 256, (g) => {
   g.fillStyle = '#0b1736'; g.fillRect(0, 0, 256, 256);
   for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) {
     const grd = g.createLinearGradient(x, y, x + 32, y + 32); grd.addColorStop(0, '#1b3a7a'); grd.addColorStop(1, '#0d1f4a');
@@ -124,12 +137,16 @@ const panelMat = () => new THREE.MeshStandardMaterial({ metalness: 0.65, roughne
   }
 }) });
 /** crinkled gold or silver multi-layer insulation */
-const foilMat = (base = '#c9a24a', hi = '255,240,190', lo = '90,60,10') => new THREE.MeshStandardMaterial({ metalness: 0.85, roughness: 0.32, map: canvasTex(128, 128, (g) => {
+const foilMat = (base = '#c9a24a', hi = '255,240,190', lo = '90,60,10') => new THREE.MeshStandardMaterial({ metalness: 0.9, roughness: 0.26, bumpScale: 2.2,
+  bumpMap: bumpTex(128, 128, (g) => { g.fillStyle = '#808080'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 220; i++) { const v = Math.random() < 0.5 ? 255 : 0; g.strokeStyle = `rgba(${v},${v},${v},0.35)`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const x = Math.random() * 128, y = Math.random() * 128; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 30); g.stroke(); } }),
+  map: canvasTex(128, 128, (g) => {
   g.fillStyle = base; g.fillRect(0, 0, 128, 128);
   for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? hi : lo},${0.07 + Math.random() * 0.13})`; g.beginPath(); g.ellipse(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 12, 1 + Math.random() * 3, Math.random() * 3, 0, 6.3); g.fill(); }
 }) });
 /** painted metal panels with seams and small rivets */
-const plateMat = (base = '#e7e5e0', seam = '#a9a69f') => new THREE.MeshStandardMaterial({ metalness: 0.25, roughness: 0.55, map: canvasTex(128, 128, (g) => {
+const plateMat = (base = '#e7e5e0', seam = '#a9a69f') => new THREE.MeshStandardMaterial({ metalness: 0.3, roughness: 0.48, bumpScale: 0.8,
+  bumpMap: bumpTex(128, 128, (g) => { g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128); g.strokeStyle = '#000'; g.lineWidth = 2; g.strokeRect(4, 4, 120, 120); g.beginPath(); g.moveTo(64, 4); g.lineTo(64, 124); g.stroke(); g.fillStyle = '#000'; for (let i = 10; i < 124; i += 14) { g.fillRect(i, 7, 2, 2); g.fillRect(i, 119, 2, 2); } }),
+  map: canvasTex(128, 128, (g) => {
   g.fillStyle = base; g.fillRect(0, 0, 128, 128); g.strokeStyle = seam; g.lineWidth = 1.5; g.strokeRect(4, 4, 120, 120); g.beginPath(); g.moveTo(64, 4); g.lineTo(64, 124); g.stroke();
   g.fillStyle = seam; for (let i = 10; i < 124; i += 14) { g.fillRect(i, 7, 2, 2); g.fillRect(i, 119, 2, 2); }
 }) });
@@ -137,7 +154,11 @@ const plateMat = (base = '#e7e5e0', seam = '#a9a69f') => new THREE.MeshStandardM
 /** A wheel on the x axle: tyre, rims, grousers, hub and optional spokes. */
 function wheel(r: number, w: number, o: { tyre: Mat; trim: Mat; hub?: Mat; spokes?: number; grousers?: number; mesh?: boolean }): THREE.Group {
   const g = new THREE.Group();
-  const tyre = cyl(r * 0.97, r * 0.97, w, o.tyre, 32); tyre.rotation.z = Math.PI / 2; g.add(tyre);
+  // a lathed tyre: rounded shoulders and a slightly crowned tread instead of a flat drum
+  const hw = w / 2, prof = [[r * 0.55, -hw], [r * 0.9, -hw], [r * 0.975, -hw * 0.82], [r, -hw * 0.5], [r * 1.005, 0], [r, hw * 0.5], [r * 0.975, hw * 0.82], [r * 0.9, hw], [r * 0.55, hw]].map(([a, b]) => new THREE.Vector2(a, b));
+  const tyre = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), o.tyre); tyre.rotation.z = Math.PI / 2; g.add(tyre);
+  if (o.mesh) { const drum = cyl(r * 0.82, r * 0.82, w * 0.9, new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.2, roughness: 0.9 }), 28); drum.rotation.z = Math.PI / 2; g.add(drum); }
+  if (!o.spokes) { const disc = cyl(r * 0.56, r * 0.56, w * 0.98, o.hub ?? o.trim, 24); disc.rotation.z = Math.PI / 2; g.add(disc); }
   for (const sx of [1, -1]) { const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 0.96, r * 0.035, 6, 32), o.trim); rim.rotation.y = Math.PI / 2; rim.position.x = sx * w / 2; g.add(rim); }
   const n = o.grousers ?? 16;
   for (let i = 0; i < n; i++) {
@@ -247,7 +268,9 @@ function lunokhod(): Built {
   const body = new THREE.Group(), tub = M(0xb8bcc2, 0.6, 0.42), rib = M(0x9aa0a7, 0.7, 0.38), dark = M(0x2c2f34, 0.5, 0.55), glass = M(0x0a0c10, 0.9, 0.08);
   const panel = panelMat(), alu = M(0xaeb2b8, 0.75, 0.35), radiator = M(0xe8e8e4, 0.3, 0.4), gold = foilMat('#a88b47');
   const sz = 1.32;
-  const t = cyl(0.95, 0.72, 0.62, tub, 40); t.scale.set(1, 1, sz); t.position.y = 0.55; body.add(t);
+  // the tub's real shape: convex sides swelling out to a wide rim, not a straight cone
+  const tp = [[0, 0.24], [0.6, 0.24], [0.72, 0.27], [0.8, 0.34], [0.87, 0.46], [0.92, 0.6], [0.945, 0.74], [0.955, 0.86], [0, 0.86]].map(([a, b]) => new THREE.Vector2(a, b));
+  const t = new THREE.Mesh(new THREE.LatheGeometry(tp, 48), tub); t.scale.set(1, 1, sz); body.add(t);
   for (let i = 0; i < 24; i++) { // vertical stiffening ribs round the tub
     const a = (i / 24) * Math.PI * 2, r = 0.84, rb = box(0.03, 0.6, 0.05, rib, Math.cos(a) * r, 0.55, Math.sin(a) * r * sz); rb.rotation.y = -a; rb.rotation.z = Math.cos(a) * 0.36; rb.rotation.x = -Math.sin(a) * 0.36; body.add(rb);
   }
@@ -363,4 +386,16 @@ export const buildRover = (id: RoverId, baseUrl: string): Promise<Built> => (PRO
 /** Free a built rover's GPU memory. */
 export function disposeBuilt(root: THREE.Object3D) {
   root.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshStandardMaterial).map?.dispose(); mt.dispose(); } });
+}
+
+/**
+ * Soft reflections for the rovers' metal, foil and panels: a neutral studio environment pre-filtered for this
+ * renderer. Without it, metallic surfaces have nothing to reflect and read as flat grey.
+ */
+export function roverEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
+  const pm = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment();
+  const tex = pm.fromScene(room, 0.04).texture;
+  room.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) mt.dispose(); });
+  pm.dispose();
+  return tex;
 }
