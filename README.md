@@ -12,30 +12,45 @@ Near the lunar south pole the Sun never climbs far above the horizon, and Earth 
 
 ## Features
 
-- **Normal and Scientific modes.** Every visit starts by asking which to use, and the *Normal / Scientific* switch in the top bar changes it at any time. Normal mode is one quiet, plain-language column per place: what it is and where, what it is like right now and for how long, whether it is a good place to land, what you would see standing there, the month ahead, and three ways it is not like Earth, plus side-by-side comparison when two places are picked and the missions sidebar. Scientific mode has every view and tool: exact figures, the horizon views and shadow map, date slips, Moon vs Earth, the calendar, scenario comparison, the calculator, the launch planner, mission and lander inputs, your own points, libration data and export.
-- **Time remaining.** Draining bars for daylight (or darkness) and Earth contact (or blackout) left, with the exact UTC event time and the length of the current stretch, in both modes. Event times are refined to about 30 s against the terrain skyline.
-- **No atmosphere, no refraction.** The Sun or Earth is up exactly when its geometric direction clears the skyline: the highest terrain along each line of sight, traced up to 150 km with the Moon's curvature. *All figures* shows the skyline range next to the smooth-sphere horizon (−0.09° for a 2 m mast), and the About panel explains the difference from Earth (about 0.57° of refraction).
+Every visit starts by choosing **Education** or **Scientific**; the switch in the top bar changes it at any time.
 
-- **Skyline and overhead views.** The terrain horizon with the Sun and Earth at true angular size, and their paths over the next 24 hours.
-- **Libration and orbital variation.** The first tab of Detailed analysis, highlighted: Earth's wobble in the lunar sky (about ±8° in longitude, ±7° in latitude), the Earth–Moon distance from perigee to apogee and Earth's apparent size, and the Sun's ±1.5° seasonal swing, with their measured periods. For the selected site it charts Earth's track against the terrain skyline over the next lunar cycle and states what libration does there: whether it hides Earth part of the time or is the only reason Earth is ever in view (compared with Earth held at its mean position).
-- **Countdowns and verdicts.** Time to the next sunrise, sunset, Earthrise and Earthset, with a power and comms rating for the next lunar day.
-- **Live status bar.** Always visible at the bottom of Explore: the Sun's elevation and a ticking T− countdown to the next sunset (or sunrise) and Earthset (or Earthrise).
-- **If the landing date slips.** The power and radio rating for every 12 hours from 15 days before to 30 days after the chosen date, the window the date can move without losing the rating, and a table of typical slips against the plan.
-- **Moon vs Earth.** The site's real Sun elevation over a week next to the same latitude on Earth, with the differences that matter for planning: a 29.5-day day, slow sunrises, no twilight or refraction, temperature extremes, and Earth hanging almost still in the sky.
-- **Shadow map.** A top-down map of the ground around the site (24 × 24 km at polar sites) that follows the time slider, so *Play* shows shadows sweeping across it. A second layer shows the share of the next lunar day each point is sunlit, and rings the best-lit ground within a short move of the site.
-- **Calendar.** A 30-day strip and a three-year heat map (2027 to 2029) that marks the best landing windows.
-- **Compare.** Two to four site-and-date scenarios side by side.
-- **Any point on the Moon.** Enter coordinates (or click the 3D Moon and choose *Plan a launch to here* in the probed-point panel). The skyline is traced in the browser: 400 m polar terrain south of 80.5°S, the global LOLA map (about 2.7 km/px) elsewhere, so results are approximate.
-- **3D terrain.** 24 × 24 km around each polar site, lit from the true Sun direction.
-- **3D Moon.** The whole Moon down to 5 m LOLA detail at polar sites. A *Light dark areas* switch floodlights the night side and shadowed craters, and clicking any point shows its coordinates, how much of the Sun is visible, whether Earth is in view, and the share of the next lunar cycle with each.
-- **Rover range.** Enter coordinates (or click the Moon), the rover's battery life without sunlight and its speed, and see the distance it can drive on one charge as rings on the 3D Moon: one way, and out and back. It also checks the battery against the longest dark stretch at that point, and searches the terrain for the nearest spot that will be sunlit when the rover gets there (or whether sunrise reaches the start first). Clicking a point on the 3D Moon glides the camera to a top-down view over it (north up); double-clicking flies down for a close-up.
-- **Playable rover mission.** In Education mode, choose **Drive a rover** to operate NASA's RASSOR model on LOLA terrain. Charge in sunlight, establish Earth contact, collect fictional ice samples, transmit the results and park at a safe haven. Battery, temperature, terrain visibility, a north-up map and mission checkpoints support the five objectives. Keyboard and touch controls include chase and mast cameras, perspective zoom, headlights, and accelerated waiting. See [the game notes](docs/ROVER_GAME.md) for controls and scientific limits.
-- **Sun and Earth pointers, Home view.** Rings mark the Sun and Earth when they are on screen; arrows at the edge point the way when they are not. *Home* (or the H key) returns to the whole Moon, north up.
-- **Launch planner.** For the next good landing days at any site or any point on the Moon (Sun up ≥ 70 % and Earth in view ≥ 90 % of the day, or sunlight only for the far side), the best launch time from a NASA launch centre in the United States (Kennedy Space Center or Wallops Flight Facility), with azimuth and orbit inclination. First-order geometry: the parking orbit must contain the Moon's arrival direction.
-  Each launch also has an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with times, a speed-change (Δv) budget and a diagram of the transfer (patched conics, timed to meet the Moon at arrival).
-- **Mission comparison sidebar.** The *Missions* button (or the M key) opens a sidebar over every mission in the catalogue: flown, failed, planned (including upcoming NASA CLPS deliveries) and Artemis III candidates. Filter past or future, search, and pick any two (from the list or by clicking sites on the 3D Moon). They are compared side by side on the same criteria (sunlight, Earth contact, longest night and the battery to survive it, radio blackouts, good landing days, skyline height), with a long-run efficiency score whose weights are shown. A mission uploaded without precomputed data is computed in the browser from its coordinates, so every mission gets every criterion.
-- **Help assistant.** The *Need help?* button opens a chat that answers questions about the site and can navigate it ("show me Malapert", "open the launch planner"). It is a small on-device model (TF-IDF retrieval over a knowledge base of the site, typo tolerant) that runs in the browser: no network requests, no API, no usage cost. When it cannot answer, or on request, it shows how to reach a person (support contacts are set in `src/config/support.ts`).
-- **Export and share.** CSV or JSON export (under the Libration & orbit tab). The URL keeps the site, time and comparison.
+### Scientific mode
+
+A glass dashboard over a full-screen 3D Moon. Four tabs along the top (**Explore**, **Compare**, **Calculator**, **Launch**), with **Missions**, **Tutorial**, search, About and AI help beside them, and a UTC clock and date picker below.
+
+- **Site card.** The selected site's state now (sunlit or in shadow, Earth in view or hidden), the Sun's clearance above the terrain skyline, the share of the next lunar day with sunlight and with Earth in view, and live countdowns to the next sunrise, sunset, Earthrise and Earthset.
+- **Section dock.** A row of icons on the left opens each analysis as a panel that slides over the Moon; click outside it, or press Esc, to close it:
+  - **Conditions:** time controls, sunlight and Earth visibility now, the power and radio ratings for this lunar day, and the site record.
+  - **Sites:** every landing site with its state now and its ratings; add your own point by coordinates.
+  - **Horizon:** the terrain skyline seen from the site with the Sun and Earth at true size, as a panorama, a sky plot, a first-person view you can turn and tilt, or a shadow map of the ground around the site that follows the time slider.
+  - **Next 30 days:** when the site is sunlit, when Earth is up, and when both are, day by day; click to jump to a time.
+  - **Date slip:** the ratings every 12 hours from 15 days before to 30 days after the chosen date, and how far the date can move before a rating changes.
+  - **Moon vs Earth:** the site's Sun next to the same latitude on Earth: a 29.5-day day, slow sunrises, no twilight, no refraction.
+  - **Libration & orbit:** Earth's wobble in the lunar sky (about ±8° by ±7°), the Earth–Moon distance and the Sun's seasonal swing, and what they do to Earth contact at this site. CSV and JSON export.
+  - **Calendar:** sunlight and Earth visibility for every day from 2027 to 2029, with the best landing windows marked.
+  - **Mission plan:** lander inputs (solar array, battery, antenna) and the resulting power, communications and rover estimates.
+  - **Compare:** two picked sites side by side, with an overall score whose weights are shown.
+- **Home.** The Moon button returns to the opening view of the whole Moon with the panels hidden; *Show the panels* brings them back.
+- **3D Moon.** Real LOLA relief, down to 5 m near the south-pole sites, lit by the true Sun direction. Click any point to see its coordinates, whether the Sun and Earth are up there, and the share of the next lunar cycle with each; *Remove shadows* floodlights the night side and shadowed craters.
+- **Compare tab.** Up to four site-and-date scenarios side by side.
+- **Calculator tab.** A solver for the planning equations behind the app (travel time, speed on a slope, terrain slope, Sun and Earth clearance over a ridge, distance to the horizon, terrain resolution, solar power, battery level, surviving the dark, driving range): pick an equation, choose what to solve for, and fill the rest by hand or from the selected site.
+- **Launch tab.** The next good landing days at any site or point (Sun up at least 70% and Earth in view at least 90% of the day, or sunlight only on the far side), the best launch time from Kennedy Space Center or Wallops, with azimuth, inclination and an estimated flight path: ascent, parking orbit, trans-lunar injection, coast, lunar orbit insertion and descent, with a speed-change (Δv) budget.
+- **Missions sidebar** (M key). Every mission in the catalogue (flown, failed, planned and Artemis III candidates), filterable and searchable. Pick any two to compare on sunlight, Earth contact, longest night and the battery to survive it, radio blackouts and good landing days.
+- **Rover range.** Battery life and speed give the distance a rover can drive on one charge, drawn as rings on the 3D Moon, with the nearest ground that will be sunlit when it gets there.
+- **Any point on the Moon.** Enter coordinates or click the globe; its skyline is traced in the browser (400 m polar terrain south of 80.5°S, the 2.7 km global map elsewhere, so results are approximate).
+
+### Education mode
+
+The same results in plain language, styled to match, for students and the public: what a place is and where, what it is like right now and for how long, whether it is a good place to land, what you would see standing there, the month ahead, and how the Moon differs from Earth.
+
+- **Drive a rover.** A game on real LOLA terrain with the real Sun and Earth. Pick one of five rovers in the garage, each modelled on a real design: Badger (RASSOR), Frostbite (VIPER), Dust Devil (Apollo Lunar Roving Vehicle), Trailblazer (Artemis Lunar Terrain Vehicle) and Ranger (MoonRanger). Then play one of five missions: First Drive, Sun Sprint, Science Hunt, Ice Survey and Shadow Dive. Charge in sunlight, find Earth to send reports, dig for ice in the shadows and park somewhere safe, with a live score, combos, bonus targets and stars. See [the game notes](docs/ROVER_GAME.md).
+
+### Both modes
+
+- **Sol, the help assistant.** The *Need help?* button (or the ? icon) opens a chat that works answers out from the site data: "Is Apollo 11 sunlit next week?", "Malapert vs Shackleton rim", "Which site has the most sunlight?", "Best day to land at Malapert in June 2028", "How far is Apollo 11 from Apollo 17?", or "Which sites are CLPS?". It understands dates, carries on from the last site discussed, and can jump to a date or open a comparison. Questions about the app itself ("how do I change the date?") are answered from a built-in guide. Everything runs in the browser: no server, no API key, nothing typed leaves the device.
+- **Time controls.** A timeline with sunrise, sunset, Earthrise and Earthset marks, play at several speeds, and a date picker; arrow keys step an hour (Shift for a day), Space plays.
+- **No atmosphere, no refraction.** The Sun or Earth is up exactly when its geometric direction clears the skyline: the highest terrain along each line of sight, traced up to 150 km with the Moon's curvature.
+- **Guided tour** on first visit, and **shareable links**: the URL keeps the site, time and comparison.
 
 ## Sites
 
@@ -134,11 +149,10 @@ Open-source software, all free to use:
 | [GSAP](https://gsap.com) | Camera and panel animation | GSAP Standard "No Charge" License (free, not OSI) |
 | [Vite](https://vite.dev), [TypeScript](https://www.typescriptlang.org), [Vitest](https://vitest.dev) | Build and tests | MIT, Apache 2.0, MIT |
 | [NumPy](https://numpy.org), [SciPy](https://scipy.org), [Pillow](https://python-pillow.org) | Terrain processing scripts | BSD, BSD, MIT-CMU |
-| [Inter](https://rsms.me/inter/) (Rasmus Andersson) | Typeface | SIL Open Font License 1.1 |
 
 ## Credits
 
-- **Typeface:** Saans by Displaay Type Foundry (displaay.net), used with the foundry's permission for this NASA Space Apps entry. The files in `public/fonts/` are shipped exactly as supplied. Geist Mono (Vercel, SIL Open Font License) for technical labels.
+- **Typeface:** Saans by Displaay Type Foundry (displaay.net), used with the foundry's permission for this NASA Space Apps entry. The files in `public/fonts/` are shipped exactly as supplied.
 
 NASA LRO LOLA team and the PDS Geosciences Node, NASA/JPL Solar System Dynamics (Horizons), the NASA Scientific Visualization Studio, the LROC team at Arizona State University, NASA Moon Trek and LROC QuickMap.
 
