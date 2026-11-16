@@ -5,6 +5,7 @@ import { PHASES, RATE } from './sim';
 import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
 import RoverPreview from './RoverPreview';
 import './game.css';
+import { fmtInt } from '../lib/fmt';
 
 type Stage = 'loading' | 'brief' | 'play' | 'pause' | 'done' | 'frozen' | 'power' | 'time' | 'unavailable' | 'error';
 type Message = { id: number; from: string; text: string };
@@ -16,7 +17,7 @@ const phaseNames = ['Charge', 'Contact', 'Sample', 'Uplink', 'Park'];
 const PICK_KEY = 'rover-pick', bestKey = (id: string) => `rover-best-${id}`;
 const stored = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
-const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+const fmt = fmtInt;
 
 /** A small set of original control glyphs, shared by mouse, keyboard, and touch controls. */
 export function RoverGlyph({ kind = 'rover' }: { kind?: 'rover' | 'pause' | 'close' | 'play' | 'camera' | 'sun' | 'earth' | 'reset' }) {

@@ -9,9 +9,10 @@ import { loadSite } from '../lib/data';
 import { indexAt, isUp } from '../lib/series';
 import { EDU_ROVER, bestStart, evaluatePath, fmtDuration, type Check, type Level, type PathReport, type Stop } from '../lib/pathPlan';
 import { gcDistanceKm } from '../lib/mission';
-import { CircleCheck, CircleHelp, Contrast, Earth, Info, OctagonX, Play, Plus, Sun, TriangleAlert, X } from './Icons';
+import { CalendarSync, ChevronRight, CircleHelp, Contrast, Earth, Icon, Info, Play, Plus, Sun, X } from './Icons';
 import { LogoMark } from './Logo';
 import { Loading } from './Help';
+import { fmtDayMonth } from '../lib/fmt';
 
 const MoonView = lazy(() => import('./MoonView'));
 
@@ -24,10 +25,8 @@ const PROGRAM: Record<string, string> = {
   commercial: 'Commercial', international: 'International', reference: 'Reference',
 };
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
-const when = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 const fmtLat = (x: number) => `${Math.abs(x).toFixed(2)}° ${x < 0 ? 'S' : 'N'}`;
 const fmtLon = (x: number) => { const l = ((((x + 180) % 360) + 360) % 360) - 180; return `${Math.abs(l).toFixed(2)}° ${l < 0 ? 'W' : 'E'}`; };
-const LevelIcon = ({ level }: { level: Level }) => level === 'ok' ? <CircleCheck size={18} /> : level === 'risky' ? <TriangleAlert size={18} /> : <OctagonX size={18} />;
 
 interface Props {
   doc: SitesDoc; sites: SiteInfo[]; t: number; range: [number, number];
@@ -177,7 +176,17 @@ function PointCard({ s, d, t, doc, inPath, order, prev, onToggle, onClose }: {
   );
 }
 
-/* ---------- the path panel: stops, and whether the drive is possible ---------- */
+/* ---------- the path panel: the Scientific dashboard's right-hand column of glass cards ---------- */
+const WORD: Record<Level, string> = { ok: 'Good', risky: 'Marginal', no: 'Fails' };
+const STATUS_WORD: Record<Level, string> = { ok: 'Possible', risky: 'Risky', no: 'Not possible' };
+const BARS: Record<Level, number> = { ok: 3, risky: 2, no: 1 };
+const LevelBars = ({ level }: { level: Level }) => (
+  <span className={`lvl lv-${level}`} aria-hidden>{[0, 1, 2].map((i) => <i key={i} className={i < BARS[level] ? 'on' : ''} />)}</span>
+);
+const shortDate = (t: number) => fmtDayMonth(t);
+const hhmm = (t: number) => new Date(t).toISOString().slice(11, 16);
+const kmStr = (km: number) => km.toFixed(km < 10 ? 1 : 0);
+
 function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, onStart, onRemove, onOpen }: {
   path: string[]; byId: Map<string, SiteInfo>; report: PathReport | null; waiting: boolean; start: number; range: [number, number]; stops: Stop[] | null;
   onShow: () => void; onStart: (t: number) => void; onRemove: (i: number) => void; onOpen: (id: string) => void;
@@ -198,75 +207,97 @@ function PathPanel({ path, byId, report, waiting, start, range, stops, onShow, o
     }, 30);
   };
   const found = search && search.key === key ? search.state : null;
+  const arrive = report && !report.tooFar ? report.legs[report.legs.length - 1].arrive : null;
   return (
     <aside className={`edu-path${min ? ' min' : ''}`} aria-label="Rover path">
-      <header>
-        <h2>Rover path</h2>
-        {report && <span className={`edu-badge ${report.overall.level}`}><LevelIcon level={report.overall.level} /> {report.overall.title}</span>}
-        <button className="edu-show" onClick={onShow} title="Fly the camera to see the whole path">Show path</button>
-        <button className="edu-x" onClick={() => setMin((m) => !m)} aria-expanded={!min} aria-label={min ? 'Show path details' : 'Hide path details'}>{min ? '▴' : '▾'}</button>
-      </header>
-      {!min && <div className="edu-path-body">
-        <ol className="edu-stops">
+      <section className="edu-pg">
+        <header className="edu-pg-h">
+          <div>
+            <h2>Rover path</h2>
+            <p className="edu-pg-sub num">{path.length} {path.length === 1 ? 'stop' : 'stops'}{report ? ` · ${kmStr(report.km)} km` : ''}</p>
+          </div>
+          {report && <span className={`edu-status ${report.overall.level}`}>{STATUS_WORD[report.overall.level]}</span>}
+        </header>
+        {!min && <ol className="edu-stops">
           {path.map((id, i) => {
             const s = byId.get(id), leg = report?.legs[i - 1];
             return (
               <li key={`${id}-${i}`}>
-                {leg && <span className="edu-leg num">{leg.km.toFixed(leg.km < 10 ? 1 : 0)} km · {fmtDuration(leg.hours)}</span>}
+                {i > 0 && <span className="edu-leg num">{leg ? `${kmStr(leg.km)} km · ${fmtDuration(leg.hours)}` : ''}</span>}
                 <div className="edu-stop">
-                  <b className="path-n">{i + 1}</b>
+                  <b className="path-n num">{i + 1}</b>
                   <button className="edu-stop-name" onClick={() => onOpen(id)}>{s?.short || s?.name || id}</button>
-                  <button className="edu-x" onClick={() => onRemove(i)} aria-label={`Remove ${s?.name ?? id}`}><X size={13} /></button>
+                  <button className="edu-stop-x" onClick={() => onRemove(i)} aria-label={`Remove ${s?.name ?? id}`} title="Remove stop"><X size={13} /></button>
                 </div>
               </li>
             );
           })}
-        </ol>
-        {path.length < 2 && <p className="dim">Add at least one more stop to check the drive.</p>}
-        {waiting && <p className="dim">Checking the drive…</p>}
-        {report && <>
-          <label className="edu-start">Leave on
+        </ol>}
+        {!min && path.length < 2 && <p className="edu-pg-note">Add at least one more stop to check the drive.</p>}
+        {!min && waiting && <p className="edu-pg-note"><span className="loader" aria-hidden /> Checking the drive…</p>}
+        <div className="edu-pg-actions">
+          <button onClick={onShow} title="Fly the camera to see the whole path"><Icon name="expand" size={14} /> Show path</button>
+          <button className="edu-round" onClick={() => setMin((m) => !m)} aria-expanded={!min} aria-label={min ? 'Show path details' : 'Hide path details'} title={min ? 'Show details' : 'Hide details'}>
+            <ChevronRight size={15} style={{ transform: `rotate(${min ? 90 : -90}deg)` }} />
+          </button>
+        </div>
+      </section>
+
+      {!min && report && <>
+        <section className="edu-pg">
+          <header className="edu-pg-h"><p><b>Drive</b> {report.tooFar ? 'longer than the simulation runs' : `arrives ${shortDate(arrive!)}, ${hhmm(arrive!)} UTC`}</p></header>
+          <div className="edu-big">
+            <span><b className="num">{kmStr(report.km)}</b><small>km</small></span>
+            {!report.tooFar && (report.hours < 48
+              ? <span><b className="num">{report.hours.toFixed(report.hours < 10 ? 1 : 0)}</b><small>h driving</small></span>
+              : <span><b className="num">{(report.hours / 24).toFixed(report.hours < 240 ? 1 : 0)}</b><small>days driving</small></span>)}
+          </div>
+          <p className="edu-pg-text">{report.overall.detail}</p>
+          <label className="edu-start"><span>Leave on</span>
             <input type="date" value={day(start)} min={day(range[0])} max={day(range[1])}
               onChange={(e) => { const v = Date.parse(`${e.target.value}T00:00:00Z`); if (isFinite(v)) onStart(Math.max(range[0], Math.min(range[1], v))); }} />
           </label>
-          <p className="edu-overall">{report.overall.detail}</p>
           {!report.tooFar && (report.overall.level !== 'ok' || found) && (
             <div className="edu-best">
-              {found !== 'busy' && found !== 'same' && report.overall.level !== 'ok' && <button onClick={findBest}>Find a better day to leave</button>}
-              {found === 'busy' && <span className="dim">Trying every other day for a year…</span>}
-              {found === 'none' && <span className="dim">No start date in the next year makes this path work. Try fewer stops or stops closer together.</span>}
-              {found === 'same' && <span className="dim">This is already the best day in the next year.</span>}
+              {found !== 'busy' && found !== 'same' && report.overall.level !== 'ok' && <button onClick={findBest}><CalendarSync size={14} /> Find a better day to leave</button>}
+              {found === 'busy' && <span><span className="loader" aria-hidden /> Trying every other day for a year…</span>}
+              {found === 'none' && <span>No start date in the next year makes this path work. Try fewer stops or stops closer together.</span>}
+              {found === 'same' && <span>This is already the best day in the next year.</span>}
             </div>
           )}
-          <dl className="edu-totals">
-            <div><dt>Distance</dt><dd className="num">{report.km.toFixed(report.km < 10 ? 1 : 0)} km</dd></div>
-            <div><dt>Driving time</dt><dd className="num">{fmtDuration(report.hours)}</dd></div>
-            <div><dt>Arrives</dt><dd className="num">{report.tooFar ? 'Too far' : `${when(report.legs[report.legs.length - 1].arrive)} UTC`}</dd></div>
+        </section>
+
+        <section className="edu-pg">
+          <header className="edu-pg-h"><p><b>Checks</b> along the whole drive</p></header>
+          <dl className="edu-checks">
+            <CheckRow label="Battery" c={report.battery} />
+            <CheckRow label="Sunlight" c={report.sunlight} />
+            <CheckRow label="Earth contact" c={report.earth} />
           </dl>
-          <ul className="edu-checks">
-            <CheckRow icon={<span className="edu-batt" aria-hidden />} label="Battery" c={report.battery} />
-            <CheckRow icon={<Sun size={16} />} label="Sunlight" c={report.sunlight} />
-            <CheckRow icon={<Earth size={16} />} label="Earth contact" c={report.earth} />
-          </ul>
+        </section>
+
+        <section className="edu-pg">
+          <header className="edu-pg-h"><p><b>Battery</b> charge on the way</p></header>
           <BatteryChart r={report} start={start} />
-          <p className="edu-note dim">
+          <p className="edu-pg-foot">
             The rover drives non-stop at {EDU_ROVER.speedKmH} km/h with a {(EDU_ROVER.batteryWh / 1000).toFixed(0)} kWh battery and {EDU_ROVER.panelM2} m² of solar panels.
             It uses {EDU_ROVER.hotelW} W for heaters, computers and radio, plus {EDU_ROVER.driveW} W to drive. Sun and Earth positions are real for the date you pick;
             the hills that block them are measured at each stop. The path is a straight line between stops, so craters and steep slopes on the way are not checked.
           </p>
-        </>}
-      </div>}
+        </section>
+      </>}
     </aside>
   );
 }
 
-function CheckRow({ icon, label, c }: { icon: ReactNode; label: string; c: Check }) {
+function CheckRow({ label, c }: { label: string; c: Check }) {
   return (
-    <li className={`edu-check ${c.level}`}>
-      <span className="edu-check-i">{icon}</span>
-      <div><b>{label}: {c.title}</b><p>{c.detail}</p></div>
-      <LevelIcon level={c.level} />
-    </li>
+    <div className={`edu-check ${c.level}`}>
+      <dt>{label}</dt>
+      <dd><b>{c.title.charAt(0).toUpperCase() + c.title.slice(1)}</b><span className="sr-only"> ({WORD[c.level]})</span></dd>
+      <LevelBars level={c.level} />
+      <p>{c.detail}</p>
+    </div>
   );
 }
 
@@ -282,14 +313,18 @@ function BatteryChart({ r, start }: { r: PathReport; start: number }) {
   const reserveY = y(EDU_ROVER.reservePct);
   return (
     <figure className="edu-chart">
-      <figcaption>Battery charge on the way <span className="dim">· shaded: no sunlight</span></figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Battery from ${tl.battPct[0].toFixed(0)}% to ${tl.endPct.toFixed(0)}%, lowest ${tl.minPct.toFixed(0)}%`}>
+      <div className="edu-chart-figs num">
+        <span><b>{tl.minPct.toFixed(0)}</b><small>% lowest</small></span>
+        <span><b>{tl.endPct.toFixed(0)}</b><small>% at the end</small></span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`Battery from ${tl.battPct[0].toFixed(0)}% to ${tl.endPct.toFixed(0)}%, lowest ${tl.minPct.toFixed(0)}%`}>
         {dark.map(([a, b]) => <rect key={a} x={x(a)} y={0} width={Math.max(1, x(b) - x(a))} height={H} className="dark" />)}
         <line x1={0} x2={W} y1={reserveY} y2={reserveY} className="reserve" />
         {r.legs.slice(0, -1).map((l) => { const f = (l.arrive - start) / spanMs; return f > 0 && f < 1 ? <line key={l.arrive} x1={f * W} x2={f * W} y1={0} y2={H} className="stop" /> : null; })}
         <path d={d} className="batt" />
       </svg>
-      <div className="edu-chart-axis num"><span>{day(start)}</span><span>dashed: {EDU_ROVER.reservePct}% reserve</span><span>{day(start + spanMs)}</span></div>
+      <div className="edu-chart-axis num"><span>{shortDate(start)}</span><span>{shortDate(start + spanMs)}</span></div>
+      <figcaption className="edu-chart-key"><span><i className="k-dark" />No sunlight</span><span><i className="k-res" />{EDU_ROVER.reservePct}% reserve</span><span><i className="k-stop" />Stop</span></figcaption>
     </figure>
   );
 }

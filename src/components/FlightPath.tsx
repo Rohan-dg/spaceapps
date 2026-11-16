@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { LaunchOption } from '../lib/launch';
 import { planFlight, type FlightPlan } from '../lib/trajectory';
+import { fmtInt } from '../lib/fmt';
 
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 const since = (t: number, t0: number) => {
@@ -9,7 +10,7 @@ const since = (t: number, t0: number) => {
   const h = m / 60;
   return h < 48 ? `T+${h.toFixed(1)} h` : `T+${(h / 24).toFixed(2)} d`;
 };
-const km = (x: number) => `${Math.round(x).toLocaleString('en-US')} km`;
+const km = (x: number) => `${fmtInt(x)} km`;
 
 const W = 640, H = 360, PAD = 34;
 
