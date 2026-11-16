@@ -121,3 +121,5 @@ export function visibilityMap(w: World, u: readonly number[], radiusDeg: number,
   }
   return out;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Fable 5.2 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

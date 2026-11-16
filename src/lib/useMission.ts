@@ -79,3 +79,5 @@ export function simSnapshot(d: SiteData | null, r: ScenarioResult | null, m: Mis
   }
   return out;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

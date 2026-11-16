@@ -145,3 +145,5 @@ try {
   console.error('Notes:',notes.slice(-20));
   process.exitCode=1;
 } finally { await browser.close(); }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by OpenAI Codex (OpenAI, 2 commits) and Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

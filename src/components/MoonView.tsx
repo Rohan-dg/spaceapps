@@ -1800,3 +1800,5 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     </section>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 72 commits), OpenAI Codex (OpenAI, 1 commit) and Claude Fable 5.2 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

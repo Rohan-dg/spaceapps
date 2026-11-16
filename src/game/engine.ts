@@ -983,3 +983,5 @@ export class Game {
     if (this.renderer) { this.renderer.domElement.removeEventListener('webglcontextlost', this.onContextLost); this.renderer.dispose(); this.renderer.forceContextLoss(); this.renderer.domElement.remove(); }
   }
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 12 commits), OpenAI Codex (OpenAI, 2 commits) and Claude Fable 5.2 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

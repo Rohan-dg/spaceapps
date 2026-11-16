@@ -62,3 +62,5 @@ export function commsVerdict(m: Metrics, site: Site, hz: HorizonProfile, s: Seri
   const clip = m.longestNoCommClipped ? ' (at least)' : '';
   return { level: lv, reason: `Earth visible ${m.earthPct.toFixed(0)}% of the time. Longest blackout is ${fmtD(m.longestNoCommH)}${clip}: ${why}.` };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

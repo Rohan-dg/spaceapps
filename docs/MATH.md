@@ -84,3 +84,5 @@ latitude repeats every eclipse year (about 346.6 d). For a site, the tool compar
 track against the skyline with a counterfactual Earth held at its mean position (selenographic
 0°, 0°, 384,400 km). Shackleton rim: hidden without libration, in view 44 % of a cycle with it.
 Connecting ridge: always in view without libration, 47 % with it.
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history. -->

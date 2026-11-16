@@ -63,3 +63,5 @@ self.onmessage = async (ev: MessageEvent<Req>) => {
     (self as unknown as Worker).postMessage({ type: 'error', message: String(e) } satisfies Res);
   }
 };
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Fable 5.2 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

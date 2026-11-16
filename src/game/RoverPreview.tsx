@@ -66,3 +66,5 @@ export default function RoverPreview({ id, base }: { id: RoverId; base: string }
   }, [id, base]);
   return <div className="rg-preview" ref={host} role="img" aria-label="The chosen rover, spinning. Drag to turn it.">{busy && <span className="rg-preview-wait" aria-hidden="true" />}</div>;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

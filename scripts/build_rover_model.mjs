@@ -133,3 +133,5 @@ root.setExtras({ ...root.getExtras(), pivots });
 await doc.transform(quantize({ quantizePosition: 14 }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
 await io.write(out, doc);
 console.log('total', total, 'triangles ->', out);
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Fable 5.2 (Anthropic, 1 commit) and Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

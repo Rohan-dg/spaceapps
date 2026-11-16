@@ -73,3 +73,5 @@ export function mix(a: string, b: string, t: number): string {
   const A = p(a), B = p(b);
   return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 8 commits), under the team's direction. Attribution from the commit history.

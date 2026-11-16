@@ -55,3 +55,5 @@ describe('on-device helper', () => {
     expect(answer(model, 'contact support').support).toBe(true);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

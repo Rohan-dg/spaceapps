@@ -140,3 +140,5 @@ export function inWords(e: Event, now: number): string {
   if (h > 0) return `in ${u(h, 'hour')}${mm ? ` ${u(mm, 'minute')}` : ''}`;
   return `in ${u(mm, 'minute')}`;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), under the team's direction. Attribution from the commit history.

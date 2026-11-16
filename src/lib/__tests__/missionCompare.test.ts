@@ -72,3 +72,5 @@ describe('mission comparison', () => {
     expect(separationKm({ lat: 0, lon: 0 }, { lat: 0, lon: 1 })).toBeCloseTo(30.32, 1);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

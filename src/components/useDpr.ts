@@ -29,3 +29,5 @@ export function fitCanvas(cv: HTMLCanvasElement, w: number, h: number, dpr: numb
   g.setTransform(cv.width / w, 0, 0, cv.height / h, 0, 0);
   return g;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

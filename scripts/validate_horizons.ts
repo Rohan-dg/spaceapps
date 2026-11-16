@@ -59,3 +59,5 @@ async function main() {
   console.log(`\nMax |Δel| = ${maxEl.toFixed(4)}°, max |Δaz·cos el| = ${maxAz.toFixed(4)}°`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

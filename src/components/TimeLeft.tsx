@@ -64,3 +64,5 @@ export default function TimeLeft({ s, m, t, plain = false }: { s: Series; m: Met
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

@@ -62,3 +62,5 @@ export function sunriseDurationH(lat: number, dec: number, rateDegH: number): nu
 
 /** Distance (km) to the geometric horizon for an eye `hM` above a smooth sphere of radius `rM`. */
 export const horizonDistKm = (hM: number, rM: number) => Math.sqrt(2 * rM * hM + hM * hM) / 1000;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

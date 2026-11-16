@@ -126,3 +126,5 @@ export function bestStart(stops: Stop[], from: number, to: number, stepDays = 2,
   }
   return best && { t: best.t, report: best.report };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

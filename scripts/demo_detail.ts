@@ -11,3 +11,5 @@ const show = (id: string, iso: string) => {
   console.log(`${id} ${iso}: sun ${m.sky.sun.el.toFixed(2)}° up=${m.sunUp} next ${m.sunUp ? 'set' : 'rise'} ${m.sunUp ? (m.nextSunset.t ? formatDuration(m.nextSunset.t - t) : '-') : (m.nextSunrise.t ? formatDuration(m.nextSunrise.t - t) : '-')}; earth ${m.sky.earth.el.toFixed(2)}° up=${m.earthUp}\n   POWER ${p.level}: ${p.reason}\n   COMMS ${c.level}: ${c.reason}`);
 };
 for (const a of process.argv.slice(2)) { const [id, iso] = a.split('@'); show(id, iso); }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

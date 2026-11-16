@@ -38,3 +38,5 @@ export default function ModeChooser({ last, onChoose }: { last: Ui | null; onCho
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 4 commits) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

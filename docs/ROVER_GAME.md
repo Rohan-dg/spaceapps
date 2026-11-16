@@ -32,3 +32,5 @@ The story, ice deposits, solar equipment, drive rate, battery capacity and therm
 `npm test` covers power, thermal response, mission progression, inaccessible routes, terrain sampling and horizon visibility. `npm run build` compiles the game into a lazy-loaded chunk.
 
 `scripts/test_rover_browser.mjs` runs bounded browser QA against built files, served through Playwright request interception. It starts no local HTTP server. Set `PLAYWRIGHT_MODULE` to an installed Playwright module if it is outside the project. Chrome must be installed. The script checks the application entry point and responsive layout, then uses a separate test-only build to drive an entire real-terrain mission through the actual simulation loop. Test access to engine internals is not included in the production build. Screenshots and the report are written under `node_modules/.cache/rover-qa/`.
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history. -->

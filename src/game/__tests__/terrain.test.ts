@@ -37,3 +37,5 @@ describe('rover terrain and visibility', () => {
     expect([...visibilityMap(w, down, 0.266, 100, 4, 0.6)]).toEqual(new Array(16).fill(0));
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

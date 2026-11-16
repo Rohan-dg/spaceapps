@@ -22,3 +22,5 @@ export function whenIntroDone(cb: () => void): () => void {
   waiters.add(cb);
   return () => { waiters.delete(cb); };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

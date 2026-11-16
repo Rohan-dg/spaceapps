@@ -74,3 +74,5 @@ export function solve(eq: Equation, values: Values, key: string, samples = 2000)
   if (!uniq.length) return { roots: [], error: `No solution for ${vd.label} between ${min} and ${max} ${vd.unit}. Check the other values: they may be impossible together.` };
   return { roots: uniq, error: null };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

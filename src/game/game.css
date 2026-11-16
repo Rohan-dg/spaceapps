@@ -503,3 +503,5 @@
 @keyframes rg-drain { to { opacity: 0.55; } }
 @media (max-width: 640px) { .rg .rg-actions .rg-boost { min-width: 56px; } }
 @media (prefers-reduced-motion: reduce) { .rg .rg-controls .rg-boost.on, .rg .rg-stat.draining b { animation: none; } }
+
+/* SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 11 commits) and OpenAI Codex (OpenAI, 2 commits), under the team's direction. Attribution from the commit history. */

@@ -50,3 +50,5 @@ export function installPointerGlow() {
   document.documentElement.addEventListener('pointerleave', () => { last = null; dim(new Set()); });
   window.addEventListener('blur', () => dim(new Set()));
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

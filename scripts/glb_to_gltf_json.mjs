@@ -24,3 +24,5 @@ if (at < b.length) {
 }
 writeFileSync(out, JSON.stringify(gltf));
 console.log(`${out}: ${(readFileSync(out).length / 1024).toFixed(0)} KB`);
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

@@ -81,3 +81,5 @@ describe('Moon surface collision', () => {
     expect(p.length()).toBeCloseTo(R_KM + 12 + CAMERA_CLEARANCE_KM, 6);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

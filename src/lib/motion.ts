@@ -62,3 +62,5 @@ export function installMotion() {
   document.fonts?.ready.then(() => document.querySelectorAll<HTMLElement>(SEL).forEach((el) => tracked.has(el) && place(el, true)));
   schedule();
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 5 commits), under the team's direction. Attribution from the commit history.

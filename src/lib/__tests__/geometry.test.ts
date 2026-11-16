@@ -85,3 +85,5 @@ describe('terrain elevation angle with curvature', () => {
     expect(terrainElevationAngle(10, 502, 2)).toBeCloseTo((Math.atan2(500 - 28.78, 10000) * 180) / Math.PI, 2);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

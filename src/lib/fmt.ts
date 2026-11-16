@@ -16,3 +16,5 @@ export const fmtMonth = (t: number) => monthShort.format(t);
 export const fmtLongDateTime = (t: number) => longDateTime.format(t);
 /** "12,345" with thousands separators, rounded to a whole number. */
 export const fmtInt = (x: number) => int.format(Math.round(x));
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

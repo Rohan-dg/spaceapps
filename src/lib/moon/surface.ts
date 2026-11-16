@@ -98,3 +98,5 @@ export function constrainCamera(position: Vector3, target: Vector3, radiusAt: (p
   const floor = radiusAt(position) + CAMERA_CLEARANCE_KM;
   if (position.length() < floor) position.setLength(floor);
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

@@ -33,3 +33,5 @@ Goal: a judge who has never heard of libration should understand what the app do
 | Mobile | The header help button shortens to "Help", the example chips scroll horizontally, and the answer cards stack. No horizontal page scroll at 390 px. |
 
 No science, data or calculations changed. Verdict thresholds are untouched (`src/config/thresholds.ts`). The rating help text quotes them.
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history. -->

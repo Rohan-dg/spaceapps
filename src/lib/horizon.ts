@@ -30,3 +30,5 @@ export function diskVisibleFraction(el: number, r: number, h: number): number {
 
 /** Flat (no-terrain) profile: horizon at 0° everywhere. Used for tests and as a reference. */
 export const flatProfile = (): HorizonProfile => new Array(360).fill(0);
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

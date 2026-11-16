@@ -41,3 +41,5 @@ export const PRESETS: Preset[] = [
     blurb: "China's Chang'e-4 landing site. Earth never rises here, so all radio has to go through a relay satellite.",
   },
 ];
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

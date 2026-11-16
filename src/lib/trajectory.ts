@@ -164,3 +164,5 @@ export function planFlight(site: LaunchSite, launch: number, landing: number, bo
 }
 
 export const DAY_MS = DAY;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

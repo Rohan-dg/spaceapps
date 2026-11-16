@@ -54,3 +54,5 @@ export const azAt = (v: View, x: number) => (((v.yaw + (x - v.width / 2) / pxPer
 const NAMES = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 /** Short compass name for an azimuth. */
 export const compassShort = (az: number) => NAMES[Math.round((((az % 360) + 360) % 360) / 45) % 8];
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

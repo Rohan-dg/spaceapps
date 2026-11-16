@@ -133,3 +133,5 @@ function Row({ label, t, r, base, baseR, onSeek, W }: { label: string; t: number
     </tr>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), under the team's direction. Attribution from the commit history.

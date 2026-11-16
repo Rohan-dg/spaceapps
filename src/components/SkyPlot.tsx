@@ -102,3 +102,5 @@ export default function SkyPlot({ data, t, trailHours = 24 }: { data: SiteData; 
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 5 commits), under the team's direction. Attribution from the commit history.

@@ -191,3 +191,5 @@ function TimelineFill({ data, t, days = 30, onSeek }: Props) {
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 7 commits), under the team's direction. Attribution from the commit history.

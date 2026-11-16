@@ -22,3 +22,5 @@
 | Far side (Korolev) | 2029-02-14 20:00 | Earth | 115.1824 | -67.2612 | 115.1805 | -67.2613 | -0.0019 | -0.0000 |
 
 Max |Δel| = 0.0025°, max |Δaz·cos el| = 0.0036°
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history. -->

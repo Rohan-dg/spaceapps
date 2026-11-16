@@ -73,3 +73,5 @@ export function sampleEq(g: EqGrid, latDeg: number, lonDeg: number): number {
   const b = h[r1 * w + cA] * (1 - fc) + h[r1 * w + cB] * fc;
   return a * (1 - fr) + b * fr;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

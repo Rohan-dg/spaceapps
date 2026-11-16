@@ -26,3 +26,5 @@ Back-up facts (from `npm run demo-detail -- connecting-ridge@2027-07-08T00:00Z .
 * Ridge, 2027-07-18: in shadow, sunrise in about 20 h. Power green (97% over the next 29.5 d; the remaining dark is about 20 h, shown as "≥" because the window starts inside it).
 * de Gerlache rim, 2027-07-08: dark (Sun −1.94°), sunrise in 2 d 11 h; power amber (67% sunlit over the next lunar day), comms amber (46%).
 * Malapert, 2027-07-08: Sun −3.46° and dark, sunrise in 3 d 22 h; Earth +0.56° and in view. Comms green (Earth 100%), power amber (66%). Chang'e-4: comms red (Earth never rises). Shackleton floor: 0% sun (permanent shadow).
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history. -->

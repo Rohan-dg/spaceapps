@@ -38,3 +38,5 @@ export function useScenario(d: SiteData | null, t: number): ScenarioResult | nul
 }
 
 export const siteOf = (d: SiteData) => ({ lat: d.horizon.lat, lon: d.horizon.lon, heightM: d.horizon.siteHeightM + d.horizon.observerHeightM });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 4 commits), under the team's direction. Attribution from the commit history.

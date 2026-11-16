@@ -198,3 +198,5 @@ export function answer(model: Model, q: string, sites: SiteRef[] = []): Reply {
   }
   return { topic: best.topic, confidence: best.score, text: best.topic.answer, actions: [...(best.topic.actions ?? []), ...siteAction], support: !!best.topic.support, site };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 12 commits), under the team's direction. Attribution from the commit history.

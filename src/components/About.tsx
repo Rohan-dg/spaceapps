@@ -90,3 +90,5 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 10 commits), under the team's direction. Attribution from the commit history.

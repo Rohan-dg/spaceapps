@@ -159,3 +159,5 @@ NASA LRO LOLA team and the PDS Geosciences Node, NASA/JPL Solar System Dynamics 
 This project uses publicly available NASA data. NASA does not endorse any non-U.S. Government entity and is not responsible for information contained on non-U.S. Government websites.
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 34 commits) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history. -->

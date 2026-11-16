@@ -91,3 +91,5 @@ export function terrainTile(dem: PolarDem, lat: number, lon: number, halfKm = 12
   }
   return { n, halfKm, z };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), under the team's direction. Attribution from the commit history.

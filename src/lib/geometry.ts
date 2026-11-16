@@ -69,3 +69,5 @@ export function terrainElevationAngle(dKm: number, hTargetM: number, hObsM: numb
  * geometric, the highest terrain along each line of sight (which from a peak can be below this value).
  */
 export const sphereHorizonDeg = (hM: number, R = MOON_RADIUS_KM * 1000) => -Math.acos(R / (R + hM)) * 180 / Math.PI;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), under the team's direction. Attribution from the commit history.

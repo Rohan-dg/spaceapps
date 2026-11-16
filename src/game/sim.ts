@@ -268,3 +268,5 @@ export const STORY: Record<'intro' | Phase | 'ice1' | 'iceOut' | 'dry' | 'lowBat
   signalBack: { from: 'RASSOR', text: 'Signal back. Earth is in view.' },
   noSun: { from: 'RASSOR', text: 'No power received. The Sun is behind the terrain, so the rover runs on battery alone.' },
 };
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), Claude Fable 5.2 (Anthropic, 1 commit) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

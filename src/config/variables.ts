@@ -37,3 +37,5 @@ export const VARIABLES: VariableDef[] = [
   { n: 33, name: "Ephemeris Validation Error", description: "Difference from trusted NASA/JPL reference positions", priority: "High" },
 ];
 export const variable = (n: number) => VARIABLES.find((v) => v.n === n)!;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

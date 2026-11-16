@@ -140,3 +140,5 @@ The rating for every day is in `data/analysis/daily_ratings.csv`.
 2. **Terrain alone is not enough either.** Connecting ridge's horizon never rises above 0.07°, yet the site is dark 19% of the time, because the Sun dips to −2.1°. You have to compare the Sun's position with the terrain *in its direction*, and that is exactly C.
 3. **For Earth, height is the best single proxy at the pole** (r = 0.92): Malapert, Mons Mouton and Nobile sit 5–6.4 km up on the Earth-facing side. But C_earth is what decides it. Chang'e-4 is 0% because Earth is always 37–52° below its horizon.
 4. **Away from the pole the answer is about 50/50 sunlight whatever the terrain** (normal day/night). Earth visibility is then all-or-nothing: near side 100%, far side 0%.
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history. -->

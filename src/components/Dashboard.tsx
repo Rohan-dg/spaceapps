@@ -423,3 +423,5 @@ export default function Dashboard(p: DashProps) {
     </>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 10 commits), under the team's direction. Attribution from the commit history.

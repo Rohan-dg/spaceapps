@@ -132,3 +132,5 @@ export function simulateLander(s: Series, t: number, l: Lander): LanderResult {
     operatingHours: op, linkHours: link, heaterKWh: heat, periodH: (i1 - i0) * stepH,
   };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 3 commits), under the team's direction. Attribution from the commit history.

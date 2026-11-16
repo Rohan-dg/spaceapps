@@ -44,7 +44,7 @@ The sites include the Artemis III candidate regions at the south pole (each at a
 
 ## Use of Super Intelligence (SI)
 
-Yes. We used Claude (Anthropic), a large language model, as a coding assistant. Most of the code, the build and data-processing scripts, the documentation and the Sol Teris emblem and logo were written with it, under our direction. Commits made with it carry a "Co-Authored-By: Claude" line, `package.json` and the page metadata state it, and the app's About panel and README describe it. The emblem on the opening screen is labelled as SI-generated artwork. Every number in the app is computed by that code from NASA terrain data and the ephemeris; none is produced by a language model. No NASA logos, flags or mission insignia are used.
+Yes. We used Claude (Anthropic, through Claude Code: mostly Claude Opus 5.5, some Claude Fable 5.2) and OpenAI Codex as coding assistants. Most of the code, the build and data-processing scripts, the documentation and the Sol Teris emblem and logo were written with them, under our direction. Every source file ends with an SI disclosure comment naming the tools that wrote it and how many commits each made, worked out from the commit history (`scripts/si_disclosure.py` regenerates them), and the page metadata states it. Every number in the app is computed by that code from NASA terrain data and the ephemeris; none is produced by a language model. No NASA logos, flags or mission insignia are used.
 
 ## NASA Data
 
@@ -95,3 +95,5 @@ Open-source software: astronomy-engine (MIT), three.js (MIT), React (MIT), D3 (I
 - [ ] The terms and originality checkboxes on the project form are ticked.
 - [ ] **Submit for Judging** is pressed before **Sunday, November 15, 2026, 11:59 pm local time** of our Local Event. Saving progress is not submitting.
 - [ ] Optional: request a FortiGuard Web Filter Classification for the live app's domain, so school or office networks don't block it for judges (see the Project Submission Guide).
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 4 commits), under the team's direction. Attribution from the commit history. -->

@@ -85,3 +85,5 @@ export function skyFromGeometry(g: BodyFixedGeometry, site: Site, basis = enuBas
 export function skyAt(site: Site, time: Date): SkyState {
   return skyFromGeometry(bodyFixedGeometry(time), site);
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

@@ -145,3 +145,5 @@ export function planLaunch(day: GoodDay, transitDays: number): LaunchPlan {
   const best = ok.sort((a, b) => b.window!.boostMs - a.window!.boostMs || a.window!.t - b.window!.t)[0] ?? null;
   return { day, nominal, options, best };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

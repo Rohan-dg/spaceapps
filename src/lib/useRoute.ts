@@ -49,3 +49,5 @@ export function useRoute(a: LatLon, b: LatLon, maxSlopeDeg: number) {
   const mine = state.key === key;
   return { route: mine && state.route ? state.route : straight, busy: mine ? state.busy : terrain ? 'Starting…' : null, err: mine ? state.err : null };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

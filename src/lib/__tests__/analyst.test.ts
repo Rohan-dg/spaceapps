@@ -69,3 +69,5 @@ describe('analyse', () => {
     expect(await analyse('How do I change the date?', api(id('Malapert')), null)).toBeNull();
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

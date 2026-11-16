@@ -91,3 +91,5 @@ export function buildTileMesh(idx: TileIndex, t: TileHeights, step = 2, skirtKm 
   });
   return { center, position, up, uv, h, index: new Uint32Array(tris) };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

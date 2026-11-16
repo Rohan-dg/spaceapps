@@ -42,3 +42,5 @@ describe('mission model edge cases stay finite', () => {
     for (const b of tl.battPct) { expect(b).toBeGreaterThanOrEqual(0); expect(b).toBeLessThanOrEqual(100.0001); }
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

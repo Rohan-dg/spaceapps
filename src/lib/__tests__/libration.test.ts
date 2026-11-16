@@ -47,3 +47,5 @@ describe('libration and orbital variation', () => {
     expect(unwrap([350, 355, 2, 8])).toEqual([350, 355, 362, 368]);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

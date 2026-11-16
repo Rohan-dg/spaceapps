@@ -42,3 +42,5 @@ If the team prefers slides, use at most these seven:
 5. How it works: LOLA terrain (40 m at the pole) to a 360° skyline; Sun and Earth from astronomy-engine, checked against JPL Horizons to 0.004°.
 6. NASA data: LRO LOLA, JPL Horizons, the SVS CGI Moon Kit (LOLA and LROC WAC), plus the published site coordinates.
 7. What's next: landing-date planning for CLPS and Artemis teams, and a teaching tool for why polar light is rare.
+
+<!-- SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 6 commits), under the team's direction. Attribution from the commit history. -->

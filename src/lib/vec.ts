@@ -20,3 +20,5 @@ export function rotZ(v: Vec3, a: number): Vec3 {
   const c = Math.cos(a), s = Math.sin(a);
   return [c * v[0] + s * v[1], -s * v[0] + c * v[1], v[2]];
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

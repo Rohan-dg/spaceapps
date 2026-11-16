@@ -28,3 +28,5 @@ describe('point probe', () => {
     expect(eq).toBeGreaterThan(45); expect(eq).toBeLessThan(55);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

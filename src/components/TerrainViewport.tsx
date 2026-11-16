@@ -296,3 +296,5 @@ export default function TerrainViewport({ siteId, siteName, lat, lon, sunEl, sun
     document.body,
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 13 commits), under the team's direction. Attribution from the commit history.

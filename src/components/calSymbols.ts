@@ -19,3 +19,5 @@ export const CAL_SYMBOLS: Record<'sun' | 'earth' | 'both', { vb: string; d: stri
   ]
  }
 };
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

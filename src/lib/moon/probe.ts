@@ -85,3 +85,5 @@ export function probePeriod(lat: number, lon: number, groundM: number, hz: numbe
   const h = stepMin / 60;
   return { t0, t1: t0 + n * step, sunPct: (sun / n) * 100, earthPct: (earth / n) * 100, longestDarkH: maxDark * h, longestNoEarthH: maxNoE * h };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

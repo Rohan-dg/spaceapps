@@ -130,3 +130,5 @@ for (const o of Object.keys(corr)) {
   console.table(Object.fromEntries(candidates.map((c) => [c, { all: corr[o].all[c], polar: corr[o].polar[c] }])));
 }
 console.table(rows.map((r) => ({ site: r.site, sun_pct: r.sun_pct, sun_from_clearance: r.check_sun_pct_from_clearance, earth_pct: r.earth_pct, earth_from_clearance: r.check_earth_pct_from_clearance })));
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

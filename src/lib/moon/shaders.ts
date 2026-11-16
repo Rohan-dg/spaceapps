@@ -699,3 +699,5 @@ void main() {
   gl_FragColor = vec4(c, 1.0);
   ${TAIL_F}
 }`;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 7 commits), under the team's direction. Attribution from the commit history.

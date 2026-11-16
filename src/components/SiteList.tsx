@@ -120,3 +120,5 @@ export default function SiteList({ sites, all, t, selected, onSelect, onRemove }
     </nav>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 18 commits), under the team's direction. Attribution from the commit history.

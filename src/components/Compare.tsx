@@ -146,3 +146,5 @@ export default function Compare({ sites, scenarios, onChange, range }: {
     </section>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 6 commits), under the team's direction. Attribution from the commit history.

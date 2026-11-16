@@ -62,3 +62,5 @@ describe('good landing days anywhere', async () => {
     for (const d of goodDays(load('apollo-11'), from, 5)) { expect(d.sun).toBeGreaterThanOrEqual(0.7); expect(d.earth).toBeGreaterThanOrEqual(0.9); }
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.

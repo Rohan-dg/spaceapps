@@ -86,3 +86,5 @@ const extra: Record<string, ReactNode> = {
   gauge: <><path d="M4.6 16.5a8 8 0 1 1 14.8 0" /><path d="m12 13 3.5-4" /></>,
 };
 export const Icon = ({ name, ...p }: P & { name: keyof typeof extra | string }) => <Svg {...p}>{extra[name]}</Svg>;
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 7 commits), under the team's direction. Attribution from the commit history.

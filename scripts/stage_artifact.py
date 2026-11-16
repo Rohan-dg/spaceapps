@@ -25,3 +25,5 @@ for root, _, files in os.walk(out):
         if p in skip: continue
         (large if os.path.getsize(os.path.join(root, f)) > 4_000_000 else small).append({'path': p})
 print(json.dumps({'small': sorted(small, key=lambda x: x['path']), 'large': sorted(large, key=lambda x: x['path'])}))
+
+# SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

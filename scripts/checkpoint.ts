@@ -7,3 +7,5 @@ for (const s of sites) for (const iso of ['2027-03-01T00:00:00Z', '2027-09-15T12
   const k = skyAt(s, new Date(iso));
   console.log(`${s.name.padEnd(28)} ${iso}  Sun az ${k.sun.az.toFixed(3)} el ${k.sun.el.toFixed(3)} | Earth az ${k.earth.az.toFixed(3)} el ${k.earth.el.toFixed(3)} (r=${k.earth.radiusDeg.toFixed(3)}°)`);
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

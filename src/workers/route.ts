@@ -22,3 +22,5 @@ self.onmessage = async (e: MessageEvent<RouteRequest>) => {
     self.postMessage({ id: q.id, error: String((err as Error).message ?? err) });
   }
 };
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

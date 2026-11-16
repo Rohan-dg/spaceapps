@@ -174,3 +174,5 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
     </div>
   , document.body);
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 8 commits), under the team's direction. Attribution from the commit history.

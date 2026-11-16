@@ -108,3 +108,5 @@
 /* short screens or narrow ones: the lead would push the buttons into the dock */
 @media (max-height: 820px), (max-width: 1280px) { .dh-lead { display: none; } }
 @media (prefers-reduced-motion: reduce) { .dash-hero.empty > *, .dh-pulse::after { animation: none; } }
+
+/* SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history. */

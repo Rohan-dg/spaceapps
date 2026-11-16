@@ -304,3 +304,5 @@ function Controls() {
   const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A / ←', 'Turn left'], ['D / →', 'Turn right'], ['Space', 'Brake (Stop)'], ['Shift (hold)', 'Boost: 80% faster, drains the battery fast'], ['E', 'Dig: collect ice, stopped near a deposit'], ['T', 'Transmit: send data, stopped with Earth in view'], ['F (hold)', 'Wait: time runs faster while parked'], ['L', 'Lights on or off'], ['C', 'Switch first person / third person'], ['Z', 'Lens: zoom the view'], ['Drag / scroll', 'Look around / zoom'], ['Esc', 'Pause']];
   return <div className="rg-key-list">{rows.map(([key, text]) => <div key={key}><kbd>{key}</kbd><span>{text}</span></div>)}<p>On touch screens, hold the arrow buttons to drive. Tap Sun or Earth in the telemetry strip to point the camera toward it.</p></div>;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 12 commits) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

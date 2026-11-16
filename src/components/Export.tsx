@@ -37,3 +37,5 @@ export default function Export({ d, r }: { d: SiteData; r: ScenarioResult }) {
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 4 commits), under the team's direction. Attribution from the commit history.

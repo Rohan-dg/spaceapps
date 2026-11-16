@@ -130,3 +130,5 @@ export default function SimpleView({ data, r, t, tLive, t0, t1, onT, playing, on
     </article>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 9 commits), under the team's direction. Attribution from the commit history.

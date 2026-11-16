@@ -963,3 +963,5 @@ export default function App() {
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 94 commits) and OpenAI Codex (OpenAI, 1 commit), under the team's direction. Attribution from the commit history.

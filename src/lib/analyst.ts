@@ -228,3 +228,5 @@ export async function analyse(q: string, api: AnalystApi, lastId: string | null)
     follow: [`Best day to land at ${label(focus)}`, wantsEarth ? `When is the next sunset at ${label(focus)}?` : `Can ${label(focus)} talk to Earth?`, 'Which site has the most sunlight?'],
   };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

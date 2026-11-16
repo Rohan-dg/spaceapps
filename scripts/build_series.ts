@@ -77,3 +77,5 @@ rows.forEach((r) => console.log(r));
 if (info.length) console.log(`\nℹ ${info.join('\n  ')}`);
 console.log(flags.length ? `\n⚠ SANITY FLAGS:\n  ${flags.join('\n  ')}` : '\n✓ All sanity checks pass');
 console.log(`total ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

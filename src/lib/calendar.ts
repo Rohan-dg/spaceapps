@@ -54,3 +54,5 @@ export function bestWindows(days: DayStat[], metric: Metric, len = 14, count = 5
   }
   return picked;
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

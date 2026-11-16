@@ -161,3 +161,5 @@ export function planRoute(dem: PolarDem, a: LatLon, b: LatLon, o: PlanOptions): 
       : `No path keeps every slope under ${o.maxSlopeDeg}° between these points. Showing the straight line and its hazards instead.`,
   };
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

@@ -116,3 +116,5 @@ export function useAllSites(ids: string[], lazy?: ReadonlySet<string>) {
   }, [eager.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
   return ids.map((id) => getLoaded(id) ?? null);
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 6 commits), under the team's direction. Attribution from the commit history.

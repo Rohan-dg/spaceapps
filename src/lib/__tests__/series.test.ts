@@ -74,3 +74,5 @@ describe('int16 base64 codec', () => {
     expect(Array.from(decodeI16(encodeI16(a)))).toEqual(Array.from(a));
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

@@ -36,3 +36,5 @@ describe('solver', () => {
     expect(solve(eq('travel'), { D: NaN, v: 1, t: 2 }, 'v').error).toMatch(/Enter a value/);
   });
 });
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 1 commit), under the team's direction. Attribution from the commit history.

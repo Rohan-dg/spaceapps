@@ -211,3 +211,5 @@ export default function FirstPerson({ data, t, height = 300 }: Props) {
     </div>
   );
 }
+
+// SI disclosure (NASA Space Apps): written with SI assistance by Claude Opus 5.5 (Anthropic, 2 commits), under the team's direction. Attribution from the commit history.
