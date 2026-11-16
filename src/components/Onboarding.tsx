@@ -63,7 +63,7 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
         lastLook = now;
         const found = step.target();
         el = shown(found) ? found : null;
-        if (!el && now - t0 > 2600) { go(i + dir.current); return; }
+        if (!el && now - t0 > 1400) { go(i + dir.current); return; }
       }
       let to: Box;
       if (el) {
@@ -75,12 +75,16 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
           // would only fight the step's own scroll
           for (let a: HTMLElement | null = el; a && !pinned; a = a.parentElement) pinned = /fixed|sticky/.test(getComputedStyle(a).position);
         }
-        if (!pinned && !scrolledTo) {
+        if (!scrolledTo) {
           scrolledTo = true;
-          const tall = r.height > H - 140;
-          if (r.top < 64 || r.bottom > H - 16) window.scrollTo({ top: scrollY + r.top - (tall ? 84 : (H - r.height) / 2), behavior: reduce.current ? 'auto' : 'smooth' });
+          const off = r.top < 64 || r.bottom > H - 16 || r.left < 0 || r.right > W;
+          if (off) el.scrollIntoView({ block: r.height > H - 140 ? 'start' : 'center', inline: 'nearest', behavior: reduce.current ? 'auto' : 'smooth' });
+          else if (!pinned && (r.top < 64 || r.bottom > H - 16)) window.scrollTo({ top: scrollY + r.top - (H - r.height) / 2, behavior: reduce.current ? 'auto' : 'smooth' });
         }
-      } else to = step.target ? shownBox.current : { x: W / 2, y: H / 2, w: 0, h: 0 };
+      } else {
+        const c0 = shownBox.current;
+        to = step.target ? { x: c0.x + c0.w / 2, y: c0.y + c0.h / 2, w: 0, h: 0 } : { x: W / 2, y: H / 2, w: 0, h: 0 };
+      }
       const t = reduce.current ? 1 : Math.max(0, Math.min(1, (now - t0) / MOVE_MS)), e = ease(t);
       const b = t >= 1 ? to : mix(from, to, e);
       shownBox.current = b;

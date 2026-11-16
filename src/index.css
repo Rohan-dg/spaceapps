@@ -2843,3 +2843,24 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 @media (min-width: 901px) and (max-height: 720px) { .dash-dock { gap: 1px; padding: 5px; width: 42px; } .dash-dock button, .dash-dock button.util { width: 32px; height: 32px; } .dock-sep { margin: 3px 6px; } }
 @media (min-width: 901px) and (max-height: 640px) { .dash-dock { top: 228px; width: 38px; padding: 4px; } .dash-dock button, .dash-dock button.util { width: 28px; height: 28px; } .dash-dock button svg { width: 15px; height: 15px; } }
 @media (min-width: 901px) and (max-height: 560px) { .dash-dock { max-height: calc(100% - 228px - var(--gap)); overflow-y: auto; scrollbar-width: none; } }
+
+/* ---- every remaining window in the Scientific glass: tour box, About / Help, search palette, mission comparison ---- */
+:root { --sx-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)), rgba(16, 18, 22, 0.62);
+  --sx-line: rgba(255, 255, 255, 0.12); --sx-blur: blur(20px) saturate(160%); }
+.tour-card { background: var(--sx-glass); -webkit-backdrop-filter: var(--sx-blur); backdrop-filter: var(--sx-blur); border: 1px solid var(--sx-line);
+  border-radius: 24px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 28px 70px -24px rgba(0, 0, 0, 0.8);
+  max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; }
+.tour-card button { border-radius: 999px; }
+.tour-bar { border-radius: 2px; overflow: hidden; }
+.tour-spot.lit { border-radius: 16px; }
+.tour-spot.lit::after { border-radius: 18px; }
+.tour-spot { transition: border-radius 300ms; }
+:root:not([data-theme='light']) .modal, :root:not([data-theme='light']) .cmdk, :root:not([data-theme='light']) .mc {
+  background: var(--sx-glass); -webkit-backdrop-filter: var(--sx-blur); backdrop-filter: var(--sx-blur); border: 1px solid var(--sx-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 30px 80px -28px rgba(0, 0, 0, 0.85); }
+:root:not([data-theme='light']) .modal, :root:not([data-theme='light']) .cmdk { border-radius: 26px; }
+:root:not([data-theme='light']) .mc { top: 12px; right: 12px; bottom: 12px; border-radius: 26px; }
+:root:not([data-theme='light']) .modal button, :root:not([data-theme='light']) .cmdk input { border-radius: 999px; }
+.modal { animation: glass-pop 420ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes glass-pop { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
