@@ -1,7 +1,7 @@
 /**
  * Guided tour over the live app: a spotlight glides from one real control to the next, with a card that says how to
  * use it. Nothing is blocked; the page underneath stays fully clickable, so each step can be tried as it is explained.
- * Steps differ by mode (onboarding/steps.ts). Shown after the mode chooser once per mode, and from the rail or ⌘K.
+ * Steps differ by mode (onboarding/steps.ts). Opens at the start of every visit (and the first switch to the other mode), and from the Tutorial button or ⌘K.
  *
  * Motion: one requestAnimationFrame loop follows the current target (it may move as the page scrolls or the 3D view
  * animates). Between steps the spotlight and card ease from where they were to the new target over ~0.55 s; after
@@ -11,7 +11,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { Ui } from './ModeChooser';
 import { ArrowRight, ChevronLeft, X } from './Icons';
 import { TOUR, type TourApi } from '../onboarding/steps';
-import { markTourSeen } from '../onboarding/seen';
 
 const MOVE_MS = 560;
 const PAD = 8;
@@ -37,7 +36,6 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
   const reduce = useRef(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
   const finish = useCallback(() => {
-    markTourSeen(ui);
     setClosing(true);
     window.setTimeout(onClose, reduce.current ? 0 : 320);
   }, [ui, onClose]);
