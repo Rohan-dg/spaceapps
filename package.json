@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "deploy": "trash dist/tiles/m dist/tiles/n 2>/dev/null; npx wrangler deploy && npx wrangler deploy -c wrangler.cuda.jsonc",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",

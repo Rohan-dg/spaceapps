@@ -1,0 +1,10 @@
+// The site's first address, kept up to date alongside the main one so links already shared keep working.
+// npm run deploy updates both; this file alone:  npx wrangler deploy -c wrangler.cuda.jsonc
+// Live at https://lunar-site-compare.cuda.workers.dev
+{
+  "name": "lunar-site-compare",
+  "compatibility_date": "2026-11-01",
+  "account_id": "12a6cc8e7d9ff931567e71e105ed3f37",
+  "workers_dev": true,
+  "assets": { "directory": "./dist" }
+}
