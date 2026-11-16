@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { buildRover, disposeBuilt, type RoverId } from './rovers';
+import { buildRover, disposeBuilt, roverEnvironment, type RoverId } from './rovers';
 
 /** A rover on a slowly spinning turntable, for the picker. Drag to spin it yourself. */
 export default function RoverPreview({ id, base }: { id: RoverId; base: string }) {
@@ -14,7 +14,8 @@ export default function RoverPreview({ id, base }: { id: RoverId; base: string }
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, 1, 0.05, 100);
-    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a2a2a, 1.1));
+    const env = roverEnvironment(renderer); scene.environment = env; scene.environmentIntensity = 0.45;
+    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a2a2a, 0.7));
     const key = new THREE.DirectionalLight(0xffffff, 2.6); key.position.set(3, 4, 2.5); scene.add(key);
     const rim = new THREE.DirectionalLight(0xff8a7a, 1.4); rim.position.set(-3, 2, -3); scene.add(rim);
     // a soft coral glow under the rover and a turntable ring
@@ -59,6 +60,7 @@ export default function RoverPreview({ id, base }: { id: RoverId; base: string }
       el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
       if (model) disposeBuilt(model);
       scene.traverse((x) => { const m = x as THREE.Mesh; m.geometry?.dispose(); for (const mt of ([] as THREE.Material[]).concat(m.material ?? [])) { (mt as THREE.MeshBasicMaterial).map?.dispose(); mt.dispose(); } });
+      env.dispose();
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     };
   }, [id, base]);

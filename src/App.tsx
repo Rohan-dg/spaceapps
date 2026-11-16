@@ -262,11 +262,16 @@ export default function App() {
     kids.forEach((k, i) => { k.style.width = `${fixed[i]}px`; k.style.flexShrink = '0'; k.style.boxSizing = 'border-box'; });
     // the site card sits in a column: let it overflow to the left while it is wider than the column
     const col = el.classList.contains('dash-site') ? el.parentElement : null;
+    // hold the box at its final height: with overflow hidden during the animation a flex column could otherwise
+    // squeeze the card shorter (cutting its rows and opening a gap), then snap back when the animation ends
+    const holdH = el.getBoundingClientRect().height;
+    el.style.height = `${holdH}px`; el.style.flexShrink = '0';
     if (col) { col.style.overflow = 'visible'; el.style.alignSelf = 'flex-end'; }
     el.style.alignItems = 'flex-end'; // contents stay where they end up; the moving edge reveals or covers them
     const anim = el.animate([{ width: `${from}px`, overflow: 'hidden' }, { width: `${to}px`, overflow: 'hidden' }], { duration: WIDTH_MS, easing: WIDTH_EASE });
     const done = () => {
       kids.forEach((k) => { k.style.width = ''; k.style.flexShrink = ''; k.style.boxSizing = ''; });
+      el.style.height = ''; el.style.flexShrink = '';
       if (col) { col.style.overflow = ''; el.style.alignSelf = ''; }
       el.style.alignItems = '';
     };
