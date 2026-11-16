@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { answer, buildModel, type Action, type Reply, type SiteRef } from '../lib/assistant';
 import { SUPPORT } from '../config/support';
+import { analyse, type AnalystApi } from '../lib/analyst';
 import { ArrowRight, CircleHelp, X } from './Icons';
 
 /** What the helper knows about the current screen. Every field is optional: the helper only uses what is there. */
@@ -20,9 +21,9 @@ export interface HelpContext {
 }
 
 interface Msg { id: number; from: 'user' | 'bot'; text: string; actions?: Action[]; support?: boolean; follow?: string[] }
-interface Props { sites: SiteRef[]; onAction: (a: Action) => void; context?: HelpContext }
+interface Props { sites: SiteRef[]; onAction: (a: Action) => void; context?: HelpContext; analyst?: AnalystApi }
 
-const SUGGEST = ['What is this site?', 'Is it sunlit right now?', 'Can it talk to Earth?', 'How good is this site?', 'Best launch time'];
+const SUGGEST = ['Is it sunlit right now?', 'Which site has the most sunlight?', 'Compare Malapert and Shackleton rim', 'Best day to land in March 2028', 'Is Apollo 11 sunlit next week?'];
 const WELCOME = "Hi! I'm Sol, your guide to this site. Ask me anything in your own words: about the landing site you're looking at, what a number means, or where to find something. I can also take you places, like \"show me Apollo 15\".";
 
 /** Friendly next questions after each kind of answer, so there is always an easy way to keep going. */
@@ -83,7 +84,7 @@ const SupportLink = () => (
   <a className="as-support-btn" href={SUPPORT.issuesUrl} target="_blank" rel="noreferrer">Ask the team <ArrowRight size={14} /></a>
 );
 
-export default function AssistantChat({ sites, onAction, context, toggleSignal = 0 }: Props & { toggleSignal?: number }) {
+export default function AssistantChat({ sites, onAction, context, analyst, toggleSignal = 0 }: Props & { toggleSignal?: number }) {
   const model = useMemo(() => buildModel(), []);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -96,6 +97,10 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
   const input = useRef<HTMLInputElement>(null);
   const ctx = useRef(context);
   ctx.current = context;
+  const api = useRef(analyst);
+  api.current = analyst;
+  /** the site last talked about, so "what about tomorrow?" or "is it good?" carries on from it */
+  const lastSite = useRef<string | null>(null);
 
   useEffect(() => { if (open && !closing) input.current?.focus(); }, [open, closing]);
   useEffect(() => { log.current?.scrollTo({ top: log.current.scrollHeight, behavior: 'smooth' }); }, [msgs, typing, open]);
@@ -111,7 +116,7 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
   }, [toggleSignal]); // eslint-disable-line react-hooks/exhaustive-deps
   const push = (m: Omit<Msg, 'id'>) => setMsgs((list) => [...list, { ...m, id: nextId.current++ }]);
 
-  const ask = (text: string) => {
+  const ask = async (text: string) => {
     const t = text.trim();
     if (!t || typing) return;
     setQ('');
@@ -123,7 +128,26 @@ export default function AssistantChat({ sites, onAction, context, toggleSignal =
       setTimeout(() => { setTyping(false); push({ from: 'bot', text: small[1], follow: FOLLOW_DEFAULT }); }, 500);
       return;
     }
+    // first try to work the answer out from the data (named sites, dates, comparisons, rankings ...)
+    if (api.current) {
+      setTyping(true);
+      const started = Date.now();
+      let f = null;
+      try { f = await analyse(t, api.current, lastSite.current); } catch { f = null; }
+      if (f) {
+        const found = f;
+        if (found.site) lastSite.current = found.site.id;
+        setMisses(0);
+        setTimeout(() => {
+          setTyping(false);
+          push({ from: 'bot', text: found.text, actions: found.actions, follow: (found.follow ?? FOLLOW_DEFAULT).filter((x) => x.toLowerCase() !== t.toLowerCase()) });
+        }, Math.max(0, Math.min(1200, 400 + found.text.length * 2) - (Date.now() - started)));
+        return;
+      }
+      setTyping(false);
+    }
     const r = answer(model, t, sites);
+    if (r.site) lastSite.current = r.site.id;
     const miss = r.topic === null && !r.site;
     const n = miss ? misses + 1 : 0;
     setMisses(n);

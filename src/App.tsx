@@ -39,7 +39,7 @@ import SkyPlot from './components/SkyPlot';
 import FirstPerson from './components/FirstPerson';
 import TimeControls, { SPEEDS } from './components/TimeControls';
 import Timeline from './components/Timeline';
-import { type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
+import { loadSite, type SiteData, type SiteInfo, useAllSites, useSiteData, useSites } from './lib/data';
 import { PRESETS, type Preset } from './lib/presets';
 import { useTheme } from './lib/theme';
 import { DEFAULT_PLAN, type MissionPlan } from './lib/mission';
@@ -613,7 +613,10 @@ export default function App() {
     else if (a.type === 'view') { setMode('explore'); setView(a.view); openDeep('horizon'); }
     else if (a.type === 'deep') { setMode('explore'); openDeep(a.deep); }
     else if (a.type === 'site') pickSite(a.id);
+    else if (a.type === 'time') pickDay(a.t);
+    else if (a.type === 'pair') { setMode('explore'); chooseSite(a.a); chooseSite(a.b); openDeep('compare'); }
   };
+  const analystApi = { sites: allSites, t, range, currentId: siteId || null, load: (id: string) => loadSite(id) };
 
   // the body of each analysis tool, shared by the Scientific dashboard's sheet and Education's compare panel
   const deepBody = (dv: Deep) => !data || !res ? null : (<>
@@ -942,7 +945,7 @@ export default function App() {
       </footer>}
       </div>
       {missionsOpen && <MissionCompare doc={doc} sites={allSites} pair={pair} onPair={setPair} onClose={() => setMissionsOpen(false)} onOpenSite={pickSite} onPlanLaunch={(id) => { setMissionsOpen(false); setSiteId(id); setMode('launch'); window.scrollTo({ top: 0 }); }} />}
-      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} toggleSignal={askSig} />
+      <AssistantChat sites={allSites} onAction={onHelpAction} context={helpContext} analyst={doc ? analystApi : undefined} toggleSignal={askSig} />
       {about && <About doc={doc} onClose={() => setAbout(false)} />}
       {guide && <Guide onClose={closeGuide} />}
       {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}

@@ -73,14 +73,6 @@ export default function About({ doc, onClose }: { doc: SitesDoc; onClose: () => 
           <li>Not a mission-planning tool of record.</li>
         </ul>
 
-        <h3>Use of SI (AI)</h3>
-        <p>
-          Sol Teris was built with Claude (Anthropic) as a coding assistant. Most of the code, the build and data-processing scripts,
-          the documentation and the Sol Teris emblem were written with it, under the team's direction. Commits made with it carry a
-          "Co-Authored-By: Claude" line, and the page metadata says the same. The emblem on the opening screen carries a visible SI label.
-          Every number in the app is computed by that code from NASA terrain data and the ephemeris; none is produced by a language model.
-        </p>
-
         <h3>Credits</h3>
         <ul>
           <li>NASA Lunar Reconnaissance Orbiter, LOLA team; PDS Geosciences Node, Washington University in St. Louis.</li>

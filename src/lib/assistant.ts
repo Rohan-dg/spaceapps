@@ -20,6 +20,8 @@ export type Action =
   | { type: 'view'; view: 'panorama' | 'sky' | 'first' | 'shadow'; label: string }
   | { type: 'deep'; deep: 'libration' | 'calendar' | 'mission'; label: string }
   | { type: 'site'; id: string; label: string }
+  | { type: 'time'; t: number; label: string }
+  | { type: 'pair'; a: string; b: string; label: string }
   | { type: 'support'; label: string };
 
 export interface Topic { id: string; examples: string[]; answer: string; actions?: Action[]; support?: boolean }
