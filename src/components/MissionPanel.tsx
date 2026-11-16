@@ -35,11 +35,16 @@ const pct = (x: number) => `${x.toFixed(0)}%`;
 function NumField({ label, value, onChange, unit, min, max, step = 'any' }: { label: string; value: number; onChange: (v: number) => void; unit?: string; min?: number; max?: number; step?: string }) {
   const [s, setS] = useState(String(value));
   useEffect(() => { if (Number(s) !== value) setS(String(+value.toFixed(6))); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  // an out-of-range entry is not applied; say so, and which value the plan is still using
+  const n = Number(s), bad = s.trim() === '' || !isFinite(n) || (min !== undefined && n < min) || (max !== undefined && n > max);
+  const range = min !== undefined && max !== undefined ? `between ${min} and ${max}` : min !== undefined ? `at least ${min}` : max !== undefined ? `at most ${max}` : 'a number';
   return (
-    <label className="pf">
+    <label className={`pf${bad ? ' bad' : ''}`}>
       <span>{label}{unit && <small> {unit}</small>}</span>
-      <input inputMode="decimal" type="number" step={step} min={min} max={max} value={s}
-        onChange={(e) => { setS(e.target.value); const v = Number(e.target.value); if (e.target.value !== '' && isFinite(v) && (min === undefined || v >= min) && (max === undefined || v <= max)) onChange(v); }} />
+      <input inputMode="decimal" type="number" step={step} min={min} max={max} value={s} aria-invalid={bad || undefined}
+        onChange={(e) => { setS(e.target.value); const v = Number(e.target.value); if (e.target.value !== '' && isFinite(v) && (min === undefined || v >= min) && (max === undefined || v <= max)) onChange(v); }}
+        onBlur={() => { if (bad) setS(String(+value.toFixed(6))); }} />
+      {bad && <small className="pf-err" role="alert">Must be {range}{unit ? ` ${unit}` : ''}. Still using {+value.toFixed(6)}.</small>}
     </label>
   );
 }

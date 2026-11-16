@@ -307,6 +307,7 @@ export default function Dashboard(p: DashProps) {
         <div className="dh-chips">
           {m && info ? <>
             <span className={`chip${m.sunUp ? ' on' : ''}`}>{m.sunUp ? <Sun size={13} /> : <SunDim size={13} />}<span className="num">{sgn(m.sky.sun.el)}°</span> {m.sunUp ? 'lit' : 'shadow'}</span>
+            <span className="chip" title="What decides sunlight on the Moon: the Sun's height above the terrain skyline in its direction, not above 0°"><span className="num">{sgn(m.sky.sun.el - m.sunHorizon)}°</span> {m.sky.sun.el >= m.sunHorizon ? 'above' : 'below'} the skyline</span>
             <span className="chip num">{sunE?.t != null ? `${utc(sunE.t)} UTC` : sunE?.beyondRange ? 'after the data ends' : 'never'}</span>
           </> : <span className="chip">Pick a site on the Moon or open Sites</span>}
         </div>
@@ -401,6 +402,10 @@ export default function Dashboard(p: DashProps) {
             </div>
             <button className="sh-close" onClick={() => p.onSheet(null)} aria-label="Close panel" title="Close (Esc)"><X size={16} /></button>
           </header>
+          {/* phones: the dock is hidden behind a full-screen panel, so the sections can be switched from here */}
+          <nav className="sh-switch" aria-label="Sections">
+            {tabs.map((x) => <button key={x.id} aria-pressed={p.sheet === x.id} disabled={!data && x.id !== 'sites'} onClick={() => p.onSheet(x.id)}>{x.label}</button>)}
+          </nav>
           <div className="sh-body" key={cur.id}>{open ? p.sheetBody : lastBody.current}</div>
         </section>
       )}

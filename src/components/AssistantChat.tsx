@@ -14,7 +14,7 @@ export interface HelpContext {
   mode?: string;
   when?: string; // "2027-07-08 00:00 UTC"
   site?: { name: string; short: string; lat: number; lon: number; heightM: number } | null;
-  now?: { sunUp: boolean; sunEl: number; sunNext: string; earthUp: boolean; earthEl: number; earthNext: string } | null;
+  now?: { sunUp: boolean; sunEl: number; sunSky?: number; sunNext: string; earthUp: boolean; earthEl: number; earthNext: string } | null;
   ratings?: { power: string; comms: string; sunPct: number; earthPct: number; longestDarkH: number } | null;
   partner?: string | null;
 }
@@ -59,7 +59,7 @@ function withContext(r: Reply, q: string, c?: HelpContext): string {
   const asksSite = /\b(this|current|here|it)\b/.test(ql) || /what is this site|where am i/.test(ql);
   const parts: string[] = [];
   if (here && n && (id === 'sunlit' || /sun|light|power|dark/.test(ql))) {
-    parts.push(`Right now (${c.when}) ${here} is ${n.sunUp ? 'in sunlight' : 'in shadow'}: the Sun is at ${n.sunEl.toFixed(1)}° and ${n.sunNext}.`);
+    parts.push(`Right now (${c.when}) ${here} is ${n.sunUp ? 'in sunlight' : 'in shadow'}: the Sun is at ${n.sunEl.toFixed(1)}°${n.sunSky !== undefined ? `, ${Math.abs(n.sunEl - n.sunSky).toFixed(1)}° ${n.sunEl >= n.sunSky ? 'above' : 'below'} the terrain skyline in its direction (${n.sunSky.toFixed(1)}°), and that is what decides sunlight here` : ''}, and ${n.sunNext}.`);
   }
   if (here && n && (id === 'earth' || /earth|radio|comm|talk/.test(ql))) {
     parts.push(`Earth is ${n.earthUp ? 'in view' : 'hidden'} from ${here} (${n.earthEl.toFixed(1)}° elevation) and ${n.earthNext}.`);

@@ -172,13 +172,16 @@ export default function App() {
   const [choosing, setChoosing] = useState(true);
   // the guided tour for a mode opens right after that mode is first chosen, and on request (rail, command menu)
   const [tour, setTour] = useState<Ui | null>(null);
-  // Every visit starts with the tour for the chosen mode, and switching to the other mode starts its tour the first
-  // time in this visit. It can always be closed (Esc or ×) and replayed from Tutorial.
+  // Each mode's tour opens by itself only the first time that mode is used on this device (remembered in local
+  // storage), so returning visitors and judges go straight to the tools. Tutorial replays it at any time.
   const toured = useRef(new Set<Ui>());
   useEffect(() => {
     if (choosing || toured.current.has(ui)) return;
     toured.current.add(ui);
-    setTour(ui);
+    const key = `tour-seen-${ui}`;
+    let seen = false;
+    try { seen = localStorage.getItem(key) === '1'; localStorage.setItem(key, '1'); } catch { /* storage blocked: show it once per visit */ }
+    if (!seen) setTour(ui);
   }, [choosing, ui]);
   const [roverOpen, setRoverOpen] = useState(false);
   const expert = ui === 'expert';
@@ -349,6 +352,8 @@ export default function App() {
   ]);
 
   const range = useMemo<[number, number]>(() => doc ? [Date.parse(doc.range.start), Date.parse(doc.range.end) - 1800000] : [0, 1], [doc]);
+  // a shared link can carry any time; keep it inside the computed data so no panel shows results for a date we have no data for
+  if (doc && (t < range[0] || t > range[1])) setT(Math.max(range[0], Math.min(range[1], t)));
   // only a real change of the list reaches the 3D Moon (switching modes with no points of your own keeps the same array)
   const shownCustoms = expert && customs.length ? customs : NO_SITES;
   const allSites = useMemo(() => [...(doc?.sites ?? []), ...shownCustoms], [doc, shownCustoms]);
@@ -382,6 +387,8 @@ export default function App() {
   const [plan, setPlan] = useState<MissionPlan>(() => loadPlan(init.t));
   useEffect(() => { try { localStorage.setItem(PLAN_KEY, JSON.stringify(plan)); } catch { /* storage blocked */ } }, [plan]);
   const mission = useMission(data, res, plan, tl);
+  // the selected site's own figures, for the 3D view's probe when it sits on the site (so the two always agree)
+  const siteFigures = useMemo(() => dashExplore && res && data ? { sunUp: res.metrics.sunUp, earthUp: res.metrics.earthUp, sunPct: res.metrics.sunPct, earthPct: res.metrics.earthPct, longestDarkH: res.metrics.longestDarkH, source: `${data.info.dem}${data.info.demResolutionM ? `, ${data.info.demResolutionM} m/px` : ''}` } : null, [dashExplore, res, data]);
   const readoutHz = useMemo(() => (data ? { profile: data.horizon.horizonDeg, observerM: data.horizon.observerHeightM } : undefined), [data]);
   const [calc, setCalc] = useState<CalcState>(initialCalc);
 
@@ -541,7 +548,7 @@ export default function App() {
       mode, when: `${when(tl)} UTC`,
       site: info ? { name: info.name, short: info.short, lat: info.lat, lon: info.lon, heightM: info.siteHeightM } : null,
       now: m ? {
-        sunUp: m.sunUp, sunEl: m.sky.sun.el, earthUp: m.earthUp, earthEl: m.sky.earth.el,
+        sunUp: m.sunUp, sunEl: m.sky.sun.el, sunSky: m.sunHorizon, earthUp: m.earthUp, earthEl: m.sky.earth.el,
         sunNext: `the Sun ${m.sunUp ? 'sets' : 'rises'} ${eventText(m.sunUp ? m.nextSunset : m.nextSunrise, m.t)}`,
         earthNext: `Earth ${m.earthUp ? 'sets' : 'rises'} ${eventText(m.earthUp ? m.nextEarthset : m.nextEarthrise, m.t)}`,
       } : null,
@@ -770,7 +777,7 @@ export default function App() {
         <div className="ct-map">
           <Suspense fallback={<div className="moon moon-wait"><Loading label="Loading 3D view" /></div>}>
             {/* keyed on the mode: switching Education <-> Scientific reloads the 3D rendering from scratch */}
-            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} />
+            <MoonView sites={allSites} selectedId={mode === 'compare' ? scenarios[0]?.siteId ?? siteId : siteId} t={mode === "compare" ? scenarios[0]?.t ?? t : t} onSelect={onMoonSelect} onPlanLaunch={planLaunchTo} homeSignal={homeSignal} secondId={mode === 'explore' ? partner : null} onHome={goHome} onComparePoint={expert ? comparePoint : undefined} closeUp={closeUp} onPointClick={expert && mode === 'explore' ? comparePoint : undefined} expert={expert} probeCollapsed={dash} siteFigures={siteFigures} />
           </Suspense>
         </div>
         {dash && (

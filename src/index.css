@@ -2499,7 +2499,7 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 
 /* ---- left side: the section box grows from the Sites card's width to its own, like the right panel ---- */
 .dash-sheet { right: auto; width: var(--shW); --shW: calc(100% - var(--L) - var(--R)); }
-.dash-sheet.sh-sites, .dash-sheet.sh-slip, .dash-sheet.sh-earth, .dash-sheet.sh-libration, .dash-sheet.sh-mission { --shW: min(640px, calc(100% - var(--L) - var(--R))); }
+.dash-sheet.sh-sites, .dash-sheet.sh-earth, .dash-sheet.sh-libration, .dash-sheet.sh-mission { --shW: min(640px, calc(100% - var(--L) - var(--R))); }
 /* content slides in the direction of travel, with a glass blur (--dy / --dx set when a section is picked) */
 .dash .sh-body { animation: sh-slide 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
 @keyframes sh-slide { from { opacity: 0; transform: translateY(calc(var(--dy, 1) * 22px)); filter: blur(6px); } }
@@ -2931,3 +2931,26 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .dash select, .edu select, .rg select, .mc select, .as select { color-scheme: dark; }
 .dash select option, .dash select optgroup, .edu select option, .edu select optgroup,
 .rg select option, .rg select optgroup, .mc select option, .mc select optgroup { background-color: #16181c !important; color: #fff !important; }
+/* Date slip opens full width so its comparison table fits; compact cells */
+.sh-body .slip-table th, .sh-body .slip-table td { padding-left: 8px; padding-right: 8px; }
+/* Date slip strip: the dashboard's level colours, so Marginal can't be mistaken for Good */
+.slip-cell.lv-green { background: rgba(255, 255, 255, 0.9); }
+.slip-cell.lv-amber { background: #63a1ff; }
+.slip-cell.lv-red { background: #ff6363; }
+:root[data-theme='light'] .app:not(.is-dash) .slip-cell.lv-green { background: #18181b; }
+.pf.bad input { border-color: #ff6363 !important; box-shadow: 0 0 0 1px #ff6363; }
+.pf-err { display: block; margin-top: 3px; font-size: 11.5px; color: #ff8f8f; }
+/* Missions sidebar: below the top bar so its tabs and buttons stay usable, and the pinned Moon / Remove shadows
+   buttons step aside while it is open */
+:root:not([data-theme='light']) .app.is-dash ~ .mc, :root:not([data-theme='light']) .is-dash .mc, body:has(.app.is-dash) .mc { top: 72px; }
+body:has(.mc) .moon-fab { opacity: 0; pointer-events: none; }
+.moon-fab { transition: opacity 200ms ease; }
+/* section switcher inside a panel: phones only (on larger screens the dock beside the panel does this) */
+.sh-switch { display: none; }
+@media (max-width: 900px) {
+  .sh-switch { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 0 16px 12px; flex: none; }
+  .sh-switch::-webkit-scrollbar { display: none; }
+  .sh-switch button { flex: none; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.75); font-size: 13px; font-weight: 500; }
+  .sh-switch button[aria-pressed='true'] { background: #fff; color: #000; border-color: #fff; }
+  .sh-switch button:disabled { opacity: 0.35; }
+}

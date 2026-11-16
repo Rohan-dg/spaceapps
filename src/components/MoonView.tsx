@@ -136,7 +136,7 @@ interface Probe { lat: number; lon: number; groundM: number; hz: number[]; resM:
 const DBL_MS = 260;
 const fmtAlt = (km: number) => (km >= 1 ? `${km.toFixed(km >= 100 ? 0 : 1)} km` : `${(km * 1000).toFixed(km * 1000 >= 10 ? 0 : 1)} m`);
 
-export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false, minimal = false, pathIds, popupAt = null, popup, onGroundClick, frame }: {
+export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch, homeSignal = 0, secondId = null, onHome, onComparePoint, closeUp, onPointClick, expert = true, probeCollapsed = false, siteFigures = null, minimal = false, pathIds, popupAt = null, popup, onGroundClick, frame }: {
   sites: SiteInfo[]; selectedId: string; t: number; onSelect: (id: string) => void; onPlanLaunch?: (lat: number, lon: number) => void; secondId?: string | null;
   /** bumped by the app logo: fly back to the home view, as the H key does */
   homeSignal?: number;
@@ -150,6 +150,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   expert?: boolean;
   /** start the probed-point panel collapsed (the Scientific dashboard already shows the selected site) */
   probeCollapsed?: boolean;
+  /** the selected site's own figures (its high-resolution skyline): the probe shows these when it sits on the site */
+  siteFigures?: { sunUp: boolean; earthUp: boolean; sunPct: number; earthPct: number; longestDarkH: number; source: string } | null;
   /** Fly to a close-up of this site (bumping n repeats the flight). */
   closeUp?: { id: string; n: number } | null;
   /** Education's full-screen view: no readouts or probe panel, and a click on a site or the ground does not move the camera. */
@@ -170,6 +172,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
   const readout = useRef<{ res: HTMLElement | null; alt: HTMLElement | null; src: HTMLElement | null }>({ res: null, alt: null, src: null });
   const [status, setStatus] = useState('Loading the LROC mosaic');
   const [scale, setScale] = useState<Scale>('moon');
+  const [narrow, setNarrow] = useState(() => typeof matchMedia === 'function' && matchMedia('(max-width: 900px)').matches);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia('(max-width: 900px)'), on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on); return () => mq.removeEventListener('change', on);
+  }, []);
   const [shadows, setShadows] = useState(true);
   const [detail, setDetail] = useState(false);
   const [relief, setRelief] = useState(3);
@@ -1612,16 +1620,30 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               <dt>Location</dt><dd className="num">{fmtLatLon(probe.lat, probe.lon)}</dd>
               <dt>Height</dt><dd className="num">{probe.groundM >= 0 ? '+' : ''}{probe.groundM.toFixed(0)} m</dd>
               {probe.distKm !== null && sel && <><dt>Distance to {sel.short || sel.name}</dt><dd className="num">{probe.distKm < 10 ? probe.distKm.toFixed(1) : probe.distKm.toFixed(0)} km</dd></>}
-              {now && <>
+              {(() => {
+                // on the selected site itself: show the site's own record, so the probe and the site card agree
+                const own = siteFigures && probe.distKm !== null && probe.distKm < 0.5 ? siteFigures : null;
+                if (!own) return null;
+                return <>
+                  <dt>Sunlight now</dt><dd><b className={own.sunUp ? 'ok' : 'no'}>{own.sunUp ? 'Yes' : 'No'}</b></dd>
+                  <dt>Earth contact now</dt><dd><b className={own.earthUp ? 'ok' : 'no'}>{own.earthUp ? 'Yes' : 'No'}</b></dd>
+                  <dt>Sunlight, next month</dt><dd className="num">{fmtPct(own.sunPct)} of the time</dd>
+                  <dt>Earth contact, next month</dt><dd className="num">{fmtPct(own.earthPct)} of the time</dd>
+                  <dt>Longest darkness</dt><dd className="num">{own.longestDarkH >= 708 ? 'All month' : own.longestDarkH >= 48 ? `${(own.longestDarkH / 24).toFixed(1)} days` : `${Math.round(own.longestDarkH)} hours`}</dd>
+                  <dt>Source</dt><dd className="dim">The site's own record ({own.source}), same as the site card</dd>
+                </>;
+              })()}
+              {!(siteFigures && probe.distKm !== null && probe.distKm < 0.5) && now && <>
                 <dt>Sunlight now</dt>
                 <dd><b className={now.sunPct >= 99.5 ? 'ok' : now.sunPct > 0.5 ? 'part' : 'no'}>{now.sunPct >= 99.5 ? 'Yes' : now.sunPct > 0.5 ? `Partly (${fmtPct(now.sunPct)})` : 'No'}</b></dd>
                 <dt>Earth contact now</dt>
                 <dd><b className={now.earthUp ? 'ok' : 'no'}>{now.earthUp ? 'Yes' : 'No'}</b></dd>
               </>}
-              {period ? <>
+              {siteFigures && probe.distKm !== null && probe.distKm < 0.5 ? null : period ? <>
                 <dt>Sunlight, next month</dt><dd className="num">{fmtPct(period.sunPct)} of the time</dd>
                 <dt>Earth contact, next month</dt><dd className="num">{fmtPct(period.earthPct)} of the time</dd>
                 <dt>Longest darkness</dt><dd className="num">{period.longestDarkH >= 708 ? 'All month' : period.longestDarkH >= 48 ? `${(period.longestDarkH / 24).toFixed(1)} days` : `${Math.round(period.longestDarkH)} hours`}</dd>
+                <dt>Source</dt><dd className="dim">Estimate from the terrain loaded in the 3D view ({probe.resM >= 1000 ? `${(probe.resM / 1000).toFixed(1)} km` : `${Math.round(probe.resM)} m`} grid), coarser than a listed site's own record</dd>
               </> : <><dt>Next month</dt><dd>Calculating</dd></>}
             </dl>
             {onComparePoint && <button className="hud-probe-launch alt" onClick={() => onComparePoint(probe.lat, probe.lon)}>Compare this point</button>}
@@ -1738,7 +1760,8 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
               <button className={`hud-toggle${fill ? ' on' : ''}`} aria-pressed={fill} onClick={() => setFill((x) => !x)}
                 title="Shine a floodlight from your viewpoint so the night side and shadowed craters are visible. Display only: the probe and verdicts still use real sunlight."><Icon name="lamp" /> Remove shadows</button>
             );
-            if (!expert || typeof document === 'undefined') return btn;
+            // phones: keep it inside the Moon view (with the Moon / 200 km / 10 km buttons) instead of pinned over the time bar
+            if (!expert || typeof document === 'undefined' || narrow) return btn;
             // Scientific: Moon (home view) and Remove shadows side by side in the bottom-right corner
             return createPortal(
               <div className="moon-fab" role="group" aria-label="Moon view">
