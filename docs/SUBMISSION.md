@@ -16,7 +16,7 @@ Upload the 30-second video (script in [docs/DEMO.md](DEMO.md)) or a deck of at m
 
 ## Link to Final Project
 
-- Live app: <https://lunar-site-compare.cuda.workers.dev>
+- Live app: <https://sol.teris.workers.dev>
 - Source code (Apache 2.0): <https://github.com/Rohan-dg/spaceapps>
 
 ## Detailed Project Description

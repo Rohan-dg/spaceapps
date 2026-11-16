@@ -2,7 +2,7 @@
 
 The Space Apps rules allow a video of **30 seconds or less** or a deck of **at most 7 slides** (title and intro slides included). A demo over either limit makes the project ineligible for Global Judging. This script follows the timing in the official [Project Submission Guide](https://www.spaceappschallenge.org/resources/project-submission-guide/) ("Tips for Creating a Project Demo"). For a longer live presentation, use [WALKTHROUGH.md](WALKTHROUGH.md) instead.
 
-About 75 spoken words, which fits 30 seconds at a calm pace. Record at 1920 × 1080 from the live site, <https://lunar-site-compare.cuda.workers.dev>.
+About 75 spoken words, which fits 30 seconds at a calm pace. Record at 1920 × 1080 from the live site, <https://sol.teris.workers.dev>.
 
 | Time | On screen | Say |
 |---|---|---|

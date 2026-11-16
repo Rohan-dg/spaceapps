@@ -1,10 +1,10 @@
 // Cloudflare Workers deploy: static assets only, no Worker code runs.
 // Build, then deploy:  npm run build && npx wrangler deploy
-// Live at https://lunar-site-compare.cuda.workers.dev
+// Live at https://sol.teris.workers.dev
 {
-  "name": "lunar-site-compare",
+  "name": "sol",
   "compatibility_date": "2026-11-01",
-  "account_id": "12a6cc8e7d9ff931567e71e105ed3f37",
+  "account_id": "fa8d9aa73eb2d01001ec59efc98116f0",
   "workers_dev": true,
   "assets": { "directory": "./dist" }
 }
