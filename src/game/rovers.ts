@@ -1,17 +1,19 @@
 /**
- * The rovers you can drive. Each is a real lunar rover, flown or built, with a call sign of its own.
+ * The rovers you can drive. Each is a NASA rover or one built for a NASA programme (flown, built or in development),
+ * with a call sign of its own.
  *
- * What is real: the vehicle each one is based on, its layout (wheel count and placement, panels, mast, tools) and
- * its proportions, taken from the published dimensions listed in `facts`. RASSOR uses NASA's own 3D model; the
- * others are drawn here from those dimensions.
- * What is a game's: the power, heat and speed figures in `spec`. They keep each rover's real character (the Apollo
- * buggy is fast and runs on batteries alone, Lunokhod and Yutu-2 carry radioisotope heaters, VIPER sees ice from
- * further away) but are scaled so every mission fits a ten-minute session.
+ * What is real: the vehicle each one is based on, its layout (wheel count and placement, solar arrays, mast, tools)
+ * and its proportions, taken from published dimensions and concept art. RASSOR uses NASA's own 3D model; the others
+ * are drawn here. What is a game's: the power, heat and speed figures in `spec`. They keep each rover's character
+ * (the Apollo buggy is fast and runs on batteries alone, the Lunar Terrain Vehicle carries the biggest array and
+ * battery, MoonRanger sips power, VIPER sees ice from further away) but are scaled so a mission fits a short session.
+ *
+ * Every drawn model is baked (see bake()) into one mesh per material, so a rover costs a couple of dozen draw calls.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { SPEC, type Spec } from './sim';
@@ -67,22 +69,22 @@ export const ROVERS: RoverDef[] = [
     geom: { wb: 1.145, tw: 0.915, wr: 0.409, cam: 12, mastH: 1.9 }, digS: 3, detectM: 30, tool: 'sample scoop',
   },
   {
-    id: 'tortoise', tag: 'The Tank', kid: 'The very first robot to drive on another world. Eight wheels, a flip-top solar lid and a built-in heater.', power: 'Stays toasty warm in the dark', watch: 'Slow and heavy', color: '#9b8cff', callsign: 'Iron Tortoise', basis: 'Lunokhod 1', origin: 'Soviet Union · first robot rover on another world (1970 to 1971)',
-    blurb: 'A pressurised tub on eight wheels with a solar lid that folds open like a clam. A radioisotope heater kept it warm through two-week lunar nights. It drove 10.5 km.',
-    perk: 'Radioisotope heater: warmth in the shadow without touching the battery.', drawback: 'Slow and heavy.',
-    facts: [['Mass', '756 kg'], ['Wheels', '8'], ['Power', 'solar lid + polonium-210 heater'], ['Distance driven', '10.5 km']],
-    bars: { speed: 2, battery: 3, solar: 4, cold: 5, science: 3 },
-    spec: base({ batteryWh: 800, solarW: 270, driveW: 200, vMax: 3.3, isotopeW: 95, heaterMaxW: 80 }),
-    geom: { wb: 0.85, tw: 0.8, wr: 0.255, cam: 10, mastH: 1.5 }, digS: 4, detectM: 30, tool: 'penetrometer',
+    id: 'tortoise', tag: 'The Hauler', kid: 'The new moon car NASA is building for Artemis astronauts. A big solar wall on its back and a huge battery. It can even drive itself!', power: 'Biggest solar array and battery', watch: 'Heavy, so hills drain power fast', color: '#9b8cff', callsign: 'Trailblazer', basis: 'Artemis Lunar Terrain Vehicle', origin: 'NASA · Artemis Lunar Terrain Vehicle (in development)',
+    blurb: 'NASA\'s next moon car for Artemis astronauts, designed to drive itself between crew visits. Modelled on the published concept: four large steered wheels on independent suspension, two crew seats, a rear power module and a tall Sun-tracking solar array that catches the low polar Sun.',
+    perk: 'Huge battery and the largest solar array.', drawback: 'Heavy: climbing and the cold drain the battery fast.',
+    facts: [['Seats', '2 astronauts, or none (driven from Earth)'], ['Wheels', '4, each steered'], ['Power', 'Sun-tracking solar array + batteries'], ['Status', 'in development for Artemis']],
+    bars: { speed: 3, battery: 5, solar: 5, cold: 3, science: 3 },
+    spec: base({ batteryWh: 1500, solarW: 380, driveW: 280, vMax: 4.2, heaterMaxW: 130 }),
+    geom: { wb: 1.2, tw: 1.0, wr: 0.4, cam: 12.5, mastH: 1.5 }, digS: 4, detectM: 30, tool: 'robotic arm',
   },
   {
-    id: 'hare', tag: 'The Tiny Explorer', kid: 'A small, clever rover still exploring the far side of the Moon. It uses hardly any power.', power: 'Uses very little power', watch: 'The slowest rover of all', color: '#5fd4b5', callsign: 'Jade Hare', basis: 'Yutu-2', origin: 'China (CNSA) · Chang\'e 4, first rover on the far side (2019 onward)',
-    blurb: 'Light and frugal, on six wheels with two solar wings and a radioisotope heater. It has outlived every other lunar rover, creeping across the far side a few metres at a time.',
-    perk: 'Sips power, and a radioisotope heater keeps it warm.', drawback: 'The slowest rover here, with a small battery.',
-    facts: [['Mass', 'about 140 kg'], ['Wheels', '6, rocker-bogie'], ['Top speed', '200 m per hour'], ['Status', 'longest-working lunar rover']],
-    bars: { speed: 1, battery: 2, solar: 3, cold: 4, science: 3 },
-    spec: base({ batteryWh: 520, solarW: 210, idleW: 18, driveW: 90, heaterMaxW: 70, vMax: 2.8, isotopeW: 60, txW: 50 }),
-    geom: { wb: 0.45, tw: 0.55, wr: 0.15, cam: 7.5, mastH: 1.45 }, digS: 4, detectM: 34, tool: 'sampling arm',
+    id: 'hare', tag: 'The Scout', kid: 'A suitcase-sized robot that explores on its own, finding its way around rocks without waiting for Earth.', power: 'Uses very little power', watch: 'Small battery and the slowest rover', color: '#5fd4b5', callsign: 'Ranger', basis: 'MoonRanger', origin: 'Carnegie Mellon University and Astrobotic · built with NASA support for a polar mission',
+    blurb: 'A small autonomous rover that plans its own drives. A solar array covers its top and a second one stands on its back for the low polar Sun, stereo cameras and a lidar look ahead, and a neutron spectrometer underneath looks for hidden hydrogen.',
+    perk: 'Sips power and senses ice a little further away.', drawback: 'The slowest rover here, with a small battery.',
+    facts: [['Mass', 'about 13 kg'], ['Wheels', '4, skid-steered'], ['Power', 'solar arrays + battery'], ['Drives', 'by itself, planning around rocks']],
+    bars: { speed: 1, battery: 2, solar: 3, cold: 2, science: 3 },
+    spec: base({ batteryWh: 420, solarW: 200, idleW: 14, driveW: 70, heaterMaxW: 60, vMax: 2.8, txW: 40 }),
+    geom: { wb: 0.26, tw: 0.3, wr: 0.1, cam: 4.5, mastH: 0.4 }, digS: 4, detectM: 34, tool: 'spectrometer',
   },
 ];
 export const roverById = (id: string) => ROVERS.find((r) => r.id === id) ?? ROVERS[0];
@@ -125,17 +127,6 @@ const bumpTex = (w: number, h: number, draw: (g: CanvasRenderingContext2D) => vo
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c); t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 };
-/** solar cells: dark blue tiles with silver busbars */
-const panelMat = () => new THREE.MeshPhysicalMaterial({ metalness: 0.5, roughness: 0.3, clearcoat: 0.45, clearcoatRoughness: 0.25, bumpScale: 1.2,
-  bumpMap: bumpTex(256, 256, (g) => { g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#fff'; for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) g.fillRect(x + 2, y + 2, 28, 28); }),
-  map: canvasTex(256, 256, (g) => {
-  g.fillStyle = '#0b1736'; g.fillRect(0, 0, 256, 256);
-  for (let y = 0; y < 256; y += 32) for (let x = 0; x < 256; x += 32) {
-    const grd = g.createLinearGradient(x, y, x + 32, y + 32); grd.addColorStop(0, '#1b3a7a'); grd.addColorStop(1, '#0d1f4a');
-    g.fillStyle = grd; g.fillRect(x + 2, y + 2, 28, 28);
-    g.fillStyle = '#9aa7c055'; g.fillRect(x + 2, y + 15, 28, 1);
-  }
-}) });
 /** crinkled gold or silver multi-layer insulation */
 const foilMat = (base = '#c9a24a', hi = '255,240,190', lo = '90,60,10') => new THREE.MeshStandardMaterial({ metalness: 0.9, roughness: 0.26, bumpScale: 2.2,
   bumpMap: bumpTex(128, 128, (g) => { g.fillStyle = '#808080'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 220; i++) { const v = Math.random() < 0.5 ? 255 : 0; g.strokeStyle = `rgba(${v},${v},${v},0.35)`; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); const x = Math.random() * 128, y = Math.random() * 128; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 30); g.stroke(); } }),
@@ -173,47 +164,233 @@ function wheel(r: number, w: number, o: { tyre: Mat; trim: Mat; hub?: Mat; spoke
   return g;
 }
 
-/** VIPER: a 1.5 m cube on four independently steered, actively suspended wheels, panels on three sides, a tall mast. */
+/* ---------------- shared hardware ---------------- */
+
+/**
+ * Space-grade solar cells under cover glass. One texture tile is 0.32 m square: 4 x 4 cells of 8 cm with
+ * clipped corners, fine silver fingers and two busbars per cell, as on a flight array. The glass is a glossy
+ * clear coat, so the array catches the Sun and the sky instead of reading as flat blue plastic.
+ */
+const cellsMat = () => {
+  const S = 512, C = 128;
+  const map = canvasTex(S, S, (g) => {
+    g.fillStyle = '#04060a'; g.fillRect(0, 0, S, S);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const x = c * C + 3, y = r * C + 3, w = C - 6, h = C - 6, k = 10;
+      const grd = g.createLinearGradient(x, y, x + w, y + h); grd.addColorStop(0, '#18213b'); grd.addColorStop(0.55, '#0f1629'); grd.addColorStop(1, '#151e36');
+      g.fillStyle = grd;
+      g.beginPath(); g.moveTo(x + k, y); g.lineTo(x + w - k, y); g.lineTo(x + w, y + k); g.lineTo(x + w, y + h - k); g.lineTo(x + w - k, y + h); g.lineTo(x + k, y + h); g.lineTo(x, y + h - k); g.lineTo(x, y + k); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(140,155,185,0.2)'; for (let f = 5; f < h; f += 5) g.fillRect(x + 2, y + f, w - 4, 1);
+      g.fillStyle = 'rgba(210,216,228,0.8)'; g.fillRect(x + Math.round(w / 3), y + 2, 2, h - 4); g.fillRect(x + Math.round((2 * w) / 3), y + 2, 2, h - 4);
+    }
+  });
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  return new THREE.MeshPhysicalMaterial({ map, metalness: 0.3, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.05 });
+};
+const CELL_TILE = 0.32;
+
+/**
+ * A rigid solar array, w x h metres, cells facing +z: cell face, composite substrate, a machined edge frame and
+ * stiffening ribs across the back. Mount it with the group's position and rotation.
+ */
+function solarArray(w: number, h: number, cells: Mat, frame: Mat, back: Mat, t = 0.035) {
+  const g = new THREE.Group(), fw = w - 0.03, fh = h - 0.03;
+  const face = new THREE.PlaneGeometry(fw, fh), uv = face.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) * fw) / CELL_TILE, (uv.getY(i) * fh) / CELL_TILE);
+  g.add(mesh(face, cells, 0, 0, t / 2 + 0.002));
+  g.add(box(w - 0.01, h - 0.01, t, back));
+  g.add(box(w, 0.022, t + 0.012, frame, 0, h / 2, 0), box(w, 0.022, t + 0.012, frame, 0, -h / 2, 0));
+  g.add(box(0.022, h, t + 0.012, frame, w / 2, 0, 0), box(0.022, h, t + 0.012, frame, -w / 2, 0, 0));
+  for (const f of [-0.25, 0.25]) g.add(box(w * 0.94, 0.03, 0.03, frame, 0, f * h, -t / 2 - 0.015));
+  g.add(box(0.03, h * 0.9, 0.03, frame, 0, 0, -t / 2 - 0.015));
+  return g;
+}
+
+/** A parabolic dish antenna of radius R opening toward +y, with a feed on three struts. */
+function dish(R: number, skin: Mat, strut: Mat) {
+  const g = new THREE.Group(), f = R * 0.55, pts: THREE.Vector2[] = [];
+  for (let i = 0; i <= 10; i++) { const r = (R * i) / 10; pts.push(new THREE.Vector2(r, (r * r) / (4 * f))); }
+  g.add(new THREE.Mesh(new THREE.LatheGeometry(pts, 32), skin));
+  const rimY = (R * R) / (4 * f);
+  g.add(new THREE.Mesh(new THREE.TorusGeometry(R, R * 0.025, 6, 32), strut).rotateX(Math.PI / 2).translateZ(-rimY));
+  for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI * 2; g.add(tube([Math.cos(a) * R * 0.92, rimY, Math.sin(a) * R * 0.92], [0, f * 0.95, 0], R * 0.018, strut, 4)); }
+  g.add(mesh(new THREE.CylinderGeometry(R * 0.07, R * 0.1, R * 0.16, 12), strut, 0, f, 0));
+  return g;
+}
+
+/** An LED lamp facing +z. */
+const lamp = (r: number, housing: Mat, glow: Mat, x: number, y: number, z: number) => {
+  const g = new THREE.Group(); g.position.set(x, y, z);
+  const h = cyl(r * 1.25, r * 1.25, r * 0.9, housing, 14); h.rotation.x = Math.PI / 2; g.add(h);
+  const l = cyl(r, r, 0.01, glow, 14); l.rotation.x = Math.PI / 2; l.position.z = r * 0.46; g.add(l); return g;
+};
+
+/**
+ * Merge every static mesh under `root` into one mesh per material (moving parts listed in `keep` stay separate).
+ * The models are built from a few hundred small parts for clarity; drawn as is, each part is its own draw call
+ * every frame. Baked, a rover is a dozen or two draw calls and renders as cheaply as a single prop.
+ */
+function bake(root: THREE.Object3D, keep: THREE.Object3D[] = []) {
+  root.updateMatrixWorld(true);
+  const inv = root.matrixWorld.clone().invert(), held = new Set(keep), byMat = new Map<Mat, THREE.BufferGeometry[]>(), drop: THREE.Mesh[] = [], mx = new THREE.Matrix4();
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || Array.isArray(m.material)) return;
+    for (let a: THREE.Object3D | null = m; a && a !== root; a = a.parent) if (held.has(a)) return;
+    const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+    for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') g.deleteAttribute(k);
+    if (!g.getAttribute('normal')) g.computeVertexNormals();
+    if (!g.getAttribute('uv')) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.getAttribute('position').count * 2), 2));
+    g.applyMatrix4(mx.multiplyMatrices(inv, m.matrixWorld));
+    const list = byMat.get(m.material) ?? []; list.push(g); byMat.set(m.material, list); drop.push(m);
+  });
+  for (const m of drop) { m.parent?.remove(m); m.geometry.dispose(); }
+  for (const [mat, gs] of byMat) {
+    const merged = mergeGeometries(gs, false); gs.forEach((g) => g.dispose());
+    if (merged) root.add(new THREE.Mesh(merged, mat));
+  }
+}
+
+/** Double-wishbone corner: upper and lower arms from the chassis side to the wheel knuckle, a coil-over damper and a steering motor. */
+function corner(g: THREE.Group, s: number, x0: number, xw: number, z: number, yTop: number, alu: Mat, dark: Mat, spring: Mat) {
+  for (const dz of [0.09, -0.09]) {
+    g.add(tube([s * x0, yTop, z + dz], [s * (xw - 0.06), 0.08, z], 0.02, alu));
+    g.add(tube([s * x0, yTop - 0.16, z + dz], [s * (xw - 0.06), -0.06, z], 0.02, alu));
+  }
+  g.add(box(0.07, 0.2, 0.09, dark, s * (xw - 0.07), 0.01, z));
+  g.add(tube([s * (x0 - 0.02), yTop + 0.12, z], [s * (xw - 0.12), 0.06, z], 0.032, spring), tube([s * (x0 - 0.02), yTop + 0.12, z], [s * ((x0 + xw) / 2 - 0.04), yTop - 0.02, z], 0.018, alu));
+  const m = cyl(0.045, 0.045, 0.1, dark, 12); m.position.set(s * (xw - 0.07), 0.17, z); g.add(m);
+}
+
+/* ---------------- the rovers ---------------- */
+
+/**
+ * VIPER, as built: a 1.5 m tall white body on four independently steered, actively suspended wheels. Solar arrays
+ * sit flush on its left, right and rear faces (the polar Sun is never high, so the panels stand upright); the front
+ * carries the mast with its stereo cameras and lights, the headlights and the TRIDENT drill.
+ */
 function viper(): Built {
-  const body = new THREE.Group(), white = plateMat(), alu = M(0xb9bdc3, 0.75, 0.32), dark = M(0x23262b, 0.45, 0.6), black = M(0x111214, 0.3, 0.7);
-  const glass = M(0x0a0c10, 0.9, 0.08), panel = panelMat(), foil = foilMat('#cfd2d6', '255,255,255', '60,64,70');
-  // chassis: white body on a black belly pan, with a silver radiator deck
-  body.add(box(1.18, 0.5, 1.18, white, 0, 0.5, 0), box(1.04, 0.1, 1.04, black, 0, 0.2, 0), box(1.0, 0.03, 0.9, foil, 0, 0.765, -0.05));
-  for (const [x, z] of [[0.59, 0.59], [-0.59, 0.59], [0.59, -0.59], [-0.59, -0.59]]) body.add(box(0.04, 0.52, 0.04, alu, x, 0.5, z));
-  // upright solar arrays on the left, right and back, framed in aluminium
-  const array = (w: number, x: number, z: number, ry: number) => {
-    const g = new THREE.Group(); g.position.set(x, 1.0, z); g.rotation.y = ry;
-    g.add(box(w, 0.92, 0.03, panel), box(w + 0.04, 0.03, 0.05, alu, 0, 0.475, 0), box(w + 0.04, 0.03, 0.05, alu, 0, -0.475, 0));
-    for (const sx of [1, -1]) g.add(box(0.03, 0.95, 0.05, alu, sx * (w / 2 + 0.01), 0, 0));
-    return g;
-  };
-  body.add(array(1.18, 0.62, 0, Math.PI / 2), array(1.18, -0.62, 0, Math.PI / 2), array(1.22, 0, -0.62, 0));
-  // mast: tall pole, pan-tilt head with twin navigation cameras, and four headlights below it
-  const mast = cyl(0.04, 0.05, 1.3, alu, 12); mast.position.set(0.3, 1.42, 0.42); body.add(mast);
-  body.add(box(0.46, 0.15, 0.17, white, 0.3, 2.12, 0.46), box(0.12, 0.08, 0.1, dark, 0.3, 2.0, 0.42));
-  body.add(lens(0.04, dark, glass, 0.17, 2.12, 0.55), lens(0.04, dark, glass, 0.43, 2.12, 0.55));
-  const lampM = M(0xffffff, 0, 0.2, { emissive: 0xfff2d0, emissiveIntensity: 1.4 });
-  for (const [x, y] of [[0.1, 0.62], [0.32, 0.62], [-0.1, 0.62], [-0.32, 0.62]]) { const l = cyl(0.04, 0.045, 0.04, lampM, 14); l.rotation.x = Math.PI / 2; l.position.set(x, y, 0.6); body.add(l); }
-  // high-gain dish on a short boom, and a low-gain whip
-  body.add(tube([-0.35, 0.78, 0.1], [-0.35, 1.45, 0.1], 0.025, alu));
-  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 6, 0, Math.PI * 2, 0, 0.9), M(0xe9e7e2, 0.3, 0.45, { side: THREE.DoubleSide })); dish.position.set(-0.35, 1.5, 0.1); dish.rotation.x = -2.2; body.add(dish);
-  body.add(tube([0.45, 0.78, -0.4], [0.45, 1.5, -0.4], 0.008, alu, 5));
-  // neutron spectrometer and the TRIDENT drill tower on the front
-  body.add(box(0.3, 0.12, 0.25, foil, -0.3, 0.12, 0.35));
-  const tool = new THREE.Group(); tool.position.set(-0.22, 0.6, 0.66); body.add(tool);
-  tool.add(box(0.14, 0.75, 0.12, alu), box(0.2, 0.08, 0.16, dark, 0, 0.38, 0));
-  const bit = new THREE.Group(); bit.position.y = -0.38; tool.add(bit);
-  bit.add(mesh(new THREE.CylinderGeometry(0.028, 0.01, 0.55, 10), dark, 0, -0.27, 0));
-  for (let i = 0; i < 7; i++) { const f = box(0.075, 0.012, 0.02, alu, 0, -0.06 - i * 0.07, 0); f.rotation.y = i * 0.9; bit.add(f); }
-  // wheels on double wishbones with a damper and a steering motor at each corner
+  const body = new THREE.Group(), white = plateMat(), alu = M(0xb9bdc3, 0.8, 0.3), dark = M(0x2a2d32, 0.5, 0.55), carbon = M(0x1d1f23, 0.3, 0.6);
+  const glass = M(0x0a0c10, 0.9, 0.06), cells = cellsMat(), gold = foilMat(), silver = foilMat('#cfd2d6', '255,255,255', '60,64,70'), spring = M(0x8a6a3a, 0.7, 0.4);
+  const glow = M(0xffffff, 0, 0.2, { emissive: 0xfff2d8, emissiveIntensity: 1.6 });
+  // chassis tub and the body above it, a white radiator deck on top
+  body.add(box(1.0, 0.3, 1.02, dark, 0, 0.33, 0), box(1.02, 0.95, 1.02, white, 0, 0.95, 0));
+  body.add(box(1.06, 0.05, 1.06, white, 0, 1.45, 0), box(0.86, 0.012, 0.86, silver, 0, 1.48, 0));
+  for (let i = -3; i <= 3; i++) body.add(box(0.012, 0.012, 0.82, alu, i * 0.12, 1.49, 0)); // radiator louvre rails
+  // three upright arrays flush on the sides and the back
+  const sideA = solarArray(1.0, 0.98, cells, alu, carbon); sideA.position.set(0.535, 0.97, 0); sideA.rotation.y = Math.PI / 2; body.add(sideA);
+  const sideB = solarArray(1.0, 0.98, cells, alu, carbon); sideB.position.set(-0.535, 0.97, 0); sideB.rotation.y = -Math.PI / 2; body.add(sideB);
+  const rear = solarArray(1.02, 0.98, cells, alu, carbon); rear.position.set(0, 0.97, -0.535); rear.rotation.y = Math.PI; body.add(rear);
+  // the front: gold insulation, avionics access plate, two pairs of headlights and the hazard cameras
+  body.add(box(0.94, 0.86, 0.02, gold, 0, 0.98, 0.515), box(0.5, 0.3, 0.02, white, 0.18, 1.18, 0.53));
+  for (const x of [-0.36, -0.22, 0.22, 0.36]) body.add(lamp(0.035, dark, glow, x, 0.62, 0.53));
+  body.add(lens(0.03, dark, glass, -0.08, 0.42, 0.52), lens(0.03, dark, glass, 0.08, 0.42, 0.52));
+  // mast at the front right: pan-tilt head with stereo navigation cameras and a light bar
+  body.add(tube([0.32, 1.47, 0.36], [0.32, 2.12, 0.36], 0.035, alu), box(0.12, 0.08, 0.12, dark, 0.32, 2.14, 0.36));
+  body.add(box(0.46, 0.13, 0.15, white, 0.32, 2.24, 0.4), box(0.46, 0.02, 0.15, dark, 0.32, 2.17, 0.4));
+  body.add(lens(0.036, dark, glass, 0.17, 2.24, 0.48), lens(0.036, dark, glass, 0.47, 2.24, 0.48), lamp(0.025, dark, glow, 0.32, 2.24, 0.48));
+  // high-gain dish on a two-axis gimbal at the back left, a low-gain helix at the back right
+  body.add(tube([-0.3, 1.47, -0.3], [-0.3, 1.8, -0.3], 0.03, alu), box(0.1, 0.1, 0.1, dark, -0.3, 1.82, -0.3));
+  const hga = dish(0.22, M(0xeceae5, 0.25, 0.4, { side: THREE.DoubleSide }), alu); hga.position.set(-0.3, 1.86, -0.3); hga.rotation.x = -0.7; body.add(hga);
+  body.add(cyl(0.025, 0.025, 0.35, M(0xe8e6e1, 0.2, 0.5), 10).translateX(0.38).translateY(1.65).translateZ(-0.38));
+  // neutron spectrometer under the nose
+  body.add(box(0.3, 0.12, 0.22, silver, -0.25, 0.12, 0.38));
+  // TRIDENT drill tower on the front left
+  const tool = new THREE.Group(); tool.position.set(-0.3, 0.72, 0.6); body.add(tool);
+  tool.add(box(0.13, 0.8, 0.12, alu), box(0.19, 0.12, 0.16, dark, 0, 0.42, 0), box(0.15, 0.3, 0.03, gold, 0, 0.1, 0.07));
+  const bit = new THREE.Group(); bit.position.y = -0.4; tool.add(bit);
+  bit.add(mesh(new THREE.CylinderGeometry(0.026, 0.008, 0.55, 10), dark, 0, -0.27, 0));
+  for (let i = 0; i < 7; i++) { const f = box(0.07, 0.012, 0.02, alu, 0, -0.06 - i * 0.07, 0); f.rotation.y = i * 0.9; bit.add(f); }
+  // four steered corners
   const wheels: THREE.Group[] = [];
   for (const z of [0.55, -0.55]) for (const x of [0.62, -0.62]) {
-    const s = Math.sign(x), w = wheel(0.25, 0.2, { tyre: black, trim: alu, hub: dark, spokes: 6, grousers: 20 }); w.position.set(x, 0, z); wheels.push(w);
-    body.add(tube([s * 0.42, 0.28, z + 0.08], [s * 0.6, 0.06, z], 0.022, alu), tube([s * 0.42, 0.28, z - 0.08], [s * 0.6, 0.06, z], 0.022, alu));
-    body.add(tube([s * 0.42, 0.12, z], [s * 0.56, -0.04, z], 0.02, alu), tube([s * 0.45, 0.36, z], [s * 0.58, 0.08, z], 0.03, dark));
-    const motor = cyl(0.06, 0.06, 0.1, dark, 12); motor.position.set(s * 0.56, 0.2, z); body.add(motor);
+    const s = Math.sign(x), w = wheel(0.25, 0.2, { tyre: M(0x80858c, 0.85, 0.38), trim: alu, hub: dark, spokes: 6, grousers: 22 }); w.position.set(x, 0, z); wheels.push(w);
+    corner(body, s, 0.5, 0.62, z, 0.4, alu, dark, spring);
   }
-  return { body, wheels, pose: (d) => { tool.position.y = 0.6 - 0.45 * d; }, spin: (dt) => { bit.rotation.y += 16 * dt; } };
+  bake(body, [tool]); wheels.forEach((w) => bake(w));
+  return { body, wheels, pose: (d) => { tool.position.y = 0.72 - 0.45 * d; }, spin: (dt) => { bit.rotation.y += 16 * dt; } };
+}
+
+/**
+ * NASA's Artemis Lunar Terrain Vehicle, after the published concept: an open, low chassis on four large steered
+ * wheels with independent suspension and fenders, two crew seats behind a control pedestal (it can also be driven
+ * from Earth), a rear power module, and a tall Sun-tracking solar array above it with a high-gain dish beside it.
+ */
+function ltv(): Built {
+  const body = new THREE.Group(), white = plateMat('#ecebe7', '#b9b6af'), alu = M(0xbfc3c8, 0.8, 0.3), dark = M(0x2b2e33, 0.5, 0.5), carbon = M(0x1c1e22, 0.35, 0.55);
+  const glass = M(0x0a0c10, 0.9, 0.06), cells = cellsMat(), gold = foilMat(), silver = foilMat('#cfd2d6', '255,255,255', '60,64,70'), seat = M(0x4a4f57, 0.1, 0.85), spring = M(0x8a6a3a, 0.7, 0.4);
+  const glow = M(0xffffff, 0, 0.2, { emissive: 0xfff2d8, emissiveIntensity: 1.6 }), screen = M(0x0b1a2a, 0.2, 0.3, { emissive: 0x3d7bd9, emissiveIntensity: 0.5 });
+  // chassis: a flat composite floor between two white side beams, a nose fairing and a rear deck
+  body.add(box(1.36, 0.1, 2.7, carbon, 0, 0.3, 0));
+  for (const s of [1, -1]) body.add(box(0.12, 0.24, 2.8, white, s * 0.68, 0.32, 0));
+  body.add(box(1.36, 0.34, 0.45, white, 0, 0.45, 1.25), box(1.2, 0.03, 0.4, silver, 0, 0.635, 1.25));
+  for (const x of [-0.5, -0.36, 0.36, 0.5]) body.add(lamp(0.04, dark, glow, x, 0.48, 1.48));
+  // camera and lidar mast on the nose
+  body.add(tube([0, 0.62, 1.3], [0, 1.45, 1.32], 0.03, alu), box(0.36, 0.12, 0.14, white, 0, 1.5, 1.34));
+  body.add(lens(0.032, dark, glass, -0.11, 1.5, 1.42), lens(0.032, dark, glass, 0.11, 1.5, 1.42), cyl(0.05, 0.05, 0.08, dark, 14).translateY(1.6).translateZ(1.34));
+  // crew station: two seats with side bolsters, a control pedestal with a display and hand controller, a roll hoop
+  for (const x of [0.34, -0.34]) {
+    body.add(box(0.44, 0.1, 0.46, seat, x, 0.48, 0.3), box(0.07, 0.16, 0.42, seat, x + 0.2, 0.56, 0.3), box(0.07, 0.16, 0.42, seat, x - 0.2, 0.56, 0.3));
+    const back = box(0.44, 0.62, 0.08, seat, x, 0.82, 0.04); back.rotation.x = -0.2; body.add(back);
+    body.add(tube([x - 0.18, 0.35, 0.3], [x - 0.18, 0.44, 0.3], 0.02, alu), tube([x + 0.18, 0.35, 0.3], [x + 0.18, 0.44, 0.3], 0.02, alu), box(0.34, 0.02, 0.22, alu, x, 0.37, 0.82));
+  }
+  body.add(box(0.2, 0.5, 0.18, white, 0, 0.6, 0.72), box(0.38, 0.24, 0.04, dark, 0, 0.92, 0.78), box(0.32, 0.18, 0.01, screen, 0, 0.93, 0.80));
+  body.add(tube([0, 0.86, 0.6], [0, 0.98, 0.58], 0.015, alu), box(0.05, 0.08, 0.05, dark, 0, 1.02, 0.58));
+  body.add(tube([0.72, 0.42, -0.14], [0.72, 1.4, -0.2], 0.03, alu), tube([-0.72, 0.42, -0.14], [-0.72, 1.4, -0.2], 0.03, alu), tube([0.72, 1.4, -0.2], [-0.72, 1.4, -0.2], 0.03, alu));
+  // rear power module: batteries and avionics under gold insulation, a radiator on top, the array mast behind it
+  body.add(box(1.24, 0.62, 0.9, gold, 0, 0.66, -0.88), box(1.28, 0.04, 0.94, white, 0, 0.99, -0.88), box(1.1, 0.012, 0.8, silver, 0, 1.015, -0.88));
+  body.add(box(1.26, 0.5, 0.03, white, 0, 0.66, -0.42));
+  body.add(cyl(0.06, 0.07, 1.0, alu, 16).translateY(1.5).translateZ(-1.0), box(0.16, 0.14, 0.16, dark, 0, 2.0, -1.0));
+  // Sun-tracking array: two wings on a yoke, tilted back to the low polar Sun
+  const array = new THREE.Group(); array.position.set(0, 2.05, -1.0); array.rotation.x = -0.18; body.add(array);
+  array.add(tube([-0.95, 0, -0.05], [0.95, 0, -0.05], 0.025, alu));
+  for (const s of [1, -1]) { const p = solarArray(0.92, 1.18, cells, alu, carbon); p.position.set(s * 0.48, 0.12, 0); array.add(p); }
+  // high-gain dish on its own gimbal at the back right
+  body.add(tube([0.48, 1.02, -1.18], [0.48, 1.36, -1.2], 0.025, alu), box(0.08, 0.08, 0.08, dark, 0.48, 1.38, -1.2));
+  const hga = dish(0.26, M(0xeceae5, 0.25, 0.4, { side: THREE.DoubleSide }), alu); hga.position.set(0.48, 1.42, -1.2); hga.rotation.set(-0.5, 0, -0.5); body.add(hga);
+  // robotic arm stowed along the right side, its tool head forward
+  const tool = new THREE.Group(); tool.position.set(-0.76, 0.6, -0.3); body.add(tool);
+  tool.add(box(0.14, 0.14, 0.14, dark), tube([0, 0, 0], [0, 0.02, 0.8], 0.032, white, 10), box(0.1, 0.1, 0.1, dark, 0, 0.02, 0.82));
+  const head = new THREE.Group(); head.position.set(0, 0.02, 0.9); tool.add(head);
+  head.add(mesh(new THREE.CylinderGeometry(0.035, 0.012, 0.18, 10), alu, 0, 0, 0.06).rotateX(Math.PI / 2), lens(0.02, dark, glass, 0.05, 0.04, 0.02));
+  // four large wheels with fenders on double wishbones
+  const wheels: THREE.Group[] = [];
+  for (const z of [1.2, -1.2]) for (const x of [1.0, -1.0]) {
+    const s = Math.sign(x), w = wheel(0.4, 0.26, { tyre: M(0x8c9198, 0.85, 0.36), trim: alu, hub: dark, spokes: 10, grousers: 26 }); w.position.set(x, 0, z); wheels.push(w);
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.47, 0.34, 24, 1, true, -Math.PI * 0.42, Math.PI * 0.84), M(0xeceae7, 0.2, 0.5, { side: THREE.DoubleSide }));
+    f.rotation.z = Math.PI / 2; f.position.set(x, 0.02, z); body.add(f);
+    corner(body, s, 0.74, 1.0, z, 0.42, alu, dark, spring);
+  }
+  bake(body, [tool]); wheels.forEach((w) => bake(w));
+  return { body, wheels, pose: (d) => { tool.rotation.x = 0.75 * d; tool.rotation.y = -0.35 * d; }, spin: (dt) => { head.rotation.z += 7 * dt; } };
+}
+
+/**
+ * MoonRanger: a suitcase-sized autonomous rover on four wheels. A solar array covers its top and a second one its
+ * back for the low polar Sun; stereo cameras and a lidar look ahead, a neutron spectrometer hangs underneath.
+ */
+function moonRanger(): Built {
+  const body = new THREE.Group(), white = plateMat('#e9e8e4', '#b4b1aa'), alu = M(0xbfc3c8, 0.8, 0.3), dark = M(0x26292e, 0.5, 0.5), carbon = M(0x1c1e22, 0.35, 0.55);
+  const glass = M(0x0a0c10, 0.9, 0.06), cells = cellsMat(), gold = foilMat(), silver = foilMat('#cfd2d6', '255,255,255', '60,64,70');
+  body.add(box(0.4, 0.16, 0.56, white, 0, 0.14, 0), box(0.36, 0.05, 0.5, gold, 0, 0.04, 0));
+  // top array, tilted slightly back; a smaller upright array on the back
+  const top = solarArray(0.46, 0.6, cells, alu, carbon, 0.02); top.position.set(0, 0.25, -0.01); top.rotation.x = -Math.PI / 2 + 0.06; body.add(top);
+  const rear = solarArray(0.44, 0.24, cells, alu, carbon, 0.02); rear.position.set(0, 0.36, -0.3); rear.rotation.y = Math.PI; rear.rotation.x = 0.12; body.add(rear);
+  body.add(tube([0.2, 0.22, -0.28], [0.2, 0.48, -0.31], 0.008, alu), tube([-0.2, 0.22, -0.28], [-0.2, 0.48, -0.31], 0.008, alu));
+  // sensor head: stereo cameras either side of a lidar window, in a dark bezel
+  body.add(box(0.3, 0.09, 0.05, dark, 0, 0.19, 0.29), lens(0.022, dark, glass, -0.1, 0.19, 0.31), lens(0.022, dark, glass, 0.1, 0.19, 0.31), box(0.07, 0.04, 0.01, glass, 0, 0.19, 0.317));
+  // neutron spectrometer under the belly, radio patch antenna and a short whip
+  body.add(box(0.16, 0.06, 0.16, silver, 0, 0.0, 0.08), box(0.08, 0.012, 0.08, white, 0.12, 0.27, 0.18), tube([-0.15, 0.22, 0.2], [-0.15, 0.45, 0.2], 0.004, alu, 5));
+  const tool = new THREE.Group(); tool.position.set(0, 0.0, 0.08); body.add(tool);
+  const head = new THREE.Group(); tool.add(head); head.add(cyl(0.03, 0.03, 0.02, dark, 12).translateY(-0.04));
+  // four wheels on short trailing arms
+  const wheels: THREE.Group[] = [];
+  for (const z of [0.26, -0.26]) for (const x of [0.3, -0.3]) {
+    const s = Math.sign(x), w = wheel(0.1, 0.08, { tyre: M(0x8c9198, 0.85, 0.36), trim: alu, hub: dark, spokes: 5, grousers: 14 }); w.position.set(x, 0, z); wheels.push(w);
+    body.add(tube([s * 0.19, 0.12, z * 0.6], [s * 0.25, 0, z], 0.012, alu), box(0.04, 0.05, 0.05, dark, s * 0.24, 0, z));
+  }
+  bake(body, [tool]); wheels.forEach((w) => bake(w));
+  return { body, wheels, pose: (d) => { tool.position.y = -0.03 * d; }, spin: (dt) => { head.rotation.y += 6 * dt; } };
 }
 
 /** Apollo LRV: an open aluminium frame, wire-mesh wheels under fenders, two seats, a console, an umbrella antenna and a TV camera. */
@@ -240,10 +417,8 @@ function lrv(): Built {
   body.add(tube([0, 0.36, 0.1], [0, 0.52, 0.12], 0.012, alu), box(0.12, 0.025, 0.025, dark, 0, 0.53, 0.12));
   // umbrella high-gain antenna with ribs, low-gain helix and the colour TV camera (GCTA)
   body.add(tube([0.42, 0.62, 1.25], [0.42, 1.5, 1.25], 0.02, alu));
-  const dish = new THREE.Group(); dish.position.set(0.42, 1.58, 1.25); dish.rotation.x = -0.55; body.add(dish);
-  dish.add(new THREE.Mesh(new THREE.SphereGeometry(0.47, 24, 6, 0, Math.PI * 2, 0, 0.72), white));
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; dish.add(tube([0, 0.47, 0], [Math.cos(a) * 0.31, 0.47 - 0.34, Math.sin(a) * 0.31].map((v, j) => (j === 1 ? v - 0.47 + 0.47 : v)) as [number, number, number], 0.006, alu, 4)); }
-  dish.add(tube([0, 0.47, 0], [0, 0.2, 0], 0.01, alu));
+  // the umbrella high-gain antenna: a mesh parabola that opened like an umbrella, aimed at Earth
+  const hga = dish(0.47, white, alu); hga.position.set(0.42, 1.52, 1.25); hga.rotation.set(-0.55, 0, 0.25); body.add(hga);
   body.add(tube([-0.42, 0.6, 1.3], [-0.42, 1.45, 1.3], 0.012, alu), mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.35, 10), dark, -0.42, 1.25, 1.3));
   body.add(tube([-0.1, 0.4, 1.35], [-0.1, 0.78, 1.38], 0.018, alu), box(0.16, 0.13, 0.22, white, -0.1, 0.84, 1.4), lens(0.04, dark, glass, -0.1, 0.84, 1.52));
   // aft tool pallet with the scoop, tongs and rake on the gate
@@ -260,91 +435,8 @@ function lrv(): Built {
     body.add(tube([s * 0.6, 0.1, z + 0.15], [s * 0.86, 0.02, z], 0.025, alu), tube([s * 0.6, 0.1, z - 0.15], [s * 0.86, 0.02, z], 0.025, alu));
     body.add(tube([s * 0.6, 0.26, z], [s * 0.82, 0.08, z], 0.03, dark));
   }
+  bake(body, [tool]); wheels.forEach((w) => bake(w));
   return { body, wheels, pose: (d) => { tool.rotation.x = 0.9 * d; }, spin: (dt) => { scoop.rotation.z = Math.sin(performance.now() * 0.02) * 0.4; void dt; } };
-}
-
-/** Lunokhod 1: a pressurised, ribbed tub on eight spoked wheels, a clam-shell solar lid, cameras, antennas and a ninth odometer wheel. */
-function lunokhod(): Built {
-  const body = new THREE.Group(), tub = M(0xb8bcc2, 0.6, 0.42), rib = M(0x9aa0a7, 0.7, 0.38), dark = M(0x2c2f34, 0.5, 0.55), glass = M(0x0a0c10, 0.9, 0.08);
-  const panel = panelMat(), alu = M(0xaeb2b8, 0.75, 0.35), radiator = M(0xe8e8e4, 0.3, 0.4), gold = foilMat('#a88b47');
-  const sz = 1.32;
-  // the tub's real shape: convex sides swelling out to a wide rim, not a straight cone
-  const tp = [[0, 0.24], [0.6, 0.24], [0.72, 0.27], [0.8, 0.34], [0.87, 0.46], [0.92, 0.6], [0.945, 0.74], [0.955, 0.86], [0, 0.86]].map(([a, b]) => new THREE.Vector2(a, b));
-  const t = new THREE.Mesh(new THREE.LatheGeometry(tp, 48), tub); t.scale.set(1, 1, sz); body.add(t);
-  for (let i = 0; i < 24; i++) { // vertical stiffening ribs round the tub
-    const a = (i / 24) * Math.PI * 2, r = 0.84, rb = box(0.03, 0.6, 0.05, rib, Math.cos(a) * r, 0.55, Math.sin(a) * r * sz); rb.rotation.y = -a; rb.rotation.z = Math.cos(a) * 0.36; rb.rotation.x = -Math.sin(a) * 0.36; body.add(rb);
-  }
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.04, 8, 48), alu); rim.rotation.x = Math.PI / 2; rim.scale.set(1, sz, 1); rim.position.y = 0.86; body.add(rim);
-  const deck = cyl(0.93, 0.93, 0.03, radiator, 40); deck.scale.set(1, 1, sz); deck.position.y = 0.87; body.add(deck);
-  // the clam-shell lid, hinged at the back, propped open: bare metal outside, solar cells inside
-  const lid = new THREE.Group(); lid.position.set(0, 0.9, -1.2); body.add(lid);
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.98, 0.98, 0.05, 40), [alu, tub, panel]); top.scale.set(1, 1, sz); top.position.set(0, 0, 1.25); lid.add(top);
-  lid.add(tube([0.3, 0, 0], [0.3, -0.03, 0.5], 0.03, alu), tube([-0.3, 0, 0], [-0.3, -0.03, 0.5], 0.03, alu));
-  lid.rotation.x = -1.75; // swung back past upright, cells tilted up toward a low Sun
-  body.add(tube([0.6, 0.9, -1.0], [0.55, 1.45, -1.55], 0.015, alu)); // lid prop
-  // front: two TV camera ports in a gold-insulated box, a laser retroreflector and the antennas
-  body.add(box(0.75, 0.24, 0.12, gold, 0, 0.62, 1.22));
-  body.add(lens(0.07, dark, glass, 0.22, 0.64, 1.3), lens(0.07, dark, glass, -0.22, 0.64, 1.3));
-  const refl = box(0.32, 0.18, 0.03, M(0xd6dde6, 0.95, 0.12), 0, 0.98, 1.05); refl.rotation.x = -0.5; body.add(refl);
-  for (let i = 0; i < 4; i++) body.add(box(0.025, 0.025, 0.25, dark, -0.1 + i * 0.065, 0.98, 1.05)); // retroreflector corner-cube rows
-  const helix = cyl(0.02, 0.13, 0.4, alu, 14); helix.position.set(0.55, 1.1, 0.75); helix.rotation.x = 0.5; body.add(helix);
-  for (let i = 0; i < 6; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.03 + i * 0.016, 0.006, 4, 16), alu); ring.position.set(0.55, 0.95 + i * 0.05, 0.67 + i * 0.03); ring.rotation.x = Math.PI / 2 + 0.5; body.add(ring); }
-  body.add(tube([-0.6, 0.86, 0.5], [-0.66, 2.0, 0.42], 0.008, alu, 5));
-  // panoramic telephotometers on the sides (tall cylinders with slit windows)
-  for (const [x, z] of [[0.92, 0.5], [-0.92, 0.5], [0.92, -0.5], [-0.92, -0.5]]) { const p = cyl(0.05, 0.05, 0.42, dark, 12); p.position.set(x, 0.72, z * sz); body.add(p, box(0.012, 0.3, 0.035, glass, x + Math.sign(x) * 0.05, 0.72, z * sz)); }
-  // radioisotope heater with cooling fins on the back
-  const rtg = new THREE.Group(); rtg.position.set(0, 0.42, -1.2); body.add(rtg);
-  const core = cyl(0.11, 0.11, 0.36, dark, 16); core.rotation.z = Math.PI / 2; rtg.add(core);
-  for (let i = 0; i < 8; i++) { const f = box(0.36, 0.01, 0.12, alu); f.rotation.x = (i / 8) * Math.PI; rtg.add(f); }
-  // the ninth wheel: a light trailing odometer that measured how far it drove
-  const ninth = wheel(0.12, 0.04, { tyre: alu, trim: dark, spokes: 6, grousers: 8 }); ninth.position.set(0, -0.13, -1.45); body.add(ninth, tube([0, 0.3, -1.15], [0, -0.13, -1.45], 0.015, alu));
-  // PrOP penetrometer at the rear
-  const tool = new THREE.Group(); tool.position.set(0.45, 0.48, -1.08); body.add(tool);
-  tool.add(box(0.07, 0.32, 0.07, alu));
-  const cone = new THREE.Group(); cone.position.y = -0.16; tool.add(cone); cone.add(mesh(new THREE.CylinderGeometry(0.04, 0.004, 0.18, 10), dark, 0, -0.09, 0));
-  // eight wire-spoked wheels, each with its own motor housing
-  const wheels: THREE.Group[] = [];
-  for (const z of [0.85, 0.28, -0.28, -0.85]) for (const x of [0.8, -0.8]) {
-    const s = Math.sign(x), w = wheel(0.255, 0.2, { tyre: alu, trim: rib, hub: dark, spokes: 8, grousers: 14 }); w.position.set(x, 0, z); wheels.push(w);
-    body.add(tube([s * 0.56, 0.3, z], [s * 0.68, 0, z], 0.035, alu));
-    const m = cyl(0.07, 0.07, 0.12, dark, 12); m.rotation.z = Math.PI / 2; m.position.set(s * 0.64, 0, z); body.add(m);
-  }
-  return { body, wheels, pose: (d) => { tool.position.y = 0.48 - 0.3 * d; }, spin: (dt) => { cone.rotation.y += 10 * dt; } };
-}
-
-/** Yutu-2: a gold-foil box on a six-wheel rocker-bogie, two solar wings, a camera mast, a dish and hazard cameras. */
-function yutu(): Built {
-  const body = new THREE.Group(), gold = foilMat(), panel = panelMat(), alu = M(0xb4b8be, 0.75, 0.35), dark = M(0x2a2d32, 0.5, 0.55), white = plateMat('#e6e4df', '#b5b2ab'), glass = M(0x0a0c10, 0.9, 0.08), silver = foilMat('#cfd2d6', '255,255,255', '60,64,70');
-  body.add(box(0.8, 0.4, 1.0, gold, 0, 0.44, 0), box(0.78, 0.03, 0.98, silver, 0, 0.655, 0), box(0.7, 0.06, 0.9, dark, 0, 0.22, 0));
-  // two solar wings on hinges, tilted up, with frames
-  for (const s of [1, -1]) {
-    const w = new THREE.Group(); w.position.set(0.4 * s, 0.66, 0); w.rotation.z = s * 0.38; body.add(w);
-    w.add(box(0.78, 0.022, 0.96, panel, 0.39 * s, 0, 0), box(0.8, 0.03, 0.025, alu, 0.39 * s, 0, 0.49), box(0.8, 0.03, 0.025, alu, 0.39 * s, 0, -0.49), box(0.025, 0.03, 1.0, alu, 0.79 * s, 0, 0));
-    for (const z of [0.3, -0.3]) { const h = cyl(0.02, 0.02, 0.08, dark, 8); h.rotation.x = Math.PI / 2; h.position.set(0.02 * s, 0, z); w.add(h); }
-  }
-  // camera mast: pan-tilt head with two panoramic cameras and two navigation cameras
-  body.add(tube([0, 0.66, 0.38], [0, 1.25, 0.4], 0.022, alu));
-  body.add(box(0.4, 0.12, 0.13, white, 0, 1.3, 0.42), lens(0.035, dark, glass, 0.12, 1.31, 0.49), lens(0.035, dark, glass, -0.12, 1.31, 0.49), lens(0.022, dark, glass, 0.05, 1.27, 0.49), lens(0.022, dark, glass, -0.05, 1.27, 0.49));
-  // directional antenna on a two-joint arm at the back
-  body.add(tube([-0.2, 0.66, -0.35], [-0.2, 0.92, -0.38], 0.018, alu), tube([-0.2, 0.92, -0.38], [-0.1, 1.02, -0.32], 0.015, alu));
-  const dish = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 5, 0, Math.PI * 2, 0, 0.9), M(0xe9e7e2, 0.3, 0.45, { side: THREE.DoubleSide })); dish.position.set(-0.1, 1.06, -0.3); dish.rotation.x = -2.4; body.add(dish);
-  // hazard cameras and the infrared spectrometer on the nose; the radar antennas underneath
-  body.add(lens(0.025, dark, glass, 0.18, 0.33, 0.51), lens(0.025, dark, glass, -0.18, 0.33, 0.51), box(0.16, 0.12, 0.1, silver, 0, 0.5, 0.53));
-  body.add(box(0.5, 0.02, 0.1, dark, 0, 0.18, 0.35), box(0.5, 0.02, 0.1, dark, 0, 0.18, -0.35));
-  // sampling arm folded under the nose
-  const tool = new THREE.Group(); tool.position.set(0.25, 0.28, 0.52); body.add(tool);
-  tool.add(tube([0, 0, 0], [0, 0, 0.38], 0.018, alu, 6));
-  const head = new THREE.Group(); head.position.z = 0.4; tool.add(head); head.add(box(0.07, 0.07, 0.07, dark), lens(0.02, dark, glass, 0, 0, 0.04));
-  // rocker-bogie: a rocker per side, a bogie under the middle and back wheels, six spoked wheels
-  const wheels: THREE.Group[] = [];
-  for (const z of [0.45, 0, -0.45]) for (const x of [0.55, -0.55]) { const w = wheel(0.15, 0.13, { tyre: alu, trim: dark, hub: dark, spokes: 6, grousers: 14 }); w.position.set(x, 0, z); wheels.push(w); }
-  for (const s of [1, -1]) {
-    const x = 0.46 * s;
-    body.add(tube([x, 0.3, 0.05], [x, 0.03, 0.45], 0.02, alu), tube([x, 0.3, 0.05], [x, 0.12, -0.22], 0.02, alu));
-    body.add(tube([x, 0.12, -0.22], [x, 0.03, 0], 0.018, alu), tube([x, 0.12, -0.22], [x, 0.03, -0.45], 0.018, alu));
-    const pivot = cyl(0.035, 0.035, 0.06, dark, 10); pivot.rotation.z = Math.PI / 2; pivot.position.set(x, 0.3, 0.05); body.add(pivot);
-  }
-  return { body, wheels, pose: (d) => { tool.rotation.x = 0.85 * d; }, spin: (dt) => { head.rotation.z += 6 * dt; } };
 }
 
 /** RASSOR from NASA's model: the parts are re-centred on their pivots so the arms and drums can move. */
@@ -380,7 +472,7 @@ export async function buildRassor(baseUrl: string): Promise<Built> {
   return { body, wheels, pose, spin: (dt) => { drumF.rotation.x += 9 * dt; drumR.rotation.x -= 9 * dt; } };
 }
 
-const PROCEDURAL: Partial<Record<RoverId, () => Built>> = { frostbite: viper, dustdevil: lrv, tortoise: lunokhod, hare: yutu };
+const PROCEDURAL: Partial<Record<RoverId, () => Built>> = { frostbite: viper, dustdevil: lrv, tortoise: ltv, hare: moonRanger };
 /** Build any rover. RASSOR's model is fetched; the rest are drawn at once. */
 export const buildRover = (id: RoverId, baseUrl: string): Promise<Built> => (PROCEDURAL[id] ? Promise.resolve(PROCEDURAL[id]!()) : buildRassor(baseUrl));
 /** Free a built rover's GPU memory. */
