@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Ui } from './ModeChooser';
 import { ArrowRight, ChevronLeft, X } from './Icons';
+import { createPortal } from 'react-dom';
 import { TOUR, type TourApi } from '../onboarding/steps';
 
 const MOVE_MS = 560;
@@ -137,7 +138,8 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
 
   const s = steps[i];
   const first = i === 0, end = i === last;
-  return (
+  // rendered on the page body, above every other layer (the app container isolates its own z-index stack)
+  return createPortal(
     <div ref={root} className={`tour tour-${ui}${closing ? ' closing' : ''}`}>
       <div ref={spot} className="tour-spot" aria-hidden />
       <div ref={card} className="tour-card" role="dialog" aria-modal="false" aria-label={`${ui === 'expert' ? 'Scientific' : 'Education'} mode tour`}>
@@ -170,5 +172,5 @@ export default function Onboarding({ ui, api, onClose }: { ui: Ui; api: TourApi;
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
