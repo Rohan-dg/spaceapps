@@ -106,14 +106,6 @@ Sun and Earth positions match JPL Horizons to within 0.004° at 20 test points (
 - Mission sites away from the pole use the 1.9 km global terrain map, so their skylines are coarse, and some of their coordinates are approximate (flagged `verify`). This is not a mission-planning tool of record.
 - In the 3D view, terrain is the LOLA data at its native resolution (474 m globally, 148 m to 5 m near the south pole). Optional procedural detail below that is off by default and labelled when on.
 
-## Use of SI (AI)
-
-Sol Teris was built with Claude (Anthropic) as a coding assistant, as the Space Apps rules allow. Most of the code, the build and data-processing scripts, the documentation and the Sol Teris emblem and logo were written with it, under the team's direction. Where it was used:
-
-- **Code and data:** commits made with it carry a `Co-Authored-By: Claude` trailer (88 of the first 94 commits). `package.json` (`aiAssistance`) and the page's `ai-disclosure` meta tag say the same, and so does the app's About panel.
-- **Images:** the emblem is drawn by SVG code written with Claude, and the opening screen labels it as SI-generated artwork.
-- **Numbers:** every value in the app is computed by that code from NASA terrain data and the ephemeris. None is produced by a language model. The site coordinates were checked against the cited papers.
-
 ## References
 
 Site coordinates:
