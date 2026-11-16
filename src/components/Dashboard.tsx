@@ -300,17 +300,28 @@ export default function Dashboard(p: DashProps) {
         ))}
       </nav>
 
-      <header className="dash-hero" aria-live="off">
-        <p className="dh-k">{info ? <><b>{info.short || info.name}</b> {m ? (m.sunUp ? 'sunset in' : 'sunrise in') : 'loading'}</> : 'No site selected'}</p>
-        <DotClock e={sunE} now={t} />
-        <p className="sr-only">{sunE?.t != null ? `${m?.sunUp ? 'Sunset' : 'Sunrise'} in ${formatDuration(sunE.t - t)}` : ''}</p>
-        <div className="dh-chips">
-          {m && info ? <>
-            <span className={`chip${m.sunUp ? ' on' : ''}`}>{m.sunUp ? <Sun size={13} /> : <SunDim size={13} />}<span className="num">{sgn(m.sky.sun.el)}°</span> {m.sunUp ? 'lit' : 'shadow'}</span>
-            <span className="chip" title="What decides sunlight on the Moon: the Sun's height above the terrain skyline in its direction, not above 0°"><span className="num">{sgn(m.sky.sun.el - m.sunHorizon)}°</span> {m.sky.sun.el >= m.sunHorizon ? 'above' : 'below'} the skyline</span>
-            <span className="chip num">{sunE?.t != null ? `${utc(sunE.t)} UTC` : sunE?.beyondRange ? 'after the data ends' : 'never'}</span>
-          </> : <span className="chip">Pick a site on the Moon or open Sites</span>}
-        </div>
+      <header className={`dash-hero${info ? '' : ' empty'}`} aria-live="off">
+        {info ? <>
+          <p className="dh-k"><b>{info.short || info.name}</b> {m ? (m.sunUp ? 'sunset in' : 'sunrise in') : 'loading'}</p>
+          <DotClock e={sunE} now={t} />
+          <p className="sr-only">{sunE?.t != null ? `${m?.sunUp ? 'Sunset' : 'Sunrise'} in ${formatDuration(sunE.t - t)}` : ''}</p>
+          <div className="dh-chips">
+            {m && <>
+              <span className={`chip${m.sunUp ? ' on' : ''}`}>{m.sunUp ? <Sun size={13} /> : <SunDim size={13} />}<span className="num">{sgn(m.sky.sun.el)}°</span> {m.sunUp ? 'lit' : 'shadow'}</span>
+              <span className="chip" title="What decides sunlight on the Moon: the Sun's height above the terrain skyline in its direction, not above 0°"><span className="num">{sgn(m.sky.sun.el - m.sunHorizon)}°</span> {m.sky.sun.el >= m.sunHorizon ? 'above' : 'below'} the skyline</span>
+              <span className="chip num">{sunE?.t != null ? `${utc(sunE.t)} UTC` : sunE?.beyondRange ? 'after the data ends' : 'never'}</span>
+            </>}
+          </div>
+        </> : <>
+          {/* how the dashboard opens: say what to do, instead of an empty countdown */}
+          <p className="dh-k dh-eyebrow"><span className="dh-pulse" aria-hidden /> Landing-site planner</p>
+          <h1 className="dh-title">Pick a landing site</h1>
+          <p className="dh-lead">Click a named site or any point on the Moon to count down to its next sunrise or sunset.</p>
+          <div className="dh-chips">
+            <button className="chip dh-cta" onClick={() => p.onSheet('sites')}><Globe size={13} /> Browse sites</button>
+            <span className="chip">Double-click a point to zoom in</span>
+          </div>
+        </>}
       </header>
 
       {p.right ?? (

@@ -69,7 +69,11 @@
 .rg.rg .rg-goal, .rg.rg button.rg-radio, .rg.rg button.rg-radio:hover:not(:disabled) { background: var(--pg), var(--rg-g); border-top-color: var(--tahoe-edge-top); box-shadow: var(--tahoe-shadow-sm); }
 
 /* small motion: buttons give a little under the finger, the dock's icons lift on hover, the main call to action breathes */
-.dash button:active:not(:disabled), .edu button:active:not(:disabled), .rg.rg button:active:not(:disabled), .chooser-backdrop .chooser-card:active { scale: 0.965; }
+/* only buttons that sit in normal layout: anything placed with a transform (the Moon's site labels, sky tags) would be
+   pulled toward the corner by the scale, and the release would then miss it */
+:is(.dash-dock button, .dash .pill, .dash .chip, .dash .dt-pill, .dash .sh-close, .dash .hud-seg button, .dash .hud-toggle,
+  .edu .edu-dock button, .edu .edu-actions button, .edu .edu-rover, .edu .edu-x, .edu .hud-seg button, .edu .hud-toggle,
+  .rg.rg .rg-controls button, .rg.rg .rg-bar-actions button, .start-pick-buttons button, .chooser-backdrop .chooser-card):active:not(:disabled) { scale: 0.965; }
 .dash-dock button svg, .edu .edu-actions button svg { transition: translate 220ms cubic-bezier(0.32, 0.72, 0, 1); }
 .dash-dock button:hover:not(:disabled) svg, .edu .edu-actions button:hover svg { translate: 0 -1.5px; }
 .edu .edu-build:not(.on) { animation: tahoe-breathe 2.8s ease-in-out infinite alternate; }
@@ -81,5 +85,26 @@
 @media (prefers-reduced-motion: reduce) {
   .edu .edu-build:not(.on), .edu .edu-card, .dash .dash-alert { animation: none; }
   .chooser-backdrop .chooser-card:hover, .chooser-backdrop .chooser-card:focus-visible { transform: none; }
-  .dash button:active, .edu button:active, .rg.rg button:active, .chooser-backdrop .chooser-card:active { scale: none; }
+  :is(.dash, .edu, .rg, .start-pick, .chooser-backdrop) :active { scale: none; }
 }
+
+/* Scientific opens with no site picked: a clear prompt in the countdown's place */
+.dash-hero.empty { max-width: min(640px, calc(100% - var(--R) - var(--L) - 240px)); }
+.dash-hero.empty > * { animation: tahoe-focus 640ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.dash-hero.empty > :nth-child(2) { animation-delay: 70ms; }
+.dash-hero.empty > :nth-child(3) { animation-delay: 140ms; }
+.dash-hero.empty > :nth-child(4) { animation-delay: 210ms; }
+.dh-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px !important; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mode, #63a1ff) !important; }
+.dh-pulse { position: relative; width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px 1px currentColor; }
+.dh-pulse::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid currentColor; animation: dh-ping 2.2s cubic-bezier(0.2, 0.7, 0.2, 1) infinite; }
+@keyframes dh-ping { from { transform: scale(0.6); opacity: 0.9; } to { transform: scale(2.2); opacity: 0; } }
+.dh-title { margin: 4px 0 8px; font: 300 clamp(34px, 3.2vw, 46px)/1 var(--font-display); letter-spacing: -0.045em; color: #fff; text-wrap: balance; }
+.dh-lead { margin: 0; max-width: 44em; font-size: 14px; line-height: 1.5; color: rgba(255, 255, 255, 0.72); text-wrap: pretty; }
+.dash .dh-cta { height: 32px; padding: 0 14px; color: #fff; font-weight: 600; cursor: pointer; background: var(--pg, none), color-mix(in srgb, var(--mode, #63a1ff) 30%, rgba(16, 18, 22, 0.4));
+  border-color: color-mix(in srgb, var(--mode, #63a1ff) 55%, transparent); box-shadow: 0 8px 22px -10px var(--mode, #63a1ff); }
+.dash .dh-cta:hover { background: var(--pg, none), color-mix(in srgb, var(--mode, #63a1ff) 46%, rgba(16, 18, 22, 0.4)); }
+@media (max-width: 900px) { .dh-lead { display: none; } .dh-title { font-size: 30px; } }
+.dash-hero.empty .dh-chips { margin-top: 10px; }
+/* short screens or narrow ones: the lead would push the buttons into the dock */
+@media (max-height: 820px), (max-width: 1280px) { .dh-lead { display: none; } }
+@media (prefers-reduced-motion: reduce) { .dash-hero.empty > *, .dh-pulse::after { animation: none; } }
