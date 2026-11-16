@@ -46,8 +46,10 @@ export default function EduView({ sites, t, range, selectedId, onSelect, onScien
 
   const pick = useCallback((id: string) => {
     onSelect(id);
-    setOpen(id);
-    if (building) setPath((p) => (p[p.length - 1] === id ? p : [...p, id]));
+    if (building) {
+      setOpen(null);
+      setPath((p) => (p.includes(id) ? p.filter((point) => point !== id) : [...p, id]));
+    } else setOpen(id);
   }, [onSelect, building]);
   const toggleStop = (id: string) => setPath((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const removeAt = (i: number) => setPath((p) => p.filter((_, k) => k !== i));
@@ -78,7 +80,7 @@ export default function EduView({ sites, t, range, selectedId, onSelect, onScien
     return { id: s.id, lat: s.lat, lon: s.lon, chargePct: stop < 0 ? chargePct : arrivalCharge(report, stop, chargePct) };
   }), [sites, path, report, chargePct]);
 
-  const openSite = open ? byId.get(open) ?? null : null;
+  const openSite = !building && open ? byId.get(open) ?? null : null;
   const popup = openSite ? (
     <PointCard s={openSite} battery={batteryRanges.find((r) => r.id === openSite.id)} charge={batteryPoints.find((p) => p.id === openSite.id)?.chargePct ?? null} inPath={path.includes(openSite.id)}
       order={path.indexOf(openSite.id)}
@@ -112,7 +114,7 @@ export default function EduView({ sites, t, range, selectedId, onSelect, onScien
 
       <p className="edu-hint" aria-live="polite">
         {building
-          ? path.length === 0 ? 'Click mission points in the order the rover should visit them.' : path.length === 1 ? 'Now click the next point to drive to.' : 'Keep clicking to add stops, or press Done.'
+          ? 'Click points to add stops in order. Click a selected point again to remove it.'
           : 'Every dot is a mission point. Click one to learn about it. Drag to spin the Moon, scroll to zoom.'}
       </p>
 
@@ -122,7 +124,7 @@ export default function EduView({ sites, t, range, selectedId, onSelect, onScien
             onChange={(e) => setChargePct(Number(e.target.value))} />
           <small>Blue rings show one-way reach. Zoom in to see them; hills can shorten the range. A 20% reserve is kept.</small>
         </label>
-        <button className={`edu-build${building ? ' on' : ''}`} aria-pressed={building} onClick={() => setBuilding((b) => !b)}>
+        <button className={`edu-build${building ? ' on' : ''}`} aria-pressed={building} onClick={() => { setOpen(null); setBuilding((b) => !b); }}>
           {building ? 'Done adding stops' : path.length ? 'Add more stops' : 'Plan a rover path'}
         </button>
         {path.length > 0 && <button className="edu-clear" onClick={() => { setPath([]); setBuilding(false); }}>Clear path</button>}
@@ -131,7 +133,7 @@ export default function EduView({ sites, t, range, selectedId, onSelect, onScien
       {path.length > 0 && (
         <PathPanel path={path} byId={byId} report={report} waiting={path.length >= 2 && !report} start={start} range={range} stops={stops} chargePct={chargePct}
           onShow={() => setFrame((f) => ({ pts: path.map((id) => byId.get(id)).filter((x): x is SiteInfo => !!x), n: (f?.n ?? 0) + 1 }))}
-          onStart={setStart} onRemove={removeAt} onOpen={(id) => { onSelect(id); setOpen(id); }} />
+          onStart={setStart} onRemove={removeAt} onOpen={pick} />
       )}
     </div>
   );
