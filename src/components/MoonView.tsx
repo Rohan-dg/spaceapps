@@ -100,7 +100,19 @@ const fmtLatLon = (lat: number, lon: number) => {
 };
 const fmtPct = (x: number) => `${x >= 99.95 || x < 0.05 ? x.toFixed(0) : x.toFixed(1)}%`;
 /** A site marker and what was last written to its DOM node, so unchanged frames write nothing. */
-interface Marker { id: string; el: HTMLButtonElement; pos: THREE.Vector3; lw?: number; sp?: HTMLElement | null;
+/** Inline style writes from the frame loop go through here: a value equal to the last one written is skipped,
+ *  so a still view (or one where only the 3D picture changes) causes no style recalculation in the page. */
+function text(el: HTMLElement, v: string) { if (el.textContent !== v) el.textContent = v; }
+const styleMemo = new WeakMap<HTMLElement, Map<string, string>>();
+function css(el: HTMLElement, prop: string, v: string) {
+  let m = styleMemo.get(el);
+  if (!m) { m = new Map(); styleMemo.set(el, m); }
+  if (m.get(prop) === v) return;
+  m.set(prop, v);
+  el.style.setProperty(prop, v);
+}
+
+interface Marker { id: string; el: HTMLButtonElement; pos: THREE.Vector3; on: boolean; mine: boolean; rank: number; lw?: number; sp?: HTMLElement | null;
   k?: { op: string; tf: string; crowded: boolean; left: boolean; more: string } }
 /** Rover range inputs (strings, as typed). Defaults follow the mission planner's rover. */
 const RANGE_DEFAULTS = {
@@ -254,20 +266,26 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     const TAA_SAMPLES = 32;
     /**
      * Quality levels, chosen by a frame-time governor in frame(): pixel ratio, share of the shadow-march
-     * steps, samples per moving frame, and how many terrain tiles may be on screen. Level 1 is the default;
-     * the governor drops a level when moving frames run under ~30 fps and tries the top level only when the
-     * display rate holds steadily (and never again after that has failed once).
+     * steps, samples per moving frame, and how many terrain tiles may be on screen. Level 2 is the default.
+     * The target is the display's full rate (60 fps): the governor steps down one level as soon as moving
+     * frames average under ~50 fps, and steps up only after 4 s holding the full rate, never back to a level
+     * that has already been too slow on this machine. A still view supersamples (TAA) at any level.
      */
     const LEVELS = [
       { pr: 0.75, march: 0.5, motion: 0, tiles: 12 },
+      { pr: 0.875, march: 0.6, motion: 0, tiles: 16 },
       { pr: 1, march: 0.75, motion: 0, tiles: 20 },
       { pr: Math.min(window.devicePixelRatio, 1.5), march: 1, motion: 1, tiles: 28 },
     ];
-    let level = 1;
-    const gov = { sum: 0, n: 0, last: 0, upLocked: false, since: 0 };
+    let level = 2;
+    const gov = { sum: 0, n: 0, last: 0, since: 0, failed: new Set<number>() };
     /** Resize the canvas and every render target (TAARenderPass does not resize its hold buffer itself). */
+    // the view's CSS size, kept by resizeTargets() (a ResizeObserver calls it) so the frame loop never reads
+    // clientWidth/Height, which would force a synchronous layout whenever React has just changed the page
+    const view = { w: el.clientWidth || 1, h: el.clientHeight || 1 };
     function resizeTargets() {
       const w = el.clientWidth, h = el.clientHeight;
+      view.w = w || 1; view.h = h || 1;
       renderer.setSize(w, h, true);
       composer.setPixelRatio(renderer.getPixelRatio());
       composer.setSize(w, h);
@@ -482,7 +500,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const tHit = disc > 0 ? -b - Math.sqrt(disc) : -1;
       const P = tHit > 0 ? cam.clone().addScaledVector(dv, tHit) : cam.clone().setLength(R_KM);
       const dist = cam.distanceTo(P), half = Math.tan((camera.fov * Math.PI) / 360);
-      const mpp = (2 * dist * 1000 * half) / (renderer.domElement.clientHeight || 1);
+      const mpp = (2 * dist * 1000 * half) / view.h;
       const want = new Set<LiveTile>();
       const need = (r: number, c: number, stride: number) => {
         const key = tileKey(r, c);
@@ -538,7 +556,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
     S.current = st;
     if (import.meta.env.DEV) Object.assign(window as object, { __moon: st, __gsap: gsap });
 
-    const tmp = new THREE.Vector3();
+    const tmp = new THREE.Vector3(), toCamV = new THREE.Vector3();
     /** True terrain height (m) from the finest loaded grid, with its resolution and source. */
     function terrainM(lat: number, lon: number) {
       if (lat < -80) {
@@ -620,17 +638,17 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         if (dt < 250) { gov.sum += dt; gov.n++; }
         if (gov.n >= 30) {
           const avg = gov.sum / gov.n; gov.sum = 0; gov.n = 0;
-          if (avg > 32 && level > 0) { if (level === 2) gov.upLocked = true; gov.since = now; setLevel(level - 1); }
-          else if (avg < 18 && level < 2 && !gov.upLocked && now - gov.since > 4000) { gov.since = now; setLevel(level + 1); }
+          // 60 Hz is 16.7 ms a frame; over 20 ms on average means roughly one frame in five is being dropped
+          if (avg > 20 && level > 0) { gov.failed.add(level); gov.since = now; setLevel(level - 1); }
+          else if (avg < 17.5 && level < LEVELS.length - 1 && !gov.failed.has(level + 1) && now - gov.since > 4000) { gov.since = now; setLevel(level + 1); }
         }
       }
       // markers
-      const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+      const { w, h } = view;
       // Labels never overlap: every visible point is placed first, then each label tries the right of its point, then
       // the left, and only if both collide does it fade out. A shown label then counts its hidden neighbours ("+3").
       // Order: the selected site, then NASA's Artemis III candidate regions, then everything else.
-      const rank = (m: (typeof st.markers)[number]) => (m.el.classList.contains('on') ? 0 : m.el.classList.contains('mine') ? 1 : m.el.classList.contains('nasa') ? 2 : 3);
-      const order = [...st.markers].sort((a, b) => rank(a) - rank(b));
+      const order = st.markers; // already in label priority order (see the markers effect)
       const boxes: [number, number, number, number][] = [];
       const hit = (x0: number, y0: number, x1: number, y1: number) => boxes.some(([a0, b0, a1, b1]) => x0 < a1 && x1 > a0 && y0 < b1 && y1 > b0);
       const dots: [number, number][] = [], labels: [number, number, number, number][] = [];
@@ -640,12 +658,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const vis: { m: (typeof order)[number]; sx: number; sy: number }[] = [];
       for (const m of order) {
         tmp.copy(m.pos).project(camera);
-        const toCam = camera.position.clone().sub(m.pos);
+        const toCam = toCamV.copy(camera.position).sub(m.pos);
         const facing = toCam.dot(m.pos) / (toCam.length() * m.pos.length());
         const sx = ((tmp.x + 1) / 2) * w, sy = ((1 - tmp.y) / 2) * h;
         // your own points are hidden only when they are on the far side of the Moon (or behind the camera);
         // listed sites also fade at the very edge of the disc, off screen or right under the camera
-        const mine = m.el.classList.contains('mine');
+        const mine = m.mine;
         const show = mine ? tmp.z < 1 && facing > 0
           : tmp.z < 1 && facing > 0.02 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05 && toCam.length() > 3;
         // DOM writes happen once per marker at the end of the pass, and only for values that changed
@@ -666,7 +684,7 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         // label or a point outside the cluster; the selected site is always labelled
         const free = (b: [number, number, number, number]) => !hit(...b) || (!hitLabel(...b) && !hitFarDot(b, sx, sy));
         // the selected site and your own points are always labelled
-        const side = free(right) ? right : free(left) ? left : m.el.classList.contains('on') || m.el.classList.contains('mine') ? right : null;
+        const side = free(right) ? right : free(left) ? left : m.on || m.mine ? right : null;
         const k = m.k!;
         if (k.crowded !== !side) { k.crowded = !side; m.el.classList.toggle('crowded', k.crowded); }
         if (k.left !== (side === left)) { k.left = side === left; m.el.classList.toggle('left', k.left); }
@@ -703,13 +721,13 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           el.classList.toggle('blocked', blocked);
           // where the body falls inside the window (visible, or hidden behind the Moon): a name tag above that spot
           if (d.z < 0 && Math.abs(tmp.x) <= 1 && Math.abs(tmp.y) <= 1) {
-            el.style.transform = `translate(${((tmp.x + 1) / 2) * w}px, ${((1 - tmp.y) / 2) * h}px)`;
+            css(el, 'transform', `translate(${((tmp.x + 1) / 2) * w}px, ${((1 - tmp.y) / 2) * h}px)`);
             // lift the tag clear of the body's disc: Earth's true size on screen, the Sun sprite's fixed size
             const pxPerRad = (h / 2) / Math.tan((camera.fov * Math.PI) / 360);
             const rPx = el === earthPtr.current ? (6371 / Math.max(len, 1)) * pxPerRad : 0.045 * h * 0.12;
-            el.style.setProperty('--toff', `${Math.min(rPx, h / 3) + 12}px`);
+            css(el, '--toff', `${Math.min(rPx, h / 3) + 12}px`);
             el.classList.add('tag');
-            el.style.opacity = '1';
+            css(el, 'opacity', '1');
             continue;
           }
           el.classList.remove('tag');
@@ -720,12 +738,12 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
           if (Math.hypot(dx, dy) < 1e-9) { dx = 0; dy = 1; }
           const k = Math.min((cx - insX) / Math.max(Math.abs(dx), 1e-9), halfY / Math.max(Math.abs(dy), 1e-9));
           const x = cx + dx * k, y = cy - dy * k, ang = Math.atan2(-dy, dx), n = Math.hypot(dx, dy);
-          el.style.transform = `translate(${x}px, ${y}px)`;
-          el.style.setProperty('--ang', `${ang}rad`);
+          css(el, 'transform', `translate(${x}px, ${y}px)`);
+          css(el, '--ang', `${ang}rad`);
           // the label sits just inside the arrow, toward the centre, so it never runs off the window
-          el.style.setProperty('--lx', `${(-dx / n) * 36}px`);
-          el.style.setProperty('--ly', `${(dy / n) * 24}px`);
-          el.style.opacity = '1';
+          css(el, '--lx', `${(-dx / n) * 36}px`);
+          css(el, '--ly', `${(dy / n) * 24}px`);
+          css(el, 'opacity', '1');
         }
       }
       // line to Earth: dot length follows the camera's distance to the probed point, so it reads as dotted at any zoom
@@ -741,19 +759,19 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         let show = false;
         if (pp) {
           tmp.copy(pp).project(camera);
-          const toCam = camera.position.clone().sub(pp);
+          const toCam = toCamV.copy(camera.position).sub(pp);
           show = tmp.z < 1 && toCam.dot(pp) / (toCam.length() * pp.length()) > 0.0 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05;
           const px = ((tmp.x + 1) / 2) * w, py = ((1 - tmp.y) / 2) * h;
-          pin.style.transform = `translate(${px}px, ${py}px)`;
+          css(pin, 'transform', `translate(${px}px, ${py}px)`);
           if (pin === popPin.current) {
             // the pop-up opens toward the roomier side of its point; on a narrow screen it spans the width instead
-            pin.dataset.h = w < 640 ? 'full' : px > w * 0.55 ? 'left' : 'right';
-            pin.dataset.v = py > h * 0.55 ? 'up' : 'down';
-            pin.style.setProperty('--px', `${px}px`); pin.style.setProperty('--py', `${py}px`); pin.style.setProperty('--vw', `${w}px`); pin.style.setProperty('--vh', `${h}px`);
+            if (pin.dataset.h !== (w < 640 ? 'full' : px > w * 0.55 ? 'left' : 'right')) pin.dataset.h = w < 640 ? 'full' : px > w * 0.55 ? 'left' : 'right';
+            if (pin.dataset.v !== (py > h * 0.55 ? 'up' : 'down')) pin.dataset.v = py > h * 0.55 ? 'up' : 'down';
+            css(pin, '--px', `${px}px`); css(pin, '--py', `${py}px`); css(pin, '--vw', `${w}px`); css(pin, '--vh', `${h}px`);
           }
         }
-        pin.style.opacity = show ? '1' : '0';
-        pin.style.visibility = show ? 'visible' : 'hidden';
+        css(pin, 'opacity', show ? '1' : '0');
+        css(pin, 'visibility', show ? 'visible' : 'hidden');
       }
       // readouts: ground resolution at the screen centre and altitude
       const alt = camera.position.length() - surfaceRadius(camera.position);
@@ -761,13 +779,14 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
       const dist = camera.position.distanceTo(st.controls.target);
       const mpp = (2 * dist * 1000 * Math.tan((camera.fov * Math.PI) / 360)) / h;
       const ro = readout.current;
-      if (ro.res) ro.res.textContent = `${fmtRes(mpp)} / px`;
-      if (ro.alt) ro.alt.textContent = fmtAlt(Math.max(0, alt));
+      // text is written only when it changes: replacing a text node is a DOM mutation the page reacts to
+      if (ro.res) text(ro.res, `${fmtRes(mpp)} / px`);
+      if (ro.alt) text(ro.alt, fmtAlt(Math.max(0, alt)));
       if (ro.src) {
         const hiRes = st.hi?.resM ?? Infinity;
         const near = st.mode === 'site' && st.patch && dist < 40;
-        ro.src.textContent = !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
-          : mpp < hiRes / 3 && u.uDetail.value > 0 ? `LOLA ${hiRes} m + procedural below ${hiRes} m` : `LOLA ${hiRes} m/px`;
+        text(ro.src, !near ? (tilesShown ? 'LOLA 64 px/deg (474 m) · LROC WAC 16k' : alt > 1500 ? 'LROC WAC 8k · LOLA 64 px/deg' : 'LOLA polar 148 m · LROC WAC')
+          : mpp < hiRes / 3 && u.uDetail.value > 0 ? `LOLA ${hiRes} m + procedural below ${hiRes} m` : `LOLA ${hiRes} m/px`);
       }
       if (moving) request();
       else if (still && (wasFresh || (taa as unknown as { accumulateIndex: number }).accumulateIndex < TAA_SAMPLES)) request(false);
@@ -967,8 +986,11 @@ export default function MoonView({ sites, selectedId, t, onSelect, onPlanLaunch,
         else { pendingClose.current = s.id; if (s.id !== selectedId) { quietPick.current = true; onSelect(s.id); } }
       };
       layer.appendChild(b);
-      return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief + 30)) };
+      const on = s.id === selectedId, mine = s.id.startsWith('custom') || s.id.startsWith('pending');
+      return { id: s.id, el: b, pos: v3(posOf(s.lat, s.lon, (s.siteHeightM ?? 0) * relief + 30)), on, mine, rank: on ? 0 : mine ? 1 : s.program === 'artemis' ? 2 : 3 };
     });
+    // label priority, fixed until the markers are rebuilt: the selected site, your own points, Artemis regions, the rest
+    st.markers.sort((a, b) => a.rank - b.rank);
     st.request();
   }, [siteList, selectedId, onSelect, relief, secondId, pathIds]);
 

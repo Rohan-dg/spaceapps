@@ -123,6 +123,8 @@ export class Game {
   private loadReject: ((e: Error) => void) | null = null;
   private w!: World;
   private raf = 0; private last = 0; private live = true; private ro?: ResizeObserver;
+  /** The view's CSS size, kept by size() (ResizeObserver), so the frame loop never forces a layout by reading it. */
+  private vw = 1; private vh = 1;
   private state: 'load' | 'brief' | 'play' | 'pause' | 'end' = 'load';
   // uniforms shared by every terrain material
   private U = {
@@ -594,6 +596,7 @@ export class Game {
 
   private size() {
     const { clientWidth: w, clientHeight: h } = this.o.host; if (!w || !h) return;
+    this.vw = w; this.vh = h;
     this.renderer.setSize(w, h, false); this.cam.aspect = this.farCam.aspect = w / h; this.cam.updateProjectionMatrix(); this.farCam.updateProjectionMatrix();
   }
   private gy = (e: number, n: number) => groundY(this.w, e, n, Math.abs(e) < NEAR && Math.abs(n) < NEAR);
@@ -870,7 +873,7 @@ export class Game {
   /** Sky labels and the objective label follow their targets on screen, or sit on the nearest edge with an arrow. */
   private placeTags() {
     const t = this.tags; if (!t) return;
-    const { clientWidth: W, clientHeight: H } = this.o.host, cam = this.cam, v = new THREE.Vector3();
+    const W = this.vw, H = this.vh, cam = this.cam, v = new THREE.Vector3();
     const put = (el: HTMLElement, world: THREE.Vector3, show: boolean) => {
       if (!show) { el.style.opacity = '0'; return; }
       v.copy(world).project(cam);

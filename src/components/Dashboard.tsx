@@ -7,6 +7,7 @@ import type { ScenarioResult } from '../lib/useScenario';
 import { CalendarSync, Columns2, Earth, Globe, Icon, Pause, Play, SlidersHorizontal, Sun, SunDim, X } from './Icons';
 import { stretchStart } from './TimeLeft';
 import { SPEEDS } from './TimeControls';
+import { fmtDayMonth } from '../lib/fmt';
 
 /** Every sheet the dashboard can open. Together they hold everything the old stacked Explore page showed. */
 export type DashTab = 'conditions' | 'sites' | 'horizon' | 'month' | 'slip' | 'earth' | 'libration' | 'calendar' | 'mission' | 'compare';
@@ -170,7 +171,7 @@ function TimeBar({ s, t, t0, t1, onT, playing, onPlaying, speed, onSpeed, onOpen
         <div className="dt-days" aria-hidden>
           {days.map((d, i) => (
             <span key={d} style={{ left: `${X(d)}%` }} className={i % 2 ? 'odd' : ''}>
-              {i < 12 && <em>{new Date(d).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short' })}</em>}
+              {i < 12 && <em>{fmtDayMonth(d)}</em>}
             </span>
           ))}
         </div>

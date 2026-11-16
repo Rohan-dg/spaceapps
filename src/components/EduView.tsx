@@ -12,6 +12,7 @@ import { gcDistanceKm } from '../lib/mission';
 import { CalendarSync, ChevronRight, CircleHelp, Contrast, Earth, Icon, Info, Play, Plus, Sun, X } from './Icons';
 import { LogoMark } from './Logo';
 import { Loading } from './Help';
+import { fmtDayMonth } from '../lib/fmt';
 
 const MoonView = lazy(() => import('./MoonView'));
 
@@ -182,7 +183,7 @@ const BARS: Record<Level, number> = { ok: 3, risky: 2, no: 1 };
 const LevelBars = ({ level }: { level: Level }) => (
   <span className={`lvl lv-${level}`} aria-hidden>{[0, 1, 2].map((i) => <i key={i} className={i < BARS[level] ? 'on' : ''} />)}</span>
 );
-const shortDate = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const shortDate = (t: number) => fmtDayMonth(t);
 const hhmm = (t: number) => new Date(t).toISOString().slice(11, 16);
 const kmStr = (km: number) => km.toFixed(km < 10 ? 1 : 0);
 
