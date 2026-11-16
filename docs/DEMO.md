@@ -28,7 +28,6 @@ What the scenes show (from `npm run demo-detail`, 2027-07-08 00:00 UTC):
 - **Length:** 30 seconds or less, including the title card. Check the exported file's duration.
 - **Language:** English, or English subtitles if anyone speaks another language.
 - **Names:** put the team name and every member's name on the title card, exactly as on the team's Space Apps page.
-- **SI watermark:** the opening emblem was generated with SI (Claude), and the app labels it "SI-generated artwork". Keep that label visible if the emblem is in the video, and add a small corner caption such as "Built with SI assistance (Claude)" for the whole video.
 - **No NASA branding:** no NASA logo, meatball, worm, flag or mission patch anywhere in the video or slides. Saying "NASA data" is fine.
 - **Hosting:** upload to YouTube (Public or Unlisted), Google Drive or similar, set it to "anyone with the link", and test the link in a private window with no login.
 
