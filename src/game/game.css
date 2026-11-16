@@ -382,3 +382,79 @@
 .rg[data-stage='brief'] .rg-points { display: none; }
 @media (max-width: 640px) { .rg-points { top: auto; bottom: 214px; padding: 4px 12px 4px 6px; gap: 8px; } .rg-pts-n strong { font-size: 20px; } .rg-pts-star { width: 28px; height: 28px; font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .rg-pts-n strong, .rg-points em { animation: none; } }
+
+/* ---------- flight UI: one glass top bar, the objective under it, the mission log, glass controls ---------- */
+/* Same glass as the Scientific dashboard. Only four blurred layers sit over the 3D view, to keep the frame rate high. */
+.rg { --rg-g: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)), rgba(16, 18, 22, 0.5);
+  --rg-gl: rgba(255, 255, 255, 0.12); --rg-blur: blur(18px) saturate(160%); }
+.rg .rg-bar { position: absolute; top: 12px; left: 12px; right: 12px; height: 60px; padding: 0 10px 0 16px; gap: 14px; border: 1px solid var(--rg-gl); border-radius: 20px;
+  background: var(--rg-g); -webkit-backdrop-filter: var(--rg-blur); backdrop-filter: var(--rg-blur); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 16px 40px -20px #000; }
+.rg .rg-identity h1 { font-size: 15px; font-weight: 600; }
+.rg .rg-identity span { max-width: 160px; color: rgba(255, 255, 255, 0.6); }
+.rg-stats { display: flex; align-items: stretch; gap: 4px; min-width: 0; overflow: hidden; }
+.rg .rg-stat { display: grid; grid-template-columns: auto auto; align-content: center; column-gap: 6px; min-height: 44px; padding: 4px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); text-align: left; white-space: nowrap; }
+.rg .rg-stat small { grid-column: 1 / -1; font-size: 10.5px; font-weight: 500; color: rgba(255, 255, 255, 0.55); line-height: 1.1; }
+.rg .rg-stat b { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.rg button.rg-stat { min-height: 44px; padding: 4px 12px; justify-content: start; background: rgba(255, 255, 255, 0.05); }
+.rg button.rg-stat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.rg .rg-stat.solar b { color: var(--rg-sun); } .rg .rg-stat.signal b { color: var(--rg-earth); } .rg .rg-stat.danger b { color: var(--rg-danger); }
+.rg-mini { grid-column: 1 / -1; display: block; height: 3px; margin-top: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.rg-mini u, .rg-goal-ice i u { display: block; height: 100%; background: #fff; border-radius: inherit; text-decoration: none; }
+.rg .rg-stat.danger .rg-mini u { background: var(--rg-danger); }
+.rg .rg-stat.score b { animation: rg-pop 380ms cubic-bezier(0.22, 1, 0.36, 1); }
+.rg .rg-stat.score em { align-self: center; font-style: normal; padding: 1px 7px; border-radius: 999px; background: var(--rg-coral, #ff6363); font-size: 11px; font-weight: 700; }
+.rg .rg-stat .rg-targets { grid-column: auto; align-self: center; color: rgba(255, 255, 255, 0.7); }
+@keyframes rg-pop { from { transform: scale(1.25); } }
+.rg .rg-clock { margin-left: auto; color: rgba(255, 255, 255, 0.6); }
+.rg .rg-clock strong { color: #fff; }
+.rg .rg-bar-actions button { min-height: 40px; min-width: 40px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.rg .rg-bar-actions button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+.rg .rg-flight { inset: 0; }
+.rg .rg-scrim { inset: 84px 0 0; }
+
+/* the objective: one slim pill under the bar */
+.rg-goal { position: absolute; top: 82px; left: 50%; transform: translateX(-50%); max-width: min(880px, calc(100% - 24px)); display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 8px;
+  border-radius: 999px; border: 1px solid var(--rg-gl); background: var(--rg-g); -webkit-backdrop-filter: var(--rg-blur); backdrop-filter: var(--rg-blur); white-space: nowrap; font-size: 13px; pointer-events: auto; }
+.rg-goal b { font-weight: 600; } .rg-goal em { font-style: normal; color: rgba(255, 255, 255, 0.7); }
+.rg-goal-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: rgba(255, 255, 255, 0.75); }
+.rg-goal .rg-steps { display: flex; gap: 3px; }
+.rg-goal .rg-steps > span { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 700; background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); }
+.rg-goal .rg-steps > span.current { background: #fff; color: #000; }
+.rg-goal .rg-steps > span.finished { background: rgba(114, 229, 162, 0.25); color: var(--rg-earth); }
+.rg-goal-tip, .rg-goal-ice { flex: none; padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.rg-goal-ice i { display: block; width: 60px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.rg-goal-ice.locked { background: rgba(140, 188, 255, 0.25); color: var(--rg-ice); }
+.rg .rg-alert { top: 130px; }
+.rg .rg-gain, .rg .rg-near { top: 132px; }
+
+/* the mission log: the only side panel */
+.rg button.rg-radio { left: 12px; bottom: 96px; width: min(320px, 34vw); padding: 12px 14px; border-radius: 18px; border: 1px solid var(--rg-gl); background: var(--rg-g);
+  -webkit-backdrop-filter: var(--rg-blur); backdrop-filter: var(--rg-blur); }
+.rg button.rg-radio:hover:not(:disabled) { background: var(--rg-g); border-color: rgba(255, 255, 255, 0.24); }
+
+/* controls: one glass strip, rounded buttons */
+.rg .rg-controls { left: 12px; right: 12px; bottom: 12px; min-height: 0; padding: 8px 10px; gap: 16px; border-radius: 22px; border: 1px solid var(--rg-gl); background: var(--rg-g);
+  -webkit-backdrop-filter: var(--rg-blur); backdrop-filter: var(--rg-blur); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.rg .rg-controls button { border-radius: 12px; background: rgba(255, 255, 255, 0.08); }
+.rg .rg-controls button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.18); }
+.rg .rg-controls button[aria-pressed='true'], .rg .rg-controls button[aria-checked='true'] { background: #fff; color: #000; }
+.rg .rg-controls button.rg-primary { background: var(--rg-coral, #ff6363); color: #fff; }
+.rg .rg-dpad { grid-template-rows: repeat(3, 24px); }
+.rg .rg-dpad .brake { background: rgba(255, 255, 255, 0.16); }
+.rg .rg-views { border-radius: 14px; background: rgba(255, 255, 255, 0.04); padding: 2px; }
+.rg .rg-views button { background: transparent; border-radius: 10px; }
+
+/* in-world Sun / Earth / goal tags: rounded, no blur (they move every frame) */
+.rg .rg-tag > span { border-radius: 999px; border-bottom: 0; background: rgba(12, 14, 18, 0.78); box-shadow: inset 0 0 0 1px currentColor; padding: 4px 10px; }
+
+/* narrower screens: the bar keeps the readings, drops the extras */
+@media (max-width: 1280px) { .rg .rg-identity span, .rg .rg-clock span { display: none; } .rg .rg-stat { padding: 4px 9px; } }
+@media (max-width: 1080px) { .rg .rg-identity > div, .rg .rg-stat .rg-targets { display: none; } .rg-goal-text { display: none; } }
+@media (max-width: 900px) {
+  .rg .rg-bar { left: 6px; right: 6px; top: 6px; height: auto; min-height: 52px; flex-wrap: wrap; padding: 6px 8px; gap: 6px; }
+  .rg-stats { order: 3; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .rg-goal { top: 112px; }
+  .rg .rg-clock { display: none; }
+  .rg .rg-controls { left: 6px; right: 6px; bottom: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .rg .rg-stat.score b { animation: none; } }

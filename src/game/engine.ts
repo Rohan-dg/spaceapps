@@ -50,7 +50,7 @@ export interface Callbacks {
   onError: (m: string) => void;
 }
 export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean; roverId: string }
-export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map: HTMLCanvasElement }
+export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map?: HTMLCanvasElement }
 
 const TERRAIN_VS = /* glsl */ `
 varying vec3 vW; varying vec3 vN;
@@ -608,7 +608,7 @@ export class Game {
     this.place(this.state === 'pause' ? 0 : dt, now);
     this.renderer.clear(); this.renderer.render(this.far, this.farCam); this.renderer.clearDepth(); this.renderer.render(this.near, this.cam);
     if (now - this.hudAt > 110) { this.hudAt = now; this.cb.onHud(this.hud()); }
-    if (now - this.mapAt > 260) { this.mapAt = now; this.drawMap(); }
+    if (this.tags?.map && now - this.mapAt > 260) { this.mapAt = now; this.drawMap(); }
     if (this.state !== 'pause' && this.state !== 'end') this.raf = requestAnimationFrame(this.frame);
   };
 
