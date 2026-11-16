@@ -2918,3 +2918,10 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 @keyframes chooser-pop { from { opacity: 0; transform: translateY(16px) scale(0.97); } }
 @keyframes chooser-card-in { from { opacity: 0; transform: translateY(10px); } }
 @media (prefers-reduced-motion: reduce) { .chooser-backdrop .chooser, .chooser-backdrop .chooser-card { animation: none; } }
+/* chooser labels: large coloured glass pills with a glowing dot */
+.chooser-backdrop .chooser-k { justify-self: start; display: inline-flex; align-items: center; gap: 9px; padding: 7px 16px 7px 12px; border-radius: 999px;
+  font-size: 17px; font-weight: 700; letter-spacing: 0.01em; text-transform: none; color: var(--mode);
+  background: color-mix(in srgb, var(--mode) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mode) 38%, transparent), 0 8px 24px -12px var(--mode); }
+.chooser-backdrop .chooser-k::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--mode); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--mode) 70%, transparent); }
+.chooser-backdrop .chooser-card { gap: 12px; }
+.chooser-backdrop .chooser-card:hover .chooser-k { background: color-mix(in srgb, var(--mode) 26%, transparent); }
