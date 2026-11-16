@@ -2,6 +2,8 @@
 
 Sunlight and Earth visibility for Moon south-pole landing sites, computed on real LRO LOLA terrain.
 
+**Live site: <https://sol.teris.workers.dev/>**
+
 Built for the NASA Space Apps Challenge 2026: [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/).
 
 ![Sol Teris](https://raw.githubusercontent.com/Rohan-dg/spaceapps/main/docs/screenshot.png)

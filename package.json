@@ -2,6 +2,7 @@
   "name": "lunar-site-compare",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://sol.teris.workers.dev/",
   "description": "Sol Teris: Sun and Earth visibility at lunar landing sites, computed on NASA LRO LOLA terrain. NASA Space Apps Challenge 2026, Lunar Landing Site Navigator.",
   "license": "Apache-2.0",
   "type": "module",
