@@ -2925,3 +2925,9 @@ html[data-ui-switch] .kp, html[data-ui-switch] .ct-side, html[data-ui-switch] ma
 .chooser-backdrop .chooser-k::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--mode); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--mode) 70%, transparent); }
 .chooser-backdrop .chooser-card { gap: 12px; }
 .chooser-backdrop .chooser-card:hover .chooser-k { background: color-mix(in srgb, var(--mode) 26%, transparent); }
+
+/* Native dropdown lists: the glass panels redefine --surface as near-transparent, and the browser then draws the
+   open list on white with white text. Give the options a solid dark ground in every always-dark screen. */
+.dash select, .edu select, .rg select, .mc select, .as select { color-scheme: dark; }
+.dash select option, .dash select optgroup, .edu select option, .edu select optgroup,
+.rg select option, .rg select optgroup, .mc select option, .mc select optgroup { background-color: #16181c !important; color: #fff !important; }
