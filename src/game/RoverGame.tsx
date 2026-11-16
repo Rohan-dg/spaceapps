@@ -73,7 +73,15 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const [signalFlash, setSignalFlash] = useState(0);
   const [log, setLog] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
-  const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement>(null), root = useRef<HTMLDivElement>(null), flight = useRef<HTMLDivElement>(null), controls = useRef<HTMLElement>(null);
+  // the radio card and status pills sit above the control panel, whose height changes as it wraps on narrow screens
+  useEffect(() => {
+    const el = controls.current, box = flight.current;
+    if (!el || !box || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => { const r = el.getBoundingClientRect(), b = box.getBoundingClientRect(); box.style.setProperty('--rg-ctl', `${Math.max(0, Math.round(b.bottom - r.top))}px`); });
+    ro.observe(el); ro.observe(box);
+    return () => ro.disconnect();
+  }, [stage]);
   const sunTag = useRef<HTMLDivElement>(null), earthTag = useRef<HTMLDivElement>(null), goalTag = useRef<HTMLDivElement>(null);
   const engine = useRef<Game | null>(null), serial = useRef(0);
   const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
@@ -169,7 +177,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     <header className="rg-bar">
       <div className="rg-identity"><RoverGlyph /><div><h1 id="rg-title">{rover.callsign}</h1><span>{site?.short || site?.name}</span></div></div>
       {hud && stage !== 'brief' && <div className="rg-stats" aria-label="Rover status">
-        <span className={`rg-stat${hud.battPct < 20 ? ' danger' : ''}`} title={`Battery: ${signed(hud.netW)} W net`}><small>Battery</small><b>{hud.battPct.toFixed(0)}%</b><i className="rg-mini" aria-hidden="true"><u style={{ width: `${Math.max(0, Math.min(100, hud.battPct))}%` }} /></i></span>
+        <span className={`rg-stat${hud.battPct < 20 ? ' danger' : ''}${hud.boost ? ' draining' : ''}`} title={`Battery: ${signed(hud.netW)} W net`}><small>Battery</small><b>{hud.battPct.toFixed(0)}%</b><i className="rg-mini" aria-hidden="true"><u style={{ width: `${Math.max(0, Math.min(100, hud.battPct))}%` }} /></i></span>
         <span className={`rg-stat${hud.tempC < -25 ? ' danger' : ''}`} title={hud.heaterW > 0 ? `Heater on, ${hud.heaterW.toFixed(0)} W` : 'Heater standby'}><small>Temp</small><b>{signed(hud.tempC)} °C</b></span>
         <button className={`rg-stat ${hud.sunFrac > 0 ? 'solar' : 'danger'}`} onClick={() => engine.current?.pointCamera('sun')} title="Sun: tap to point the camera at it"><small>Sun</small><b>{hud.sunFrac > 0 ? `${hud.solarW.toFixed(0)} W` : 'No sun'}</b></button>
         <button className={`rg-stat ${hud.earthUp ? 'signal' : 'danger'}`} onClick={() => engine.current?.pointCamera('earth')} title="Earth: tap to point the camera at it"><small>Earth</small><b>{hud.earthUp ? 'Connected' : 'No signal'}</b></button>
@@ -180,7 +188,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       <div className="rg-bar-actions"><button onClick={() => { pause(); setHelp(true); }} disabled={stage !== 'play' && stage !== 'pause'}>Controls</button><button onClick={playing ? pause : resume} disabled={stage !== 'play' && stage !== 'pause'} aria-label={playing ? 'Pause mission' : 'Resume mission'}><RoverGlyph kind={playing ? 'pause' : 'play'} /></button><button onClick={close} aria-label="Exit rover mission"><RoverGlyph kind="close" /></button></div>
     </header>
 
-    <div className="rg-flight" inert={blocked} aria-hidden={blocked}>
+    <div className="rg-flight" ref={flight} inert={blocked} aria-hidden={blocked}>
       {hud && <div className="rg-goal" aria-label="Current objective" title={hud.obj.text}>
         <span className="rg-steps" aria-label="Mission progress">{hud.steps.map((step, i, all) => { const at = hud.phase === 'done' ? all.length : all.indexOf(hud.phase); return <span key={step} className={complete || at > i ? 'finished' : at === i ? 'current' : ''} title={STEP_NAME[step]}>{complete || at > i ? '✓' : i + 1}</span>; })}</span>
         <b>{hud.obj.title}</b>{hud.objDist != null && <em>{hud.objDist.toFixed(0)} m</em>}
@@ -200,7 +208,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       {hud && hud.nearBonus !== null && hud.nearBonus < 40 && hud.nearBonus > 9 && <div className="rg-near">Science target {hud.nearBonus.toFixed(0)} m</div>}
       {last && <button className="rg-radio" onClick={() => { pause(); setLog(true); }} title="Open the mission log"><span>{last.from}<small>Mission log ↗</small></span><p key={last.id} role="status">{last.text}</p></button>}
 
-      <footer className="rg-controls">
+      <footer className="rg-controls" ref={controls}>
         <div className="rg-dpad" role="group" aria-label="Driving controls">
           <Hold send={send} control="w" label="Drive forward (W or up arrow)" className="forward">↑</Hold>
           <Hold send={send} control="a" label="Turn left (A or left arrow)">←</Hold>
@@ -209,6 +217,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
           <Hold send={send} control="s" label="Reverse (S or down arrow)" className="reverse">↓</Hold>
         </div>
         <div className="rg-actions">
+          <Hold send={send} control="boost" className={`rg-boost${hud?.boost ? ' on' : ''}`} label="Boost (hold Shift while driving forward): 80% faster, drains the battery about four times as fast" disabled={!!hud?.busy || hud?.dead}><kbd>⇧</kbd> Boost</Hold>
           <span title={hud?.phase !== 'ice' ? 'Dig (E): collects an ice sample once you reach the survey area' : !stopped ? 'Dig (E): stop the rover first' : 'Dig (E): collect an ice sample here'}><button className={hud?.canDig ? 'rg-primary' : ''} disabled={!stopped || !!hud?.busy || hud?.phase !== 'ice' || hud?.dead} onClick={() => press('e')}><kbd>E</kbd> Dig</button></span>
           <span title={!transmit ? 'Transmit (T): sends your data to Earth when the mission asks for it' : !hud?.earthUp ? 'Transmit (T): no Earth signal here. Drive until Earth is in view' : !stopped ? 'Transmit (T): stop the rover first' : 'Transmit (T): send your data to Earth'}><button className={transmit && hud?.earthUp ? 'rg-primary' : ''} disabled={!stopped || !!hud?.busy || !transmit || !hud?.earthUp || hud?.dead} onClick={() => press('t')}><kbd>T</kbd> Transmit</button></span>
           <Hold send={send} control="f" label="Wait (hold F): time runs 1800× faster while parked, to charge or wait for Earth" disabled={!stopped || !!hud?.busy}><kbd>F</kbd> Wait</Hold>
@@ -292,6 +301,6 @@ function ScienceNote() {
   return <details className="rg-science"><summary>What is real in this simulation?</summary><p>The surface uses NASA LOLA elevations. Sun and Earth positions follow the app's ephemeris and terrain horizon. Badger uses NASA's RASSOR 3D model; the other rovers are drawn from the published layout and dimensions of VIPER and the Apollo Lunar Roving Vehicle, and from the published concepts for NASA's Artemis Lunar Terrain Vehicle and MoonRanger.</p><p>Each rover's speed, battery, solar and heater figures keep its real character but are scaled for a short game. Ice locations, science targets, mission story, movement, battery and heat figures are fictional teaching models. Fine surface detail is illustrative. Solar collection assumes a Sun-tracking panel. This is not a flight simulation or a map of confirmed ice.</p><a href="https://github.com/nasa/NASA-3D-Resources" target="_blank" rel="noreferrer">NASA model source ↗</a></details>;
 }
 function Controls() {
-  const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A / ←', 'Turn left'], ['D / →', 'Turn right'], ['Space', 'Brake (Stop)'], ['E', 'Dig: collect ice, stopped near a deposit'], ['T', 'Transmit: send data, stopped with Earth in view'], ['F (hold)', 'Wait: time runs faster while parked'], ['L', 'Lights on or off'], ['C', 'Switch first person / third person'], ['Z', 'Lens: zoom the view'], ['Drag / scroll', 'Look around / zoom'], ['Esc', 'Pause']];
+  const rows = [['W / ↑', 'Drive forward'], ['S / ↓', 'Reverse'], ['A / ←', 'Turn left'], ['D / →', 'Turn right'], ['Space', 'Brake (Stop)'], ['Shift (hold)', 'Boost: 80% faster, drains the battery fast'], ['E', 'Dig: collect ice, stopped near a deposit'], ['T', 'Transmit: send data, stopped with Earth in view'], ['F (hold)', 'Wait: time runs faster while parked'], ['L', 'Lights on or off'], ['C', 'Switch first person / third person'], ['Z', 'Lens: zoom the view'], ['Drag / scroll', 'Look around / zoom'], ['Esc', 'Pause']];
   return <div className="rg-key-list">{rows.map(([key, text]) => <div key={key}><kbd>{key}</kbd><span>{text}</span></div>)}<p>On touch screens, hold the arrow buttons to drive. Tap Sun or Earth in the telemetry strip to point the camera toward it.</p></div>;
 }

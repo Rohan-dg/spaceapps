@@ -478,3 +478,28 @@
   .rg .rg-controls { left: 6px; right: 6px; bottom: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { .rg .rg-stat.score b { animation: none; } }
+
+/* ---- the radio card and status pills ride above the control panel at whatever height it wraps to (--rg-ctl, set from RoverGame) ---- */
+.rg button.rg-radio { bottom: calc(var(--rg-ctl, 112px) + 10px); }
+.rg .rg-work { bottom: calc(var(--rg-ctl, 112px) + 18px); }
+.rg .rg-wait { bottom: calc(var(--rg-ctl, 112px) + 18px); }
+@media (max-width: 640px) {
+  .rg button.rg-radio { bottom: calc(var(--rg-ctl, 140px) + 8px); }
+  .rg .rg-work, .rg .rg-wait { bottom: calc(var(--rg-ctl, 140px) + 96px); }
+  .rg .rg-points { bottom: calc(var(--rg-ctl, 140px) + 150px); }
+}
+/* objective pill: the step dots sit on the text's centre line (the base rule's bottom margin pushed them up) */
+.rg .rg-goal .rg-steps { margin: 0; align-self: center; }
+.rg .rg-goal > * { align-self: center; }
+.rg .rg-camera-actions, .rg .rg-views { align-items: center; }
+.rg .rg-camera-actions > button, .rg .rg-views button { display: inline-flex; align-items: center; justify-content: center; }
+
+/* Shift boost: a tall coral key beside the actions, glowing while held; the battery reading pulses while it drains */
+.rg .rg-actions { grid-template-columns: auto 1fr 1fr; }
+.rg .rg-actions .rg-boost { grid-row: span 2; min-width: 84px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-weight: 600; }
+.rg .rg-controls .rg-boost.on { background: linear-gradient(180deg, #ff8a6b, #ff6363); color: #fff; box-shadow: 0 0 0 1px rgba(255, 140, 120, 0.6), 0 0 22px -2px rgba(255, 99, 99, 0.85); animation: rg-boost 520ms ease-in-out infinite alternate; }
+@keyframes rg-boost { to { box-shadow: 0 0 0 1px rgba(255, 170, 150, 0.8), 0 0 34px 2px rgba(255, 99, 99, 0.95); } }
+.rg .rg-stat.draining b { color: #ff8a80; animation: rg-drain 420ms ease-in-out infinite alternate; }
+@keyframes rg-drain { to { opacity: 0.55; } }
+@media (max-width: 640px) { .rg .rg-actions .rg-boost { min-width: 56px; } }
+@media (prefers-reduced-motion: reduce) { .rg .rg-controls .rg-boost.on, .rg .rg-stat.draining b { animation: none; } }

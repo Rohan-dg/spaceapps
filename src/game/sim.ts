@@ -36,7 +36,7 @@ export const SPEC: Spec = {
 
 const DEFAULT = SPEC;
 export interface Vitals { wh: number; tempC: number; heaterW: number; solarW: number; loadW: number }
-export interface Loads { sunFrac: number; drive: number; dig: boolean; tx: boolean; lamp: boolean }
+export interface Loads { sunFrac: number; drive: number; dig: boolean; tx: boolean; lamp: boolean; /** Shift boost: the motors draw three times their rated power on top of normal driving */ boost?: boolean }
 
 export const newVitals = (pct = 55, spec: Spec = SPEC): Vitals => ({ wh: (spec.batteryWh * pct) / 100, tempC: 10, heaterW: 0, solarW: 0, loadW: 0 });
 
@@ -52,7 +52,7 @@ export function stepVitals(v: Vitals, dtH: number, l: Loads, SPEC: Spec = DEFAUL
   }
   const alive = v.wh > 0;
   const heaterW = alive ? Math.max(0, Math.min(SPEC.heaterMaxW, (SPEC.heaterOnC - v.tempC) * (SPEC.heaterMaxW / 5))) : 0;
-  const work = alive ? Math.max(0, Math.min(2, l.drive)) * SPEC.driveW + (l.dig ? SPEC.digW : 0) + (l.tx ? SPEC.txW : 0) : 0;
+  const work = alive ? Math.max(0, Math.min(2, l.drive)) * SPEC.driveW + (l.dig ? SPEC.digW : 0) + (l.tx ? SPEC.txW : 0) + (l.boost ? 3 * SPEC.driveW : 0) : 0;
   const loadW = alive ? SPEC.idleW + work + (l.lamp ? SPEC.lampW : 0) + heaterW : 0;
   const sunFrac = Math.max(0, Math.min(1, l.sunFrac));
   const solarW = SPEC.solarW * sunFrac;
