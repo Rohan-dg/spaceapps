@@ -19,7 +19,7 @@ import { sub, unit } from '../lib/vec';
 import { type World, demAt, groundY, makeWorld, skyline, toLatLon, toStereo } from './terrain';
 import {
   type Maps, type MissionPlan, type Objective, type Phase, type Pt, type Quest, type Vitals,
-  RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, type Spec,
+  RATE, RATE_FF, STORY, advance, distance, iceSignal, newQuest, stepsOf, newVitals, objective, planMission, stepVitals, DIG_M, CHARGE_PCT, missionById, type MissionDef, type Spec,
 } from './sim';
 import { buildRover, disposeBuilt, roverById, roverEnvironment, type Built, type RoverDef } from './rovers';
 import type { Req, Res } from './worker';
@@ -37,7 +37,7 @@ export interface Hud {
   busy: null | { kind: 'dig' | 'tx'; p: number }; obj: Objective; objDist: number | null; objBearing: number | null;
   found: number; total: number; sunAz: number; sunEl: number; earthAz: number; earthEl: number;
   lamp: boolean; view: CamView; tele: boolean; odo: number; dead: boolean; phase: Phase; camAz: number; held: number;
-  score: number; combo: number; bonus: number; bonusTotal: number; gain: { id: number; pts: number; label: string } | null; nearBonus: number | null;
+  score: number; combo: number; bonus: number; bonusTotal: number; steps: Phase[]; gain: { id: number; pts: number; label: string } | null; nearBonus: number | null;
 }
 export interface Stats { odo: number; hours: number; found: number; minTempC: number; battPct: number; score: number; bonus: number; bonusTotal: number; parts: [string, number][]; stars: number; playS: number }
 export interface Callbacks {
@@ -49,7 +49,7 @@ export interface Callbacks {
   onEnd: (kind: 'done' | 'frozen' | 'power' | 'time', s: Stats) => void;
   onError: (m: string) => void;
 }
-export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean; roverId: string }
+export interface Opts { host: HTMLElement; base: string; siteId: string; lat: number; lon: number; t: number; tMax: number; reduce: boolean; roverId: string; missionId?: string }
 export interface Tags { sun: HTMLElement; earth: HTMLElement; goal: HTMLElement; map: HTMLCanvasElement }
 
 const TERRAIN_VS = /* glsl */ `
@@ -135,6 +135,7 @@ export class Game {
   // rover
   private rover = new THREE.Group(); private tilt = new THREE.Group();
   private wheels: THREE.Group[] = [];
+  private mission: MissionDef = missionById('survey');
   private def: RoverDef = roverById('badger'); private spec: Spec = this.def.spec; private built: Built | null = null; private digNow = 0;
   private roverParts: THREE.Object3D[] = []; private roverGen = 0;
   // score
@@ -166,7 +167,7 @@ export class Game {
   private tags: Tags | null = null;
   private drag: { x: number; y: number } | null = null;
 
-  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.def = roverById(o.roverId); this.spec = this.def.spec; this.vit = newVitals(55, this.spec); this.camDist = this.def.geom.cam; this.init().catch((e) => this.fail(e)); }
+  constructor(o: Opts, cb: Callbacks) { this.o = o; this.cb = cb; this.def = roverById(o.roverId); this.spec = this.def.spec; this.mission = missionById(o.missionId ?? 'survey'); this.vit = newVitals(this.mission.startPct, this.spec); this.camDist = this.def.geom.cam; this.init().catch((e) => this.fail(e)); }
 
   private fail(e: unknown) {
     if (!this.live) return;
@@ -250,10 +251,9 @@ export class Game {
       if (plan) { t0 = t; break; }
     }
     if (!plan) { cb.onReady(null); this.dispose(); return; }
-    this.plan = plan; this.quest = newQuest(plan); this.simT = this.t0 = t0; this.taken = plan.bonus.map(() => false);
+    this.plan = plan; this.simT = this.t0 = t0; this.taken = plan.bonus.map(() => false);
     this.e = plan.start.e; this.n = plan.start.n;
-    this.psi = Math.atan2(plan.charge.e - plan.start.e, plan.charge.n - plan.start.n);
-    this.camAz = this.psi / D2R;
+    this.startMission();
     this.sky = this.look(this.simT, this.e, this.n); this.skyAt = this.simT;
 
     cb.onStage('Building the ground');
@@ -392,9 +392,22 @@ export class Game {
   }
 
   /** Swap the rover while the briefing is open (the ground, plan and clock stay). */
+  /** The chosen mission's steps and starting charge, facing its first objective (or the nearest science target). */
+  private startMission() {
+    this.quest = newQuest(this.plan, this.mission.steps);
+    this.vit = newVitals(this.mission.startPct, this.spec);
+    const st = this.plan.start, ob = objective(this.quest, this.plan, false, this.chargePct, this.plan.bonus.length);
+    const to = ob.target ?? this.plan.bonus.reduce((a, b) => (distance(a, st) < distance(b, st) ? a : b), this.plan.charge);
+    this.psi = Math.atan2(to.e - st.e, to.n - st.n); this.camAz = this.psi / D2R;
+  }
+  /** Swap the mission while the briefing is open. */
+  setMission(id: string) {
+    if (this.state !== 'brief' || id === this.mission.id) return;
+    this.mission = missionById(id); this.startMission(); this.saveCheck();
+  }
   async setRover(id: string) {
     if (this.state !== 'brief' || id === this.def.id) return;
-    this.def = roverById(id); this.spec = this.def.spec; this.vit = newVitals(55, this.spec); this.camDist = this.def.geom.cam;
+    this.def = roverById(id); this.spec = this.def.spec; this.vit = newVitals(this.mission.startPct, this.spec); this.camDist = this.def.geom.cam;
     await this.buildRover();
     this.saveCheck();
   }
@@ -502,7 +515,7 @@ export class Game {
     // (toward the first objective), so forward on the keys is forward on screen
     this.setView('chase'); this.camAz = this.psi / D2R;
     this.lens = this.lensTo = 0; this.tgt.set(0, 0, 0); this.keys.clear(); this.v = 0; this.yawRate = 0;
-    this.state = 'play'; this.syncMarkers(); this.syncBonus(); this.say(STORY.intro);
+    this.state = 'play'; this.syncMarkers(); this.syncBonus(); this.say({ from: 'Stored mission brief', text: this.mission.brief });
     this.say({ from: 'Mission control', text: `${this.plan.bonus.length} science targets are marked in red. Drive over one to scan it; scan several in a row for a combo.` });
   }
   /* ---------------- score ---------------- */
@@ -562,7 +575,7 @@ export class Game {
   setTags(t: Tags) { this.tags = t; }
 
   private syncMarkers() {
-    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct);
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
     this.goal.visible = !!ob.target && this.quest.phase !== 'ice';
     if (ob.target && this.goal.visible) { this.goal.position.set(ob.target.e, groundY(this.w, ob.target.e, ob.target.n, true), -ob.target.n); this.goal.children[1].scale.setScalar(ob.ring); }
     this.zoneRing.visible = this.quest.phase === 'ice';
@@ -677,32 +690,32 @@ export class Game {
     this.playS += dt;
     this.scanBonus();
   }
-  private get chargePct() { return this.spec.solarW > 0 ? CHARGE_PCT : 0; }
+  private get chargePct() { return !this.mission.noCharge && this.spec.solarW > 0 ? CHARGE_PCT : 0; }
   private goalEarth = false;
   private syncGoalForSignal() { if (this.goalEarth !== this.sky.earthUp) { this.goalEarth = this.sky.earthUp; this.syncMarkers(); } }
   private event(ev: Parameters<typeof advance>[3]) {
-    const r = advance(this.quest, this.plan, { pos: { e: this.e, n: this.n }, battPct: (100 * this.vit.wh) / this.spec.batteryWh, earthUp: this.sky.earthUp, sunFrac: this.sky.sunFrac, parked: Math.abs(this.v) < 0.05, chargePct: this.chargePct }, ev);
+    const r = advance(this.quest, this.plan, { pos: { e: this.e, n: this.n }, battPct: (100 * this.vit.wh) / this.spec.batteryWh, earthUp: this.sky.earthUp, sunFrac: this.sky.sunFrac, parked: Math.abs(this.v) < 0.05, chargePct: this.chargePct, targetsLeft: this.taken.filter((x) => !x).length }, ev);
     this.quest = r.q;
     if (r.dry) this.say(STORY.dry);
     if (r.iceFound !== null) this.award(300, `Ice sample ${this.quest.found.filter(Boolean).length}`);
-    if (r.done && r.done !== 'ice') this.award(500, { charge: 'Charged up', phone: 'Contact with Earth', uplink: 'Data delivered', haven: 'Safe haven', ice: '', done: '' }[r.done] || 'Objective');
+    if (r.done && r.done !== 'ice') this.award(500, { charge: 'Charged up', phone: 'Contact with Earth', uplink: 'Data delivered', haven: 'Safe haven', targets: 'Survey complete', ice: '', done: '' }[r.done] || 'Objective');
     if (r.iceFound !== null && !r.done) this.say(STORY.ice1);
     if (r.iceFound !== null || r.done) this.syncMarkers();
     if (r.done) {
-      this.say(STORY[r.done]); this.saveCheck();
-      if (r.done === 'haven') { this.say(STORY.done); this.pause(true); this.cb.onEnd('done', this.stats()); }
+      this.say(r.done === 'ice' && this.quest.phase !== 'uplink' ? STORY.iceOut : STORY[r.done]); this.saveCheck();
+      if (this.quest.phase === 'done') { this.say(STORY.done); this.pause(true); this.cb.onEnd('done', this.stats()); }
     }
   }
   private stats(): Stats {
     const battPct = (100 * this.vit.wh) / this.spec.batteryWh, done = this.quest.phase === 'done';
     const parts: [string, number][] = [...this.parts];
     if (done) {
-      parts.push(['Speed bonus', Math.max(0, Math.round(2000 - this.playS * 2.2))]);
+      parts.push(['Speed bonus', Math.max(0, Math.round(this.mission.speedPts - this.playS * this.mission.perS))]);
       parts.push(['Battery left', Math.round(battPct * 6)]);
       if (this.taken.every(Boolean)) parts.push(['Every target scanned', 800]);
     }
     const score = parts.reduce((a, [, v]) => a + v, 0);
-    const stars = !done ? 0 : score >= 6200 ? 3 : score >= 4600 ? 2 : 1;
+    const [two, three] = this.mission.stars, stars = !done ? 0 : score >= three ? 3 : score >= two ? 2 : 1;
     return { odo: this.odo, hours: (this.simT - this.t0) / 3600000, found: this.quest.found.filter(Boolean).length, minTempC: this.minTemp, battPct, score, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, parts, stars, playS: this.playS };
   }
 
@@ -892,12 +905,12 @@ export class Game {
     const s = this.sky, cp = cam.position;
     put(t.sun, dirOf(s.sunAz, s.sunEl).multiplyScalar(1e5).add(cp), true);
     put(t.earth, dirOf(s.earthAz, s.earthEl).multiplyScalar(1e5).add(cp), true);
-    const ob = objective(this.quest, this.plan, s.earthUp, this.chargePct);
+    const ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
     put(t.goal, ob.target ? new THREE.Vector3(ob.target.e, this.gy(ob.target.e, ob.target.n) + 4, -ob.target.n) : cp, !!ob.target && this.state === 'play');
   }
 
   private hud(): Hud {
-    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp, this.chargePct), pos = { e: this.e, n: this.n };
+    const s = this.sky, ob = objective(this.quest, this.plan, s.earthUp, this.chargePct, this.taken.filter((x) => !x).length), pos = { e: this.e, n: this.n };
     const ice = iceSignal(this.quest, this.plan, pos, this.def.detectM);
     return {
       t: this.simT, rate: this.ff ? RATE_FF : RATE, battPct: (100 * this.vit.wh) / this.spec.batteryWh, netW: this.vit.solarW - this.vit.loadW, solarW: this.vit.solarW,
@@ -906,7 +919,7 @@ export class Game {
       objDist: ob.target ? distance(ob.target, pos) : null, objBearing: ob.target ? ((Math.atan2(ob.target.e - this.e, ob.target.n - this.n) / D2R) + 360) % 360 : null,
       found: this.quest.found.filter(Boolean).length, total: this.quest.found.length, sunAz: s.sunAz, sunEl: s.sunEl, earthAz: s.earthAz, earthEl: s.earthEl,
       lamp: this.lampOn, view: this.view, tele: this.lensTo > 0, odo: this.odo, dead: this.vit.wh <= 0, phase: this.quest.phase, camAz: ((this.camAz % 360) + 360) % 360, held: this.held,
-      score: this.score, combo: this.playS - this.comboAt < 40 ? this.combo : 1, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, gain: this.gain,
+      steps: stepsOf(this.quest), score: this.score, combo: this.playS - this.comboAt < 40 ? this.combo : 1, bonus: this.taken.filter(Boolean).length, bonusTotal: this.taken.length, gain: this.gain,
       nearBonus: this.plan.bonus.reduce<number | null>((m, p, i) => (this.taken[i] ? m : Math.min(m ?? Infinity, distance(p, pos))), null),
     };
   }
@@ -930,7 +943,7 @@ export class Game {
     if (this.quest.phase === 'ice') { g.strokeStyle = '#63a1ff'; g.lineWidth = 2; g.beginPath(); g.arc(X(this.plan.zone.c.e), Y(this.plan.zone.c.n), this.plan.zone.r * sc, 0, 6.283); g.stroke(); }
     this.plan.ice.forEach((p, i) => { if (this.quest.found[i]) { g.fillStyle = '#63a1ff'; g.fillRect(X(p.e) - 3, Y(p.n) - 3, 6, 6); } });
     this.plan.bonus.forEach((p, i) => { if (this.taken[i]) return; const x = X(p.e), y = Y(p.n); g.strokeStyle = '#ff6363'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); g.stroke(); });
-    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct);
+    const ob = objective(this.quest, this.plan, this.sky.earthUp, this.chargePct, this.taken.filter((x) => !x).length);
     if (ob.target && this.quest.phase !== 'ice') { const x = X(ob.target.e), y = Y(ob.target.n); g.fillStyle = '#fff'; g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.fill(); }
     const tick = (az: number, color: string) => { const a = az * D2R, r = S / 2 - 5; g.fillStyle = color; g.beginPath(); g.arc(S / 2 + Math.sin(a) * r, S / 2 - Math.cos(a) * r, 5, 0, 6.283); g.fill(); };
     tick(this.sky.sunAz, '#ffd23f'); tick(this.sky.earthAz, '#63a1ff');

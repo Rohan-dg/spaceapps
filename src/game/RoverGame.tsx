@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { SiteInfo } from '../lib/data';
 import { CAM_VIEWS, Game, type Hud, type Stats } from './engine';
-import { PHASES, RATE } from './sim';
+import { MISSIONS, missionById, RATE, type MissionId, type Phase } from './sim';
 import { ROVERS, roverById, type RoverDef, type RoverId } from './rovers';
 import RoverPreview from './RoverPreview';
 import './game.css';
@@ -13,8 +13,10 @@ const SITES = ['mons-mouton', 'connecting-ridge', 'shackleton-rim', 'de-gerlache
 const utc = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 const deg = (v: number) => `${v.toFixed(1)}°`;
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}`;
-const phaseNames = ['Charge', 'Contact', 'Sample', 'Uplink', 'Park'];
-const PICK_KEY = 'rover-pick', bestKey = (id: string) => `rover-best-${id}`;
+const STEP_NAME: Record<Phase, string> = { charge: 'Charge', phone: 'Contact', ice: 'Sample', targets: 'Scan', uplink: 'Uplink', haven: 'Park', done: 'Done' };
+const PICK_KEY = 'rover-pick', MISSION_KEY = 'rover-mission';
+/** best score per rover and mission (the Ice Survey keeps the key it always had) */
+const bestKey = (id: string, m: string) => (m === 'survey' ? `rover-best-${id}` : `rover-best-${id}-${m}`);
 const stored = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } };
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -56,6 +58,9 @@ function Hold({ label, control, send, children, disabled = false, className = ''
 
 export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props) {
   const available = sites.filter((s) => SITES.includes(s.id) && !s.synthetic);
+  const [missionId, setMissionId] = useState<MissionId>(() => missionById(stored(MISSION_KEY) ?? 'survey').id);
+  const mission = missionById(missionId);
+  const missionRef = useRef(missionId);
   const [roverId, setRoverId] = useState(() => roverById(stored(PICK_KEY) ?? 'badger').id);
   const rover = roverById(roverId);
   const roverRef = useRef(roverId);
@@ -80,6 +85,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
   const engine = useRef<Game | null>(null), serial = useRef(0);
   const modelBase = new URL(import.meta.env.BASE_URL, location.href).href;
   const pickRover = (id: RoverId) => { setRoverId(id); roverRef.current = id; store(PICK_KEY, id); void engine.current?.setRover(id); };
+  const pickMission = (id: MissionId) => { setMissionId(id); missionRef.current = id; store(MISSION_KEY, id); engine.current?.setMission(id); };
   const pickRoverRef = useRef(pickRover);
   useEffect(() => { pickRoverRef.current = pickRover; });
   const stageRef = useRef(stage);
@@ -93,7 +99,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
     if (!host.current || !site) { setError('No supported terrain is available. Return to the map and reload the site data.'); setStage('error'); return; }
     let live = true;
     setStage('loading'); setHud(null); setReady(null); setStats(null); setMessages([]); setError(''); setHelp(false); setLog(false);
-    const game = new Game({ host: host.current, base: new URL(import.meta.env.BASE_URL, location.href).href, siteId: site.id, lat: site.lat, lon: site.lon, t, tMax, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches, roverId: roverRef.current }, {
+    const game = new Game({ host: host.current, base: new URL(import.meta.env.BASE_URL, location.href).href, siteId: site.id, lat: site.lat, lon: site.lon, t, tMax, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches, roverId: roverRef.current, missionId: missionRef.current }, {
       onStage: (s) => { if (live) setLoading(s); },
       onReady: (r) => { if (live) { setReady(r); setStage(r ? 'brief' : 'unavailable'); } },
       onHud: (h) => { if (live) setHud(h); },
@@ -105,9 +111,9 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       onEnd: (kind, s) => {
         if (!live) return;
         setStats(s); setStage(kind);
-        const prev = Number(stored(bestKey(roverRef.current)) ?? 0);
+        const prev = Number(stored(bestKey(roverRef.current, missionRef.current)) ?? 0);
         setBest(prev);
-        if (kind === 'done' && s.score > prev) store(bestKey(roverRef.current), String(s.score));
+        if (kind === 'done' && s.score > prev) store(bestKey(roverRef.current, missionRef.current), String(s.score));
       },
       onError: (e) => { if (live) { setError(e); setStage('error'); } },
     });
@@ -182,7 +188,7 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
       </section>
 
       <aside className="rg-objective">
-        <div className="rg-steps" aria-label="Mission progress">{phaseNames.map((name, i) => <span key={name} className={complete || PHASES.indexOf(hud?.phase ?? 'charge') > i ? 'finished' : hud?.obj.n === i + 1 ? 'current' : ''} title={name}>{complete || PHASES.indexOf(hud?.phase ?? 'charge') > i ? '✓' : i + 1}</span>)}</div>
+        <div className="rg-steps" aria-label="Mission progress">{(hud?.steps ?? mission.steps).map((step, i, all) => { const at = hud ? (hud.phase === 'done' ? all.length : all.indexOf(hud.phase)) : 0; return <span key={step} className={complete || at > i ? 'finished' : at === i ? 'current' : ''} title={STEP_NAME[step]}>{complete || at > i ? '✓' : i + 1}</span>; })}</div>
         <div className="rg-objective-heading"><h2>{hud?.obj.title ?? 'Preparing mission'}</h2>{hud?.objDist != null && <b>{hud.objDist.toFixed(0)} m</b>}</div>
         <p>{hud?.obj.text}</p>
         {hud?.phase === 'charge' && stopped && hud.objDist !== null && hud.objDist < 21 && <p className="rg-tip">Hold <kbd>F</kbd> or Wait to charge faster.</p>}
@@ -247,7 +253,15 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
             <RoverCard r={rover} base={modelBase} onStep={(d) => pickRover(ROVERS[(ROVERS.findIndex((x) => x.id === roverRef.current) + d + ROVERS.length) % ROVERS.length].id)} />
             <div className="rg-rovers" role="radiogroup" aria-label="Rover">
               {ROVERS.map((r) => <button key={r.id} role="radio" aria-checked={r.id === roverId} className={r.id === roverId ? 'on' : ''} onClick={() => pickRover(r.id)}>
-                <i aria-hidden="true">{r.callsign[0]}</i><b>{r.callsign}</b><small>{r.tag}</small>{Number(stored(bestKey(r.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id))))}</em>}
+                <i aria-hidden="true">{r.callsign[0]}</i><b>{r.callsign}</b><small>{r.tag}</small>{Number(stored(bestKey(r.id, missionId)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(r.id, missionId))))}</em>}
+              </button>)}
+            </div>
+            <h3 className="rg-pick-h">Pick a mission</h3>
+            <div className="rg-missions" role="radiogroup" aria-label="Mission">
+              {MISSIONS.map((m) => <button key={m.id} role="radio" aria-checked={m.id === missionId} className={m.id === missionId ? 'on' : ''} onClick={() => pickMission(m.id)}>
+                <span className="rg-m-top"><b>{m.title}</b><i className={`lv-${m.level.toLowerCase()}`}>{m.level}</i></span>
+                <small>{m.kid}</small>
+                <span className="rg-m-meta"><span>About {m.minutes} min</span><span>{m.steps.length} step{m.steps.length === 1 ? '' : 's'}</span>{Number(stored(bestKey(roverId, m.id)) ?? 0) > 0 && <em>Best {fmt(Number(stored(bestKey(roverId, m.id))))}</em>}</span>
               </button>)}
             </div>
             <SiteSelect siteId={siteId} sites={available} onChange={setSite} />
@@ -258,12 +272,12 @@ export default function RoverGame({ sites, selectedId, t, tMax, onClose }: Props
           </>
             : stage === 'pause' && intro ? <><span className="rg-mission-no">Before you drive</span><h2 id="rg-dialog-title">How to drive {rover.callsign}</h2><Controls /><div className="rg-dialog-actions"><button className="rg-primary" onClick={resume}><RoverGlyph kind="play" /> Start driving</button></div></>
             : stage === 'pause' ? <><h2 id="rg-dialog-title">{confirmExit ? 'Leave this mission?' : help ? 'Rover controls' : log ? 'Mission log' : 'Mission paused'}</h2>{confirmExit ? <p>Your current mission progress will be lost. You can stay here and resume from this position.</p> : help ? <Controls /> : log ? <ol className="rg-log">{messages.map((m) => <li key={m.id}><b>{m.from}</b><p>{m.text}</p></li>)}</ol> : <p>The rover and simulation clock are stopped. Completed objectives are saved as checkpoints for this mission.</p>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={resume}><RoverGlyph kind="play" /> Resume mission</button>{confirmExit ? <button onClick={onClose}>Leave mission</button> : <button onClick={retry}>Retry checkpoint</button>}{log && <button onClick={downloadLog}>Download log</button>}</div>{!confirmExit && <ScienceNote />}</>
-              : <><span className="rg-mission-no">{stage === 'done' ? 'Survey complete' : 'Mission interrupted'}</span><h2 id="rg-dialog-title">{stage === 'done' ? 'Samples returned. Rover safe.' : stage === 'frozen' ? 'The electronics froze.' : stage === 'power' ? 'The battery is depleted.' : 'The simulation window ended.'}</h2><p>{stage === 'done' ? 'You found the ice, delivered the data and parked with sunlight and Earth in view. Those same constraints shape real lunar landing decisions.' : stage === 'frozen' ? 'The temperature fell below −40 °C. Spend less time in shadow and keep enough charge for the heaters.' : stage === 'power' ? 'The rover ran out of energy in shadow. Return to your last checkpoint and charge before going farther.' : 'Return to a checkpoint or choose an earlier date on the map.'}</p>{stats && stage === 'done' && <div className="rg-scorecard">
+              : <><span className="rg-mission-no">{stage === 'done' ? `${mission.title} complete` : 'Mission interrupted'}</span><h2 id="rg-dialog-title">{stage === 'done' ? (mission.id === 'survey' ? 'Samples returned. Rover safe.' : `${mission.title}: done!`) : stage === 'frozen' ? 'The electronics froze.' : stage === 'power' ? 'The battery is depleted.' : 'The simulation window ended.'}</h2><p>{stage === 'done' ? mission.win : stage === 'frozen' ? 'The temperature fell below −40 °C. Spend less time in shadow and keep enough charge for the heaters.' : stage === 'power' ? 'The rover ran out of energy in shadow. Return to your last checkpoint and charge before going farther.' : 'Return to a checkpoint or choose an earlier date on the map.'}</p>{stats && stage === 'done' && <div className="rg-scorecard">
                 <div className="rg-stars" aria-label={`${stats.stars} of 3 stars`}>{[1, 2, 3].map((i) => <span key={i} className={i <= stats.stars ? 'on' : ''}>★</span>)}</div>
                 <div className="rg-total"><span>{rover.callsign} scored</span><strong>{fmt(stats.score)}</strong>{best !== null && stats.score > best ? <em>New best!</em> : best ? <small>Best {fmt(best)}</small> : null}</div>
                 <ol>{stats.parts.map(([k, v], i) => <li key={i} style={{ animationDelay: `${i * 70}ms` }}><span>{k}</span><b>+{fmt(v)}</b></li>)}</ol>
               </div>}
-              {stats && <div className="rg-results"><span>Distance <b>{stats.odo.toFixed(0)} m</b></span><span>Samples <b>{stats.found}</b></span><span>Targets <b>{stats.bonus}/{stats.bonusTotal}</b></span><span>Coldest <b>{stats.minTempC.toFixed(0)} °C</b></span></div>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={stage === 'done' ? resume : retry}>{stage === 'done' ? 'Keep exploring' : 'Retry checkpoint'}</button><button onClick={restart}>Try another rover</button><button onClick={downloadLog}>Download log</button><button onClick={onClose}>Return to map</button></div><ScienceNote /></>}
+              {stats && <div className="rg-results"><span>Distance <b>{stats.odo.toFixed(0)} m</b></span><span>Samples <b>{stats.found}</b></span><span>Targets <b>{stats.bonus}/{stats.bonusTotal}</b></span><span>Coldest <b>{stats.minTempC.toFixed(0)} °C</b></span></div>}<div className="rg-dialog-actions"><button className="rg-primary" onClick={stage === 'done' ? resume : retry}>{stage === 'done' ? 'Keep exploring' : 'Retry checkpoint'}</button><button onClick={restart}>New mission or rover</button><button onClick={downloadLog}>Download log</button><button onClick={onClose}>Return to map</button></div><ScienceNote /></>}
     </section></div>}
   </div>;
 }

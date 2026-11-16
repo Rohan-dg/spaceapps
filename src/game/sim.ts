@@ -160,42 +160,84 @@ export function planMission(m: Maps, seed = 1): MissionPlan | null {
 
 /* ---------- the quest ---------- */
 
-export type Phase = 'charge' | 'phone' | 'ice' | 'uplink' | 'haven' | 'done';
+export type Phase = 'charge' | 'phone' | 'ice' | 'targets' | 'uplink' | 'haven' | 'done';
+/** The Ice Survey's steps, the original mission, in order. */
 export const PHASES: Phase[] = ['charge', 'phone', 'ice', 'uplink', 'haven', 'done'];
-export interface Quest { phase: Phase; found: boolean[] }
-export const newQuest = (plan: MissionPlan): Quest => ({ phase: 'charge', found: plan.ice.map(() => false) });
+/** `steps` is the mission's own order (the Ice Survey when absent); `done` follows the last step. */
+export interface Quest { phase: Phase; found: boolean[]; steps?: Phase[] }
+const SURVEY: Phase[] = PHASES.slice(0, -1);
+export const stepsOf = (q: Quest): Phase[] => q.steps ?? SURVEY;
+export const newQuest = (plan: MissionPlan, steps: Phase[] = SURVEY): Quest => ({ phase: steps[0], found: plan.ice.map(() => false), ...(steps === SURVEY ? {} : { steps }) });
+const after = (q: Quest, p: Phase): Phase => { const s = stepsOf(q), i = s.indexOf(p); return i >= 0 && i < s.length - 1 ? s[i + 1] : 'done'; };
+
+/* ---------- missions: the same ground and rules, different goals ---------- */
+export type MissionId = 'first' | 'survey' | 'hunt' | 'dive' | 'sprint';
+export interface MissionDef {
+  id: MissionId; title: string; level: 'Easy' | 'Medium' | 'Hard'; minutes: number; kid: string; brief: string; win: string;
+  steps: Phase[]; startPct: number;
+  /** the first step only asks to reach the light, not to charge (a race) */
+  noCharge?: boolean;
+  /** speed bonus: `speedPts` minus `perS` for every second played; stars at these totals */
+  speedPts: number; perS: number; stars: [number, number];
+}
+export const MISSIONS: MissionDef[] = [
+  { id: 'first', title: 'First Drive', level: 'Easy', minutes: 3, steps: ['charge', 'phone'], startPct: 55, speedPts: 1200, perS: 4, stars: [1600, 2300],
+    kid: 'Learn to drive! Find a sunny spot to charge up, then call home to Earth.',
+    brief: 'Welcome to the Moon. Drive to the sunlit ground to charge your battery, then find a place where Earth is in view and call home.',
+    win: 'You charged on sunlight and talked to Earth: the two things every Moon mission needs.' },
+  { id: 'survey', title: 'Ice Survey', level: 'Medium', minutes: 10, steps: SURVEY, startPct: 55, speedPts: 2000, perS: 2.2, stars: [4600, 6200],
+    kid: 'The full mission: charge up, call Earth, dig for ice in the dark, send the data and park somewhere safe.',
+    brief: 'RASSOR, your survey begins here. Reach the charging point, report to Earth, then investigate the shadowed ground. You have enough power to get moving.',
+    win: 'You found the ice, delivered the data and parked with sunlight and Earth in view. Those same constraints shape real lunar landing decisions.' },
+  { id: 'hunt', title: 'Science Hunt', level: 'Medium', minutes: 8, steps: ['targets', 'uplink'], startPct: 90, speedPts: 2500, perS: 3, stars: [3800, 5600],
+    kid: 'Race around to scan every science target. Scan them close together for a big combo!',
+    brief: 'Eight interesting spots are marked in red. Drive over each one to scan it, then send the results home from somewhere Earth is in view.',
+    win: 'Every target scanned and the results sent home. Geologists plan real rover drives exactly like this, stop by stop.' },
+  { id: 'dive', title: 'Shadow Dive', level: 'Hard', minutes: 6, steps: ['ice', 'haven'], startPct: 95, speedPts: 2000, perS: 3, stars: [2200, 3200],
+    kid: 'Dive into the freezing dark to dig up ice, then race back to the sunshine before your rover freezes!',
+    brief: 'Full battery, no time to waste. Dig the ice deposits in the shadow, then get to the high ground in sunlight before the cold wins.',
+    win: 'In and out of the dark before the cold won. Permanently shadowed craters are the coldest places in the Solar System.' },
+  { id: 'sprint', title: 'Sun Sprint', level: 'Easy', minutes: 3, steps: ['charge', 'haven'], startPct: 70, noCharge: true, speedPts: 4000, perS: 18, stars: [3200, 4300],
+    kid: 'A race! Zoom to the sunny spot, then to the safe high ground. The faster you go, the more points.',
+    brief: 'Time trial: touch the sunlit ground, then park on the high ground with sunlight and Earth in view. Every second counts.',
+    win: 'Finished! Rovers drive slowly in real life, but every hour of sunlight matters just as much.' },
+];
+export const missionById = (id: string) => MISSIONS.find((m) => m.id === id) ?? MISSIONS[1];
 
 export const CHARGE_PCT = 85, REACH_M = 14, DIG_M = 6;
 
-export interface Objective { n: number; title: string; text: string; target: Pt | null; ring: number }
+export interface Objective { n: number; total: number; title: string; text: string; target: Pt | null; ring: number }
 /** `chargePct` 0 means the rover has no solar panels: the first step is just to reach the light. */
-export function objective(q: Quest, plan: MissionPlan, earthUp: boolean, chargePct = CHARGE_PCT): Objective {
-  const left = q.found.filter((f) => !f).length;
+export function objective(q: Quest, plan: MissionPlan, earthUp: boolean, chargePct = CHARGE_PCT, targetsLeft = 0): Objective {
+  const left = q.found.filter((f) => !f).length, steps = stepsOf(q), total = steps.length, n = q.phase === 'done' ? total : steps.indexOf(q.phase) + 1;
+  const what = steps.includes('ice') ? 'ice data' : 'science results';
   switch (q.phase) {
-    case 'charge': return { n: 1, title: 'First light', text: chargePct > 0 ? `Drive to the sunlit ground and charge the battery to ${chargePct}%.` : 'Drive to the sunlit ground and stop there. No solar panels: this battery has to last the whole mission.', target: plan.charge, ring: REACH_M };
-    case 'phone': return { n: 2, title: 'Phone home', text: earthUp ? 'Earth is in view. Press T to send your status report.' : 'No signal here. Drive to where Earth clears the hills, then press T.', target: earthUp ? null : plan.phone, ring: REACH_M };
-    case 'ice': return { n: 3, title: 'Into the dark', text: `Find ${left} ice deposit${left === 1 ? '' : 's'} in the shadow. Follow the ice detector, stop when it peaks, press E to dig.`, target: plan.zone.c, ring: plan.zone.r };
-    case 'uplink': return { n: 4, title: 'Bring it home', text: earthUp ? 'Earth is in view. Press T to send the ice data.' : 'The data is on board. Get back to where Earth is in view and press T.', target: earthUp ? null : plan.phone, ring: REACH_M };
-    case 'haven': return { n: 5, title: 'Safe haven', text: 'Park on the high ground that keeps both sunlight and Earth in view.', target: plan.haven, ring: REACH_M };
-    default: return { n: 5, title: 'Mission complete', text: 'Explore freely.', target: null, ring: 0 };
+    case 'charge': return { n, total, title: 'First light', text: chargePct > 0 ? `Drive to the sunlit ground and charge the battery to ${chargePct}%.` : 'Drive to the sunlit ground and stop there.', target: plan.charge, ring: REACH_M };
+    case 'phone': return { n, total, title: 'Phone home', text: earthUp ? 'Earth is in view. Press T to send your status report.' : 'No signal here. Drive to where Earth clears the hills, then press T.', target: earthUp ? null : plan.phone, ring: REACH_M };
+    case 'ice': return { n, total, title: 'Into the dark', text: `Find ${left} ice deposit${left === 1 ? '' : 's'} in the shadow. Follow the ice detector, stop when it peaks, press E to dig.`, target: plan.zone.c, ring: plan.zone.r };
+    case 'targets': return { n, total, title: 'Science hunt', text: `Scan ${targetsLeft} more science target${targetsLeft === 1 ? '' : 's'}: drive over the red markers. The map shows where they are.`, target: null, ring: 0 };
+    case 'uplink': return { n, total, title: 'Bring it home', text: earthUp ? `Earth is in view. Press T to send the ${what}.` : `The ${what} are on board. Get to where Earth is in view and press T.`, target: earthUp ? null : plan.phone, ring: REACH_M };
+    case 'haven': return { n, total, title: 'Safe haven', text: 'Park on the high ground that keeps both sunlight and Earth in view.', target: plan.haven, ring: REACH_M };
+    default: return { n, total, title: 'Mission complete', text: 'Explore freely.', target: null, ring: 0 };
   }
 }
 
 export type QuestEvent = { type: 'tick' } | { type: 'sent' } | { type: 'dug' };
-export interface QuestCtx { pos: Pt; battPct: number; earthUp: boolean; sunFrac: number; parked: boolean; chargePct?: number }
+export interface QuestCtx { pos: Pt; battPct: number; earthUp: boolean; sunFrac: number; parked: boolean; chargePct?: number; targetsLeft?: number }
 /** One step of the quest. Returns the new state, and what just happened (for messages and checkpoints). */
 export function advance(q: Quest, plan: MissionPlan, c: QuestCtx, ev: QuestEvent): { q: Quest; done: Phase | null; iceFound: number | null; dry: boolean } {
-  const next = (p: Phase) => ({ q: { ...q, phase: PHASES[PHASES.indexOf(p) + 1] }, done: p, iceFound: null, dry: false });
+  const next = (p: Phase) => ({ q: { ...q, phase: after(q, p) }, done: p, iceFound: null, dry: false });
   const same = { q, done: null, iceFound: null, dry: false };
   if (ev.type === 'dug') {
     if (q.phase !== 'ice' || !c.parked || c.battPct <= 0) return same;
     const i = plan.ice.findIndex((p, k) => !q.found[k] && dist(p, c.pos) <= DIG_M);
     if (i < 0) return { ...same, dry: true };
     const found = q.found.map((f, k) => f || k === i), all = found.every(Boolean);
-    return { q: { phase: q.phase === 'ice' && all ? 'uplink' : q.phase, found }, done: q.phase === 'ice' && all ? 'ice' : null, iceFound: i, dry: false };
+    return { q: { ...q, phase: all ? after(q, 'ice') : q.phase, found }, done: all ? 'ice' : null, iceFound: i, dry: false };
   }
   if (ev.type === 'sent') return c.earthUp && c.parked && c.battPct > 0 && (q.phase === 'phone' || q.phase === 'uplink') ? next(q.phase) : same;
   if (q.phase === 'charge' && c.parked && c.sunFrac > 0.5 && c.battPct >= (c.chargePct ?? CHARGE_PCT) && dist(c.pos, plan.charge) <= REACH_M * 1.5) return next('charge');
+  if (q.phase === 'targets' && (c.targetsLeft ?? 1) === 0) return next('targets');
   if (q.phase === 'haven' && c.parked && c.earthUp && c.sunFrac > 0.5 && dist(c.pos, plan.haven) <= REACH_M) return next('haven');
   return same;
 }
@@ -208,12 +250,14 @@ export function iceSignal(q: Quest, plan: MissionPlan, pos: Pt, rangeM = 30): nu
 }
 
 /** What mission control says. Shown as radio messages; ones marked `link` wait until Earth is in view. */
-export const STORY: Record<'intro' | Phase | 'ice1' | 'dry' | 'lowBatt' | 'cold' | 'noSignal' | 'signalBack' | 'noSun', { from: string; text: string; link?: boolean }> = {
+export const STORY: Record<'intro' | Phase | 'ice1' | 'iceOut' | 'dry' | 'lowBatt' | 'cold' | 'noSignal' | 'signalBack' | 'noSun', { from: string; text: string; link?: boolean }> = {
   intro: { from: 'Stored mission brief', text: 'RASSOR, your survey begins here. Reach the charging point, report to Earth, then investigate the shadowed ground. You have enough power to get moving.' },
   charge: { from: 'RASSOR', text: 'Battery charged. Solar panels are only useful where the Sun clears the terrain.' },
   phone: { from: 'Mission control', text: 'We hear you loud and clear. Orbiters saw hydrogen in the shadow near you. That could be water ice. Go and look. Watch your battery: there is no sunlight in there.', link: true },
   ice: { from: 'RASSOR', text: 'All deposits sampled. The data is stored on board. It is worth nothing until Earth has it.' },
   ice1: { from: 'RASSOR', text: 'Ice in the regolith. Sample logged.' },
+  iceOut: { from: 'RASSOR', text: 'All deposits sampled. Now get out of the dark before the cold wins!' },
+  targets: { from: 'RASSOR', text: 'Every science target scanned. Now send the results to Earth.' },
   uplink: { from: 'Mission control', text: 'Data received. Water ice confirmed. Future crews could drink it, breathe it and make rocket fuel from it. One job left: park somewhere you can survive.', link: true },
   haven: { from: 'Mission control', text: 'Parked in the light with Earth overhead. That is how you pick a landing site. Outstanding work, RASSOR.', link: true },
   done: { from: 'Mission control', text: 'The ground is yours. Explore as long as you like.', link: true },
